@@ -51,13 +51,14 @@
   "game": {
     "width": 800,
     "height": 600,
-    "gravity": 0.8,
+    "gravity": 0.3,
     "friction": 0.85,
     "maxProjectiles": 50,
     "particleLimit": 200,
     "levelWidth": 3200,
     "levelHeight": 600,
-    "backgroundColor": "#000000"
+    "backgroundColor": "#000000",
+    "gameSpeed": 0.7
   },
   
   "player": {
@@ -65,25 +66,25 @@
     "height": 64,
     "health": 100,
     "maxHealth": 100,
-    "speed": 5,
-    "jumpPower": -15,
-    "slideSpeed": 8,
+    "speed": 3.5,
+    "jumpPower": -12,
+    "slideSpeed": 6,
     "slideHeight": 32,
-    "slideDuration": 20,
-    "invulnerabilityTime": 60,
-    "maxCharge": 60,
+    "slideDuration": 25,
+    "invulnerabilityTime": 80,
+    "maxCharge": 80,
     "lives": 3,
-    "respawnInvulnerability": 120,
+    "respawnInvulnerability": 150,
     "weapon": {
       "damage": 10,
-      "speed": 10,
-      "cooldown": 10,
+      "speed": 7,
+      "cooldown": 15,
       "size": {
         "width": 8,
         "height": 4
       },
       "chargedDamageMultiplier": 3,
-      "mediumChargeThreshold": 10
+      "mediumChargeThreshold": 15
     }
   },
   
@@ -91,24 +92,24 @@
     "normal": {
       "name": "NORMAL",
       "damage": 10,
-      "speed": 10,
-      "cooldown": 10,
+      "speed": 7,
+      "cooldown": 15,
       "projectileSize": { "width": 8, "height": 4 },
       "chargedDamageMultiplier": 4
     },
     "rapid": {
       "name": "RAPID FIRE",
       "damage": 7,
-      "speed": 15,
-      "cooldown": 3,
+      "speed": 10,
+      "cooldown": 5,
       "burstCount": 3,
       "projectileSize": { "width": 6, "height": 3 }
     },
     "spread": {
       "name": "SPREAD SHOT",
       "damage": 8,
-      "speed": 10,
-      "cooldown": 15,
+      "speed": 7,
+      "cooldown": 20,
       "spreadCount": 5,
       "spreadAngle": 0.2,
       "projectileSize": { "width": 6, "height": 6 }
@@ -117,16 +118,16 @@
       "name": "LASER",
       "damage": 5,
       "speed": 0,
-      "cooldown": 20,
-      "duration": 10,
+      "cooldown": 25,
+      "duration": 15,
       "width": 800,
       "projectileSize": { "width": 800, "height": 2 }
     },
     "wave": {
       "name": "WAVE BEAM",
       "damage": 15,
-      "speed": 8,
-      "cooldown": 15,
+      "speed": 6,
+      "cooldown": 20,
       "waveAmplitude": 3,
       "waveFrequency": 0.3,
       "projectileSize": { "width": 12, "height": 12 }
@@ -134,10 +135,10 @@
     "bounce": {
       "name": "BOUNCE SHOT",
       "damage": 12,
-      "speed": 10,
-      "cooldown": 12,
+      "speed": 8,
+      "cooldown": 18,
       "bounceCount": 3,
-      "gravity": 0.5,
+      "gravity": 0.3,
       "projectileSize": { "width": 8, "height": 8 }
     }
   },
@@ -152,29 +153,29 @@
     "phases": [
       {
         "healthThreshold": 1.0,
-        "speed": 2,
-        "attackInterval": 2000,
+        "speed": 1.5,
+        "attackInterval": 100,
         "jumpChance": 0.02,
         "patterns": ["single", "triple"]
       },
       {
         "healthThreshold": 0.6,
-        "speed": 3,
-        "attackInterval": 1500,
+        "speed": 2,
+        "attackInterval": 80,
         "jumpChance": 0.04,
         "patterns": ["triple", "spread"]
       },
       {
         "healthThreshold": 0.3,
-        "speed": 4,
-        "attackInterval": 1000,
+        "speed": 2.5,
+        "attackInterval": 60,
         "jumpChance": 0.06,
         "patterns": ["spread", "barrage"]
       }
     ],
     "projectile": {
       "damage": 15,
-      "baseSpeed": 2.5,
+      "baseSpeed": 1.5,
       "size": {
         "width": 8,
         "height": 8
@@ -187,24 +188,24 @@
       "width": 30,
       "height": 35,
       "health": 20,
-      "speed": 1.5,
+      "speed": 1,
       "damage": 10,
       "detectionRange": 200,
       "scoreValue": 100,
-      "shootCooldown": 80,
-      "projectileSpeed": 1.5,
+      "shootCooldown": 100,
+      "projectileSpeed": 1,
       "color": "#ff00ff"
     },
     "flyer": {
       "width": 25,
       "height": 25,
       "health": 15,
-      "speed": 2,
+      "speed": 1.2,
       "damage": 8,
       "flyHeight": 100,
       "scoreValue": 150,
-      "shootCooldown": 75,
-      "projectileSpeed": 1.8,
+      "shootCooldown": 90,
+      "projectileSpeed": 1.2,
       "color": "#00ffff"
     },
     "turret": {
@@ -214,8 +215,8 @@
       "damage": 10,
       "detectionRange": 300,
       "scoreValue": 100,
-      "shootCooldown": 70,
-      "projectileSpeed": 2.0,
+      "shootCooldown": 85,
+      "projectileSpeed": 1.3,
       "color": "#ff6600"
     }
   },
@@ -225,8 +226,8 @@
       "size": { "width": 20, "height": 20 },
       "healAmount": 30,
       "color": "#00ff00",
-      "floatSpeed": 0.003,
-      "floatAmount": 0.5
+      "floatSpeed": 0.002,
+      "floatAmount": 0.3
     },
     "powerup": {
       "size": { "width": 20, "height": 20 },
@@ -235,13 +236,13 @@
     },
     "shield": {
       "size": { "width": 20, "height": 20 },
-      "duration": 300,
+      "duration": 400,
       "color": "#00ffff"
     },
     "speed": {
       "size": { "width": 20, "height": 20 },
-      "duration": 600,
-      "speedMultiplier": 1.5,
+      "duration": 800,
+      "speedMultiplier": 1.3,
       "color": "#ff00ff"
     },
     "weaponPickup": {
@@ -269,52 +270,52 @@
   
   "particles": {
     "damage": {
-      "count": 10,
-      "speed": 8,
-      "lifetime": 30,
+      "count": 8,
+      "speed": 5,
+      "lifetime": 35,
       "sizeRange": [2, 6],
       "color": "#ffff00",
-      "gravity": 0.3
+      "gravity": 0.2
     },
     "explosion": {
-      "count": 50,
-      "speed": 12,
-      "lifetime": 40,
+      "count": 25,
+      "speed": 8,
+      "lifetime": 45,
       "sizeRange": [3, 8],
       "color": "#ff00ff",
-      "gravity": 0.3
+      "gravity": 0.2
     },
     "charge": {
-      "count": 15,
-      "speed": 8,
-      "lifetime": 25,
+      "count": 12,
+      "speed": 6,
+      "lifetime": 30,
       "sizeRange": [2, 6],
       "color": "#ffff00",
       "gravity": 0
     },
     "pickup": {
-      "count": 10,
-      "speed": 8,
-      "lifetime": 25,
+      "count": 8,
+      "speed": 6,
+      "lifetime": 30,
       "sizeRange": [2, 4],
       "color": "#00ff00",
       "gravity": 0.1
     },
     "hit": {
-      "count": 5,
-      "speed": 8,
-      "lifetime": 15,
+      "count": 4,
+      "speed": 6,
+      "lifetime": 20,
       "sizeRange": [1, 3],
       "color": "#ffff00",
-      "gravity": 0.2
+      "gravity": 0.15
     },
     "jump": {
-      "count": 5,
-      "speed": 4,
-      "lifetime": 20,
+      "count": 4,
+      "speed": 3,
+      "lifetime": 25,
       "sizeRange": [2, 4],
       "color": "#00ff00",
-      "gravity": 0.5
+      "gravity": 0.3
     }
   },
   
@@ -349,6 +350,23 @@
       "jump": "jump.wav",
       "powerup": "powerup.wav"
     }
+  },
+  
+  "maps": {
+    "directory": "maps/",
+    "defaultMap": "factory.json",
+    "availableMaps": [
+      "factory.json",
+      "traininggrounds.json",
+      "industrialzone.json",
+      "skyfortress.json",
+      "spacestation.json",
+      "crystalcaverns.json",
+      "gauntlet.json",
+      "speedrunchallenge.json",
+      "bouncycastle.json",
+      "bossarena.json"
+    ]
   },
   
   "debug": {

@@ -4,49 +4,78 @@ class LevelManager {
     constructor() {
         this.currentLevel = null;
         this.platforms = [];
-        this.mapDirectory = './maps/';
+        this.mapDirectory = 'maps/'; // Changed from './maps/' to 'maps/'
         this.builtInMaps = this.createBuiltInMaps();
     }
     
     async loadAvailableMaps() {
+        console.log('LevelManager: Loading available maps from:', this.mapDirectory);
         const availableMaps = [];
         
         try {
+            // First, try to load the maps configuration from the game config
+            if (window.gameConfig && window.gameConfig.maps && window.gameConfig.maps.availableMaps) {
+                console.log('LevelManager: Found maps config with available maps:', window.gameConfig.maps.availableMaps);
+                return window.gameConfig.maps.availableMaps;
+            }
+            
             // Try to load from index.json first
             const indexResponse = await fetch(this.mapDirectory + 'index.json');
             if (indexResponse.ok) {
                 const mapIndex = await indexResponse.json();
                 if (mapIndex.maps && Array.isArray(mapIndex.maps)) {
+                    console.log('LevelManager: Loaded maps from index.json:', mapIndex.maps);
                     return mapIndex.maps;
                 }
             }
         } catch (e) {
-            console.log('No index.json found, trying other methods');
+            console.log('LevelManager: No index.json found, trying to detect maps automatically');
         }
         
-        // Try to detect maps by testing common names
-        const mapPatterns = [
-            ...Array.from({length: 10}, (_, i) => `map${i + 1}.json`),
-            ...Array.from({length: 10}, (_, i) => `level${i + 1}.json`),
-            'factory.json', 'tutorial.json', 'boss.json', 'test.json'
+        // Try to detect maps by testing known map files from the maps folder
+        const knownMaps = [
+            'factory.json',
+            'traininggrounds.json', 
+            'industrialzone.json',
+            'skyfortress.json',
+            'spacestation.json',
+            'crystalcaverns.json',
+            'gauntlet.json',
+            'speedrunchallenge.json',
+            'bouncycastle.json',
+            'bossarena.json'
         ];
         
-        const mapTests = mapPatterns.map(async (mapName) => {
+        console.log('LevelManager: Testing known map files...');
+        
+        const mapTests = knownMaps.map(async (mapName) => {
             try {
                 const response = await fetch(this.mapDirectory + mapName, { method: 'HEAD' });
-                return response.ok ? mapName : null;
+                if (response.ok) {
+                    console.log(`LevelManager: Found map: ${mapName}`);
+                    return mapName;
+                } else {
+                    console.log(`LevelManager: Map not found: ${mapName} (${response.status})`);
+                    return null;
+                }
             } catch (e) {
+                console.log(`LevelManager: Error testing map ${mapName}:`, e);
                 return null;
             }
         });
         
         const results = await Promise.all(mapTests);
         results.forEach(mapName => {
-            if (mapName) availableMaps.push(mapName);
+            if (mapName) {
+                availableMaps.push(mapName);
+            }
         });
+        
+        console.log('LevelManager: Found available maps:', availableMaps);
         
         // If no maps found, use built-in maps
         if (availableMaps.length === 0) {
+            console.log('LevelManager: No external maps found, using built-in maps');
             return ['builtin-1', 'builtin-2', 'builtin-3'];
         }
         
@@ -54,33 +83,45 @@ class LevelManager {
     }
     
     async loadMap(mapFile) {
+        console.log('LevelManager: Loading map:', mapFile);
+        
         try {
             // Check if it's a built-in map
             if (mapFile.startsWith('builtin-')) {
                 const mapNum = parseInt(mapFile.replace('builtin-', ''));
+                console.log('LevelManager: Loading built-in map', mapNum);
                 return this.loadBuiltInMap(mapNum);
             }
             
-            // Load external map
-            const response = await fetch(this.mapDirectory + mapFile);
+            // Load external map from maps folder
+            const mapUrl = this.mapDirectory + mapFile;
+            console.log('LevelManager: Fetching map from:', mapUrl);
+            
+            const response = await fetch(mapUrl);
             if (!response.ok) {
-                throw new Error(`Failed to load map: ${mapFile}`);
+                throw new Error(`Failed to load map: ${mapFile} (${response.status})`);
             }
             
             const mapData = await response.json();
+            console.log('LevelManager: Successfully loaded map data for:', mapFile);
+            
             this.currentLevel = mapData;
             this.platforms = mapData.platforms || [];
+            
+            console.log(`LevelManager: Map loaded - ${this.platforms.length} platforms, ${(mapData.enemies || []).length} enemies, ${(mapData.pickups || []).length} pickups`);
             
             return mapData;
             
         } catch (error) {
-            console.error('Error loading map:', error);
+            console.error('LevelManager: Error loading map:', error);
+            console.log('LevelManager: Falling back to built-in map 1');
             // Fall back to built-in map
             return this.loadBuiltInMap(1);
         }
     }
     
     loadBuiltInMap(mapNum) {
+        console.log('LevelManager: Loading built-in map:', mapNum);
         const mapData = this.builtInMaps[mapNum] || this.builtInMaps[1];
         this.currentLevel = mapData;
         this.platforms = mapData.platforms || [];

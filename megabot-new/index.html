@@ -123,8 +123,64 @@
     <script src="utils/debug.js"></script>
     <script src="utils/performance.js"></script>
 
-    <!-- Debug Menu -->
-    <script src="debug-menu.js"></script>
+    <!-- Debug Menu (load before game manager to prevent errors) -->
+    <script>
+        // Safe debug menu initialization - prevents errors if debug-menu.js fails to load
+        if (!window.DebugMenu) {
+            window.DebugMenu = class {
+                constructor(gameManager, config) {
+                    this.gameManager = gameManager;
+                    this.config = config || {};
+                    this.isVisible = false;
+                }
+                
+                update(deltaTime) {
+                    // Safe stub - does nothing
+                }
+                
+                show() {
+                    console.log('Debug menu not available');
+                }
+                
+                hide() {
+                    // Safe stub
+                }
+            };
+        }
+
+        if (!window.initializeDebugMenu) {
+            window.initializeDebugMenu = function() {
+                try {
+                    if (window.gameManager && !window.debugMenu) {
+                        const debugConfig = window.gameManager.config?.debug || {};
+                        window.debugMenu = new window.DebugMenu(window.gameManager, debugConfig);
+                        console.log('Debug menu initialized (safe mode)');
+                    }
+                } catch (error) {
+                    console.warn('Debug menu initialization failed:', error);
+                    // Create minimal stub
+                    window.debugMenu = {
+                        update: function() {},
+                        show: function() {},
+                        hide: function() {}
+                    };
+                }
+            };
+        }
+
+        // Provide immediate safe debug menu object
+        if (!window.debugMenu) {
+            window.debugMenu = {
+                update: function(deltaTime) {},
+                show: function() { console.log('Debug menu not available'); },
+                hide: function() {},
+                isVisible: false
+            };
+        }
+    </script>
+    
+    <!-- Try to load the real debug menu (optional) -->
+    <script src="debug-menu.js" onerror="console.log('Debug menu file not found, using safe mode')"></script>
     
     <!-- Initialize Game -->
     <script>

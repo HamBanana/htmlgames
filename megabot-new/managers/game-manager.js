@@ -1,4 +1,4 @@
-// game-manager.js - Main game orchestrator
+// game-manager.js - Main game orchestrator with slower speed
 
 class GameManager {
     constructor(config) {
@@ -10,6 +10,9 @@ class GameManager {
         this.gameRunning = false;
         this.gameLoopId = null;
         this.currentMapFile = null;
+        
+        // Apply game speed modifier from config
+        this.gameSpeed = config.game?.gameSpeed || 0.7; // Slower overall game speed
         
         // Core systems
         this.engine = null;
@@ -46,8 +49,6 @@ class GameManager {
         this.lives = 3;
     }
     
-    // Add this to the GameManager class initialization section
-
     async initialize() {
         try {
             // Set canvas size from config
@@ -61,11 +62,15 @@ class GameManager {
             this.initializeSystems();
             
             // Initialize debug menu safely
-            if (window.initializeDebugMenu) {
-                window.initializeDebugMenu();
+            if (window.initializeDebugMenu && typeof window.initializeDebugMenu === 'function') {
+                try {
+                    window.initializeDebugMenu();
+                } catch (error) {
+                    console.warn('Debug menu initialization failed:', error);
+                }
             }
             
-            // Load available maps
+            // Load available maps from maps folder
             await this.loadAvailableMaps();
             
             // Set up input handlers
@@ -81,74 +86,6 @@ class GameManager {
             console.error('Failed to initialize game:', error);
             throw error;
         }
-    }
-
-    // Update the game loop to include debug menu updates
-    update(deltaTime) {
-        // Update input
-        this.input.update();
-        
-        // Update debug menu if it exists
-        if (window.debugMenu) {
-            window.debugMenu.update(deltaTime);
-        }
-        
-        // Update player
-        if (this.player) {
-            this.player.update(deltaTime, this.input, this.levelManager.getPlatforms());
-            
-            // Update camera to follow player
-            this.cameraSystem.followTarget(this.player);
-        }
-        
-        // Update enemies
-        this.enemies = this.enemySystem.updateEnemies(
-            this.enemies, 
-            this.player, 
-            deltaTime,
-            this.projectiles,
-            this.levelManager.getPlatforms(),
-            this.physics
-        );
-        
-        // Update boss
-        if (this.boss && this.boss.active) {
-            this.boss.update(deltaTime, this.player, this.projectiles);
-        }
-        
-        // Handle enemy shooting
-        this.enemies.forEach(enemy => {
-            if (enemy.shouldShoot) {
-                this.weaponSystem.createEnemyProjectile(
-                    enemy.x + enemy.width / 2,
-                    enemy.y + enemy.height / 2,
-                    enemy.targetX,
-                    enemy.targetY,
-                    enemy.damage,
-                    5
-                );
-                enemy.shouldShoot = false;
-            }
-        });
-        
-        // Update projectiles
-        this.projectiles = this.weaponSystem.updateProjectiles(
-            this.projectiles,
-            this.levelManager.getPlatforms(),
-            deltaTime
-        );
-        
-        // Update particles
-        this.particleSystem.update(deltaTime);
-        
-        // Update pickups
-        this.pickups = this.updatePickups(this.pickups, deltaTime);
-        
-        // Check collisions
-        this.checkCollisions();
-        
-        // Check game state
-        this.checkGameState();
     }
     
     initializeSystems() {
@@ -306,37 +243,6 @@ class GameManager {
         this.gameLoop();
     }
     
-    async loadMap(mapFile) {
-        const mapData = await this.levelManager.loadMap(mapFile);
-        
-        // Clear existing entities
-        this.enemies = [];
-        this.projectiles = [];
-        this.particles = [];
-        this.pickups = [];
-        
-        // Create enemies from map data
-        if (mapData.enemies) {
-            mapData.enemies.forEach(enemyData => {
-                const enemy = this.enemySystem.createEnemy(enemyData);
-                this.enemies.push(enemy);
-            });
-        }
-        
-        // Create pickups from map data
-        if (mapData.pickups) {
-            mapData.pickups.forEach(pickupData => {
-                const pickup = new Pickup(pickupData);
-                this.pickups.push(pickup);
-            });
-        }
-        
-        // Create boss if defined
-        if (mapData.boss) {
-            this.boss = new Boss(mapData.boss, this.config.boss);
-        }
-    }
-    
     resetGameState() {
         // Stop any running game loop
         if (this.gameLoopId) {
@@ -369,7 +275,10 @@ class GameManager {
         
         // Update time
         this.timeManager.update();
-        const deltaTime = this.timeManager.getDeltaTime();
+        let deltaTime = this.timeManager.getDeltaTime();
+        
+        // Apply game speed modifier for slower gameplay
+        deltaTime *= this.gameSpeed;
         
         // Update all systems
         this.update(deltaTime);
@@ -387,6 +296,11 @@ class GameManager {
     update(deltaTime) {
         // Update input
         this.input.update();
+        
+        // Update debug menu if it exists and has update method
+        if (window.debugMenu && typeof window.debugMenu.update === 'function') {
+            window.debugMenu.update(deltaTime);
+        }
         
         // Update player
         if (this.player) {
@@ -420,7 +334,7 @@ class GameManager {
                     enemy.targetX,
                     enemy.targetY,
                     enemy.damage,
-                    5
+                    enemy.projectileSpeed || 1
                 );
                 enemy.shouldShoot = false;
             }
