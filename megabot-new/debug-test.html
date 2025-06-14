@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Debug Test - Megabot Loading</title>
+</head>
+<body>
+    <h1>Debug Test - Checking Script Loading</h1>
+    <div id="output" style="font-family: monospace; white-space: pre-wrap;"></div>
+    
+    <!-- Load scripts in order -->
+    <script src="core/config-loader.js"></script>
+    <script>document.getElementById('output').textContent += 'ConfigLoader: ' + (typeof ConfigLoader !== 'undefined' ? 'LOADED' : 'FAILED') + '\n';</script>
+    
+    <script src="entities/player.js"></script>
+    <script>document.getElementById('output').textContent += 'Player: ' + (typeof Player !== 'undefined' ? 'LOADED' : 'FAILED') + '\n';</script>
+    
+    <script src="entities/boss.js"></script>
+    <script>document.getElementById('output').textContent += 'Boss: ' + (typeof Boss !== 'undefined' ? 'LOADED' : 'FAILED') + '\n';</script>
+    
+    <script src="entities/pickup.js"></script>
+    <script>document.getElementById('output').textContent += 'Pickup: ' + (typeof Pickup !== 'undefined' ? 'LOADED' : 'FAILED') + '\n';</script>
+    
+    <script>
+        // Test creating instances
+        try {
+            if (typeof Player !== 'undefined') {
+                const testPlayer = new Player({
+                    width: 32,
+                    height: 64,
+                    health: 100,
+                    maxHealth: 100,
+                    speed: 5,
+                    jumpPower: 12,
+                    slideSpeed: 8,
+                    slideHeight: 20,
+                    slideDuration: 20,
+                    invulnerabilityTime: 60,
+                    maxCharge: 60,
+                    weapon: { damage: 10, speed: 10, cooldown: 10 }
+                }, null, null);
+                document.getElementById('output').textContent += '\nPlayer instance created successfully!\n';
+                document.getElementById('output').textContent += 'Player health: ' + testPlayer.health + '\n';
+            }
+        } catch (error) {
+            document.getElementById('output').textContent += '\nError creating Player: ' + error.message + '\n';
+            console.error(error);
+        }
+    </script>
+</body>
+</html>

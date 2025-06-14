@@ -66,10 +66,29 @@ class GameManager {
             // Load player sprite
             console.log('Loading player sprite...');
             try {
-                await this.renderer.spriteRenderer.loadSpriteFromJSON('./Sprites/Aseprite/karateguy.json', 'player');
+                const spritePath = this.config.sprites?.directory || 'Sprites/Aseprite/';
+                const playerSprite = this.config.sprites?.player?.json || 'karateguy.json';
+                const fullPath = spritePath + playerSprite;
+                console.log('Loading sprite from:', fullPath);
+                
+                await this.renderer.spriteRenderer.loadSpriteFromJSON(fullPath, 'player');
                 console.log('Player sprite loaded successfully');
             } catch (error) {
                 console.warn('Failed to load player sprite, using fallback shapes:', error);
+            }
+            
+            // Load boss sprite
+            console.log('Loading boss sprite...');
+            try {
+                const spritePath = this.config.sprites?.directory || 'Sprites/Aseprite/';
+                const bossSprite = this.config.sprites?.boss?.json || 'ninjamand.json';
+                const fullPath = spritePath + bossSprite;
+                console.log('Loading boss sprite from:', fullPath);
+                
+                await this.renderer.spriteRenderer.loadSpriteFromJSON(fullPath, 'boss');
+                console.log('Boss sprite loaded successfully');
+            } catch (error) {
+                console.warn('Failed to load boss sprite, using fallback shapes:', error);
             }
             
             // Initialize debug menu safely

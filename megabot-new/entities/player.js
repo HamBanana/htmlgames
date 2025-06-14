@@ -58,6 +58,10 @@ class Player {
         // Input tracking for jump
         this.jumpPressed = false;
         this.jumpReleased = true;
+        
+        // Sprite dimensions (adjusted for actual sprite size)
+        this.spriteOffsetX = 0;
+        this.spriteOffsetY = 0;
     }
     
     update(deltaTime, input, platforms) {
@@ -356,3 +360,6 @@ class Player {
         }
     }
 }
+
+// Make sure Player is available globally
+window.Player = Player;

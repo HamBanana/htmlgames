@@ -1,4 +1,4 @@
-// renderer.js - Rendering system
+// renderer.js - Rendering system with sprite support
 
 class Renderer {
     constructor(canvas, ctx, config) {
@@ -78,13 +78,73 @@ class Renderer {
                 this.renderChargeEffect(player);
             }
             
-            // Player sprite or shape
-            if (player.sprite) {
-                this.renderSprite(player);
+            // Try to render sprite first
+            if (this.spriteRenderer.sprites.has('player')) {
+                this.renderPlayerSprite(player);
             } else {
                 this.renderPlayerShape(player);
             }
         }
+    }
+    
+    renderPlayerSprite(player) {
+        // Map player states to sprite animations
+        let animationName = 'idle';
+        
+        if (player.invulnerable > 0 && player.invulnerable > 100) {
+            animationName = 'dmg high';
+        } else if (player.sliding) {
+            animationName = 'guard crouch';
+        } else if (!player.grounded) {
+            animationName = 'jump';
+        } else if (Math.abs(player.vx) > 0.1) {
+            animationName = 'walk';
+        } else if (player.charging && player.chargeTimer > player.maxCharge * 0.5) {
+            animationName = 'vrt strike';
+        } else if (player.shootCooldown > 0) {
+            animationName = 'hrz strike';
+        }
+        
+        // Calculate frame index based on animation timer
+        const animInfo = this.spriteRenderer.getAnimationInfo('player', animationName);
+        if (!animInfo) {
+            // Fallback to shape rendering if animation not found
+            this.renderPlayerShape(player);
+            return;
+        }
+        
+        // Update animation timer
+        if (player.currentAnimation !== animationName) {
+            player.currentAnimation = animationName;
+            player.animationTimer = 0;
+            player.frameIndex = 0;
+        }
+        
+        player.animationTimer += 16.67; // Assuming 60fps, ~16.67ms per frame
+        
+        // Calculate current frame
+        const frameDuration = this.spriteRenderer.getFrameDuration('player', animationName);
+        if (player.animationTimer >= frameDuration) {
+            player.frameIndex++;
+            player.animationTimer = 0;
+            
+            const frameCount = this.spriteRenderer.getFrameCount('player', animationName);
+            if (player.frameIndex >= frameCount) {
+                player.frameIndex = 0;
+            }
+        }
+        
+        // Draw the sprite
+        this.spriteRenderer.drawAnimation(
+            this.ctx,
+            'player',
+            animationName,
+            player.frameIndex,
+            player.x,
+            player.y,
+            player.facing < 0, // Flip if facing left
+            1 // Scale
+        );
     }
     
     renderPlayerShape(player) {
@@ -168,6 +228,76 @@ class Renderer {
     }
     
     renderBoss(boss) {
+        // Try to render sprite first
+        if (this.spriteRenderer.sprites.has('boss')) {
+            this.renderBossSprite(boss);
+        } else {
+            this.renderBossShape(boss);
+        }
+    }
+    
+    renderBossSprite(boss) {
+        // Map boss states to sprite animations
+        let animationName = 'idle';
+        
+        if (boss.health < boss.maxHealth * 0.3) {
+            // Low health - more aggressive animations
+            if (Math.abs(boss.vx) > 0.1) {
+                animationName = 'walk';
+            } else if (boss.attackTimer < 20) {
+                animationName = 'vrt strike';
+            }
+        } else {
+            // Normal state
+            if (Math.abs(boss.vx) > 0.1) {
+                animationName = 'walk';
+            } else if (boss.attackTimer < 20) {
+                animationName = 'hrz strike';
+            }
+        }
+        
+        // Update animation timer
+        if (!boss.currentAnimation) {
+            boss.currentAnimation = animationName;
+            boss.animationTimer = 0;
+            boss.frameIndex = 0;
+        }
+        
+        if (boss.currentAnimation !== animationName) {
+            boss.currentAnimation = animationName;
+            boss.animationTimer = 0;
+            boss.frameIndex = 0;
+        }
+        
+        boss.animationTimer = (boss.animationTimer || 0) + 16.67;
+        
+        // Calculate current frame
+        const frameDuration = this.spriteRenderer.getFrameDuration('boss', animationName) || 150;
+        if (boss.animationTimer >= frameDuration) {
+            boss.frameIndex = (boss.frameIndex || 0) + 1;
+            boss.animationTimer = 0;
+            
+            const frameCount = this.spriteRenderer.getFrameCount('boss', animationName) || 1;
+            if (boss.frameIndex >= frameCount) {
+                boss.frameIndex = 0;
+            }
+        }
+        
+        // Draw the sprite (scale up for boss)
+        this.spriteRenderer.drawAnimation(
+            this.ctx,
+            'boss',
+            animationName,
+            boss.frameIndex || 0,
+            boss.x,
+            boss.y,
+            boss.facing < 0, // Flip if facing left
+            2 // Scale boss sprite 2x
+        );
+    }
+    
+    renderBossShape(boss) {
+        // Original boss rendering code
         this.ctx.fillStyle = this.config.ui.colors.danger;
         this.ctx.shadowBlur = 20;
         this.ctx.shadowColor = this.config.ui.colors.danger;
@@ -305,12 +435,6 @@ class Renderer {
         
         this.ctx.restore();
         this.ctx.shadowBlur = 0;
-    }
-    
-    renderSprite(entity) {
-        // TODO: Implement sprite rendering when sprites are loaded
-        // For now, fall back to shape rendering
-        this.renderPlayerShape(entity);
     }
     
     renderDebugBox(entity, color = '#ff0000') {

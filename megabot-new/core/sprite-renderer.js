@@ -9,18 +9,24 @@ class SpriteRenderer {
     
     async loadSpriteFromJSON(jsonPath, spriteId) {
         try {
+            console.log(`SpriteRenderer: Loading sprite '${spriteId}' from: ${jsonPath}`);
+            
             const response = await fetch(jsonPath);
             if (!response.ok) {
-                throw new Error(`Failed to load sprite JSON: ${jsonPath}`);
+                throw new Error(`Failed to load sprite JSON: ${jsonPath} (${response.status} ${response.statusText})`);
             }
             
             const data = await response.json();
+            console.log(`SpriteRenderer: Loaded JSON data for '${spriteId}', contains ${Object.keys(data.frames || {}).length} frames`);
             
             // Load the embedded base64 image
             const image = new Image();
             await new Promise((resolve, reject) => {
-                image.onload = resolve;
-                image.onerror = reject;
+                image.onload = () => {
+                    console.log(`SpriteRenderer: Image loaded for '${spriteId}' (${image.width}x${image.height})`);
+                    resolve();
+                };
+                image.onerror = () => reject(new Error(`Failed to load sprite image for '${spriteId}'`));
                 image.src = data.meta.image;
             });
             
