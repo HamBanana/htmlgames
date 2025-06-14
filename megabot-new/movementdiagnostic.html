@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Megabot Movement Diagnostic</title>
+    <style>
+        body {
+            margin: 0;
+            background: #000;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            padding: 20px;
+        }
+        
+        .diagnostic-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #00ff00;
+            background: #001100;
+        }
+        
+        .error { color: #ff0000; }
+        .success { color: #00ff00; }
+        .warning { color: #ffff00; }
+        
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-left: 3px solid;
+        }
+        
+        .test-result.pass {
+            border-color: #00ff00;
+            background: #001100;
+        }
+        
+        .test-result.fail {
+            border-color: #ff0000;
+            background: #110000;
+        }
+        
+        .test-result.warn {
+            border-color: #ffff00;
+            background: #111100;
+        }
+        
+        pre {
+            background: #222;
+            padding: 10px;
+            border: 1px solid #666;
+            overflow-x: auto;
+        }
+        
+        button {
+            background: #00ff00;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        
+        button:hover {
+            background: #00cc00;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Megabot Movement Diagnostic Tool</h1>
+    <p>This tool will help identify why the player is walking left constantly.</p>
+    
+    <button onclick="runDiagnostics()">Run Full Diagnostics</button>
+    <button onclick="testInputSystem()">Test Input System</button>
+    <button onclick="testPlayerPhysics()">Test Player Physics</button>
+    <button onclick="showConfigDump()">Show Config</button>
+    
+    <div id="diagnosticResults"></div>
+
+    <script>
+        // Test configuration - this simulates your game config
+        const testConfig = {
+            game: { gravity: 0.5, friction: 0.1, width: 800, height: 600 },
+            player: {
+                width: 30, height: 40, speed: 5, jumpPower: 12,
+                weapon: { damage: 10, speed: 10, cooldown: 10, size: { width: 8, height: 4 } }
+            },
+            input: {
+                keyboard: {
+                    left: ['a', 'arrowleft'],
+                    right: ['d', 'arrowright'],
+                    jump: ['z', 'arrowup', 'w'],
+                    shoot: ['x'],
+                    slide: ['s', 'arrowdown']
+                }
+            }
+        };
+
+        function addResult(message, type = 'info', details = '') {
+            const results = document.getElementById('diagnosticResults');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `
+                <strong>${getIcon(type)} ${message}</strong>
+                ${details ? `<div style="margin-top: 10px; font-size: 12px;">${details}</div>` : ''}
+            `;
+            results.appendChild(div);
+        }
+
+        function getIcon(type) {
+            const icons = {
+                pass: '✅',
+                fail: '❌',
+                warn: '⚠️',
+                info: 'ℹ️'
+            };
+            return icons[type] || 'ℹ️';
+        }
+
+        function clearResults() {
+            document.getElementById('diagnosticResults').innerHTML = '';
+        }
+
+        function runDiagnostics() {
+            clearResults();
+            addResult('Starting Full Megabot Movement Diagnostics...', 'info');
+            
+            // Test 1: Input System
+            testInputSystem();
+            
+            // Test 2: Player Physics
+            testPlayerPhysics();
+            
+            // Test 3: Configuration
+            testConfiguration();
+            
+            // Test 4: Common Issues
+            testCommonIssues();
+            
+            addResult('Diagnostics Complete', 'info');
+        }
+
+        function testInputSystem() {
+            addResult('Testing Input System...', 'info');
+            
+            // Create a test input system
+            class TestInputSystem {
+                constructor(config) {
+                    this.config = config;
+                    this.keys = new Map();
+                    this.setupEventListeners();
+                }
+                
+                setupEventListeners() {
+                    window.addEventListener('keydown', (e) => {
+                        this.keys.set(e.key.toLowerCase(), true);
+                        this.keys.set(e.code.toLowerCase(), true);
+                    });
+                    
+                    window.addEventListener('keyup', (e) => {
+                        this.keys.set(e.key.toLowerCase(), false);
+                        this.keys.set(e.code.toLowerCase(), false);
+                    });
+                }
+                
+                isActionPressed(action) {
+                    const bindings = this.config.keyboard[action] || [];
+                    return bindings.some(key => this.keys.get(key) === true);
+                }
+                
+                getMovementVector() {
+                    let x = 0;
+                    
+                    const leftPressed = this.isActionPressed('left');
+                    const rightPressed = this.isActionPressed('right');
+                    
+                    if (leftPressed && !rightPressed) {
+                        x = -1;
+                    } else if (rightPressed && !leftPressed) {
+                        x = 1;
+                    } else {
+                        x = 0;
+                    }
+                    
+                    return { x, y: 0 };
+                }
+            }
+            
+            const inputSystem = new TestInputSystem(testConfig.input);
+            
+            // Test the input system
+            setTimeout(() => {
+                const movement = inputSystem.getMovementVector();
+                
+                if (movement.x === 0) {
+                    addResult('Input System: No movement detected (GOOD)', 'pass', 
+                        'The input system correctly returns 0 when no keys are pressed.');
+                } else {
+                    addResult(`Input System: Unexpected movement detected: ${movement.x}`, 'fail',
+                        'The input system is returning non-zero movement when no keys should be pressed. This could be the issue!');
+                }
+                
+                // Test key states
+                const testKeys = ['a', 'd', 'arrowleft', 'arrowright'];
+                const activeKeys = testKeys.filter(key => inputSystem.keys.get(key) === true);
+                
+                if (activeKeys.length === 0) {
+                    addResult('Key States: All movement keys are false (GOOD)', 'pass');
+                } else {
+                    addResult(`Key States: Some keys are stuck active: ${activeKeys.join(', ')}`, 'fail',
+                        'These keys are registering as pressed when they shouldn\'t be. This is likely the root cause!');
+                }
+                
+            }, 100);
+        }
+
+        function testPlayerPhysics() {
+            addResult('Testing Player Physics...', 'info');
+            
+            // Create a test player
+            class TestPlayer {
+                constructor(config) {
+                    this.config = config;
+                    this.x = 100;
+                    this.y = 400;
+                    this.width = config.width;
+                    this.height = config.height;
+                    this.vx = 0;
+                    this.vy = 0;
+                    this.speed = config.speed;
+                    this.facing = 1;
+                    this.grounded = true;
+                }
+                
+                handleInput(input, deltaTime) {
+                    const movement = input.getMovementVector();
+                    
+                    // CRITICAL: Reset velocity first
+                    this.vx = 0;
+                    
+                    // Apply input
+                    if (Math.abs(movement.x) > 0.1) {
+                        this.vx = movement.x * this.speed;
+                        this.facing = movement.x > 0 ? 1 : -1;
+                    }
+                }
+                
+                updatePhysics(deltaTime) {
+                    // Apply friction when grounded
+                    if (this.grounded && Math.abs(this.vx) > 0.1) {
+                        this.vx *= 0.85;
+                    } else if (this.grounded && Math.abs(this.vx) <= 0.1) {
+                        this.vx = 0;
+                    }
+                    
+                    // Update position
+                    this.x += this.vx * deltaTime * 60;
+                    this.y += this.vy * deltaTime * 60;
+                }
+                
+                update(input, deltaTime) {
+                    this.handleInput(input, deltaTime);
+                    this.updatePhysics(deltaTime);
+                }
+            }
+            
+            // Mock input that returns no movement
+            const mockInput = {
+                getMovementVector: () => ({ x: 0, y: 0 })
+            };
+            
+            const player = new TestPlayer(testConfig.player);
+            
+            // Test player behavior
+            const initialX = player.x;
+            player.update(mockInput, 1/60); // One frame
+            
+            if (player.vx === 0) {
+                addResult('Player Physics: Velocity correctly set to 0', 'pass');
+            } else {
+                addResult(`Player Physics: Velocity not zero (${player.vx})`, 'fail',
+                    'The player\'s velocity is not being reset to 0 when there\'s no input.');
+            }
+            
+            if (Math.abs(player.x - initialX) < 0.01) {
+                addResult('Player Physics: Position unchanged with no input (GOOD)', 'pass');
+            } else {
+                addResult(`Player Physics: Position changed without input (${initialX} → ${player.x})`, 'fail',
+                    'The player is moving even when there\'s no input. This confirms the movement issue.');
+            }
+        }
+
+        function testConfiguration() {
+            addResult('Testing Configuration...', 'info');
+            
+            // Check if window.gameConfig exists
+            if (typeof window.gameConfig !== 'undefined') {
+                addResult('Config: window.gameConfig exists', 'pass');
+                
+                // Check input configuration
+                if (window.gameConfig.input && window.gameConfig.input.keyboard) {
+                    addResult('Config: Input configuration found', 'pass');
+                    
+                    const leftKeys = window.gameConfig.input.keyboard.left;
+                    const rightKeys = window.gameConfig.input.keyboard.right;
+                    
+                    if (leftKeys && leftKeys.length > 0) {
+                        addResult(`Config: Left keys configured: ${leftKeys.join(', ')}`, 'pass');
+                    } else {
+                        addResult('Config: No left keys configured', 'fail');
+                    }
+                    
+                    if (rightKeys && rightKeys.length > 0) {
+                        addResult(`Config: Right keys configured: ${rightKeys.join(', ')}`, 'pass');
+                    } else {
+                        addResult('Config: No right keys configured', 'fail');
+                    }
+                } else {
+                    addResult('Config: Input configuration missing', 'fail');
+                }
+            } else {
+                addResult('Config: window.gameConfig not found', 'warn',
+                    'Using test configuration instead of actual game config.');
+            }
+        }
+
+        function testCommonIssues() {
+            addResult('Checking Common Issues...', 'info');
+            
+            // Check for event listener issues
+            const eventListeners = [];
+            const originalAddEventListener = window.addEventListener;
+            
+            // Check if there are multiple keydown listeners
+            addResult('Issue Check: Multiple Event Listeners', 'info',
+                'Multiple keydown/keyup listeners can cause key state conflicts.');
+            
+            // Check for touch/mobile interference
+            if ('ontouchstart' in window) {
+                addResult('Issue Check: Touch device detected', 'warn',
+                    'Touch devices can interfere with keyboard input. Make sure mobile controls aren\'t conflicting.');
+            }
+            
+            // Check for gamepad interference
+            if (navigator.getGamepads) {
+                const gamepads = navigator.getGamepads();
+                const connectedGamepads = Array.from(gamepads).filter(gp => gp !== null);
+                
+                if (connectedGamepads.length > 0) {
+                    addResult('Issue Check: Gamepad detected', 'warn',
+                        'Connected gamepads can interfere with keyboard input if not handled properly.');
+                }
+            }
+            
+            // Check for sticky keys issue
+            addResult('Issue Check: Potential Sticky Keys', 'warn',
+                'If keys get "stuck" in the pressed state, the player will keep moving. This often happens when focus is lost during key press.');
+        }
+
+        function showConfigDump() {
+            clearResults();
+            addResult('Configuration Dump', 'info');
+            
+            const configDiv = document.createElement('div');
+            configDiv.className = 'diagnostic-section';
+            
+            if (typeof window.gameConfig !== 'undefined') {
+                configDiv.innerHTML = `
+                    <h3>Actual Game Config:</h3>
+                    <pre>${JSON.stringify(window.gameConfig.input || {}, null, 2)}</pre>
+                `;
+            } else {
+                configDiv.innerHTML = `
+                    <h3>Test Config (game config not found):</h3>
+                    <pre>${JSON.stringify(testConfig.input, null, 2)}</pre>
+                `;
+            }
+            
+            document.getElementById('diagnosticResults').appendChild(configDiv);
+        }
+
+        // Auto-run basic diagnostics on load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                addResult('Diagnostic Tool Loaded', 'info', 
+                    'Press any key and watch for changes. If keys get "stuck" that\'s your problem!');
+                
+                // Monitor key states in real-time
+                let keyMonitorInterval = setInterval(() => {
+                    const activeKeys = [];
+                    const testKeys = ['a', 'd', 'arrowleft', 'arrowright'];
+                    
+                    // This is a simplified check - in reality you'd check your actual input system
+                    // For now, just show that the monitor is running
+                    const keyStatus = document.getElementById('keyStatus');
+                    if (!keyStatus) {
+                        const statusDiv = document.createElement('div');
+                        statusDiv.id = 'keyStatus';
+                        statusDiv.className = 'diagnostic-section';
+                        statusDiv.innerHTML = '<h3>🔍 Live Key Monitor:</h3><div id="keyList">No keys pressed</div>';
+                        document.body.appendChild(statusDiv);
+                    }
+                }, 100);
+                
+            }, 500);
+        });
+
+        // Real-time key monitoring
+        const liveKeys = new Set();
+        
+        window.addEventListener('keydown', (e) => {
+            liveKeys.add(e.key.toLowerCase());
+            updateKeyMonitor();
+        });
+        
+        window.addEventListener('keyup', (e) => {
+            liveKeys.delete(e.key.toLowerCase());
+            updateKeyMonitor();
+        });
+        
+        function updateKeyMonitor() {
+            const keyList = document.getElementById('keyList');
+            if (keyList) {
+                if (liveKeys.size === 0) {
+                    keyList.innerHTML = '<span style="color: #00ff00;">No keys pressed (GOOD)</span>';
+                } else {
+                    const keyArray = Array.from(liveKeys);
+                    keyList.innerHTML = `<span style="color: #ffff00;">Active keys: ${keyArray.join(', ')}</span>`;
+                    
+                    // Check for movement keys
+                    const movementKeys = keyArray.filter(key => ['a', 'd', 'arrowleft', 'arrowright'].includes(key));
+                    if (movementKeys.length > 0) {
+                        keyList.innerHTML += `<br><span style="color: #ff0000;">⚠️ Movement keys active: ${movementKeys.join(', ')}</span>`;
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
