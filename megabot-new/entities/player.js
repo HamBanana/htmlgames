@@ -53,6 +53,7 @@ class Player {
         // Animation state
         this.currentAnimation = 'idle';
         this.animationTimer = 0;
+        this.frameIndex = 0;
         
         // Input tracking for jump
         this.jumpPressed = false;

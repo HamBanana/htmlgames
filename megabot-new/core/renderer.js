@@ -6,6 +6,7 @@ class Renderer {
         this.ctx = ctx;
         this.config = config;
         this.spriteCache = new Map();
+        this.spriteRenderer = new SpriteRenderer();
         
         // Ensure projectile config exists with defaults
         this.projectileConfig = this.config.sprites?.projectiles || {

@@ -63,6 +63,15 @@ class GameManager {
             // Initialize core systems
             this.initializeSystems();
             
+            // Load player sprite
+            console.log('Loading player sprite...');
+            try {
+                await this.renderer.spriteRenderer.loadSpriteFromJSON('./Sprites/Aseprite/karateguy.json', 'player');
+                console.log('Player sprite loaded successfully');
+            } catch (error) {
+                console.warn('Failed to load player sprite, using fallback shapes:', error);
+            }
+            
             // Initialize debug menu safely
             if (window.initializeDebugMenu && typeof window.initializeDebugMenu === 'function') {
                 try {
