@@ -152,11 +152,6 @@ class Player {
         if (this.sliding) {
             this.vx *= Math.pow(0.95, deltaTime * 60);
         }
-        
-        // Debug logging for jump
-        if (Math.abs(this.vy) > 0.1) {
-            console.log('Player physics - y:', this.y.toFixed(1), 'vy:', this.vy.toFixed(2), 'grounded:', this.grounded);
-        }
     }
     
     checkPlatformCollisions(platforms) {
