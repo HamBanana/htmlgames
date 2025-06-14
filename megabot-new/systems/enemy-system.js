@@ -60,6 +60,14 @@ class EnemySystem {
         return enemies.filter(enemy => {
             if (enemy.health <= 0) return false;
             
+            // Add takeDamage method to enemy if it doesn't exist
+            if (!enemy.takeDamage) {
+                enemy.takeDamage = (amount) => {
+                    enemy.health -= amount;
+                    if (enemy.health < 0) enemy.health = 0;
+                };
+            }
+            
             // Update enemy AI based on type
             this.updateEnemyAI(enemy, player, deltaTime);
             
