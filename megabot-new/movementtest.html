@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Player Movement Debug</title>
+    <style>
+        body {
+            margin: 0;
+            background: #000;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        #gameCanvas {
+            border: 2px solid #00ff00;
+            background: #111;
+        }
+        
+        #debugInfo {
+            margin-top: 20px;
+            padding: 20px;
+            border: 1px solid #00ff00;
+            background: #001100;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .debug-line {
+            margin: 5px 0;
+        }
+        
+        .error {
+            color: #ff0000;
+        }
+        
+        .success {
+            color: #00ff00;
+        }
+        
+        .warning {
+            color: #ffff00;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Player Movement Debug Test</h1>
+    <p>Use WASD or Arrow Keys to move. Watch the debug info below.</p>
+    
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    
+    <div id="debugInfo">
+        <div class="debug-line">Loading debug info...</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const debugInfo = document.getElementById('debugInfo');
+        
+        // Simple input system for testing
+        class TestInputSystem {
+            constructor() {
+                this.keys = new Map();
+                this.setupEventListeners();
+            }
+            
+            setupEventListeners() {
+                window.addEventListener('keydown', (e) => {
+                    this.keys.set(e.key.toLowerCase(), true);
+                    this.keys.set(e.code.toLowerCase(), true);
+                });
+                
+                window.addEventListener('keyup', (e) => {
+                    this.keys.set(e.key.toLowerCase(), false);
+                    this.keys.set(e.code.toLowerCase(), false);
+                });
+            }
+            
+            isActionPressed(action) {
+                const bindings = {
+                    left: ['a', 'arrowleft'],
+                    right: ['d', 'arrowright'],
+                    jump: ['w', 'arrowup', ' '],
+                    shoot: ['s', 'arrowdown']
+                };
+                
+                const keys = bindings[action] || [];
+                return keys.some(key => this.keys.get(key) === true);
+            }
+            
+            getMovementVector() {
+                let x = 0;
+                
+                const leftPressed = this.isActionPressed('left');
+                const rightPressed = this.isActionPressed('right');
+                
+                if (leftPressed && !rightPressed) {
+                    x = -1;
+                } else if (rightPressed && !leftPressed) {
+                    x = 1;
+                } else {
+                    x = 0;
+                }
+                
+                return { x, y: 0 };
+            }
+        }
+        
+        // Simple player for testing
+        class TestPlayer {
+            constructor() {
+                this.x = 400;
+                this.y = 200;
+                this.width = 30;
+                this.height = 40;
+                this.vx = 0;
+                this.vy = 0;
+                this.speed = 5;
+                this.facing = 1;
+            }
+            
+            update(input, deltaTime) {
+                const movement = input.getMovementVector();
+                
+                // CRITICAL: Reset velocity first
+                this.vx = 0;
+                
+                // Apply input
+                if (Math.abs(movement.x) > 0) {
+                    this.vx = movement.x * this.speed;
+                    this.facing = movement.x > 0 ? 1 : -1;
+                }
+                
+                // Update position
+                this.x += this.vx * deltaTime * 60;
+                this.y += this.vy * deltaTime * 60;
+                
+                // Keep on screen
+                this.x = Math.max(0, Math.min(canvas.width - this.width, this.x));
+                this.y = Math.max(0, Math.min(canvas.height - this.height, this.y));
+            }
+            
+            render(ctx) {
+                // Draw player
+                ctx.fillStyle = '#0088ff';
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                // Draw facing indicator
+                ctx.fillStyle = '#ffffff';
+                const eyeX = this.facing > 0 ? this.x + 20 : this.x + 5;
+                ctx.fillRect(eyeX, this.y + 8, 5, 5);
+                
+                // Draw velocity indicator
+                if (Math.abs(this.vx) > 0.1) {
+                    ctx.strokeStyle = '#ff0000';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x + this.width/2, this.y + this.height/2);
+                    ctx.lineTo(this.x + this.width/2 + this.vx * 10, this.y + this.height/2);
+                    ctx.stroke();
+                }
+            }
+        }
+        
+        // Initialize test
+        const input = new TestInputSystem();
+        const player = new TestPlayer();
+        let lastTime = 0;
+        let frameCount = 0;
+        
+        function gameLoop(currentTime) {
+            const deltaTime = (currentTime - lastTime) / 1000;
+            lastTime = currentTime;
+            frameCount++;
+            
+            // Update
+            player.update(input, deltaTime);
+            
+            // Render
+            ctx.fillStyle = '#000011';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw grid
+            ctx.strokeStyle = '#003300';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < canvas.width; x += 50) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += 50) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+            
+            player.render(ctx);
+            
+            // Update debug info every 10 frames
+            if (frameCount % 10 === 0) {
+                updateDebugInfo();
+            }
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function updateDebugInfo() {
+            const movement = input.getMovementVector();
+            const leftPressed = input.isActionPressed('left');
+            const rightPressed = input.isActionPressed('right');
+            
+            debugInfo.innerHTML = `
+                <div class="debug-line"><strong>🎮 INPUT DEBUG:</strong></div>
+                <div class="debug-line">Left Key Pressed: <span class="${leftPressed ? 'success' : 'error'}">${leftPressed}</span></div>
+                <div class="debug-line">Right Key Pressed: <span class="${rightPressed ? 'success' : 'error'}">${rightPressed}</span></div>
+                <div class="debug-line">Movement Vector X: <span class="${Math.abs(movement.x) > 0 ? 'warning' : 'success'}">${movement.x.toFixed(2)}</span></div>
+                
+                <div class="debug-line"><strong>🚀 PLAYER DEBUG:</strong></div>
+                <div class="debug-line">Position: (${player.x.toFixed(1)}, ${player.y.toFixed(1)})</div>
+                <div class="debug-line">Velocity X: <span class="${Math.abs(player.vx) > 0 ? 'warning' : 'success'}">${player.vx.toFixed(2)}</span></div>
+                <div class="debug-line">Facing: ${player.facing > 0 ? 'Right' : 'Left'}</div>
+                
+                <div class="debug-line"><strong>🔍 DIAGNOSIS:</strong></div>
+                <div class="debug-line ${Math.abs(player.vx) === 0 && movement.x === 0 ? 'success' : 'error'}">
+                    ${Math.abs(player.vx) === 0 && movement.x === 0 ? 
+                        '✅ Player stops when no input' : 
+                        '❌ Player not stopping properly'}
+                </div>
+                <div class="debug-line">Frame: ${frameCount}</div>
+                
+                <div class="debug-line"><strong>📋 ACTIVE KEYS:</strong></div>
+                <div class="debug-line">${getActiveKeys()}</div>
+            `;
+        }
+        
+        function getActiveKeys() {
+            const activeKeys = [];
+            const testKeys = ['a', 'd', 'arrowleft', 'arrowright', 'w', 's'];
+            
+            testKeys.forEach(key => {
+                if (input.keys.get(key)) {
+                    activeKeys.push(key.toUpperCase());
+                }
+            });
+            
+            return activeKeys.length > 0 ? activeKeys.join(', ') : 'None';
+        }
+        
+        // Start the test
+        console.log('🔧 Starting player movement debug test...');
+        requestAnimationFrame(gameLoop);
+        
+        // Initial debug update
+        setTimeout(updateDebugInfo, 100);
+    </script>
+</body>
+</html>

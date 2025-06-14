@@ -55,20 +55,24 @@ class Player {
     }
     
     update(deltaTime, input, platforms) {
-        this.handleInput(input);
+        this.handleInput(input, deltaTime);
         this.updatePhysics(deltaTime);
         this.checkPlatformCollisions(platforms);
         this.updateTimers(deltaTime);
         this.updateAnimation();
     }
     
-    handleInput(input) {
+    handleInput(input, deltaTime) {
         const movement = input.getMovementVector();
         
-        // Horizontal movement
+        // FIXED: Reset horizontal velocity first, then apply input
         if (!this.sliding) {
-            this.vx = movement.x * this.speed * (this.speedBoost > 0 ? 1.5 : 1);
-            if (movement.x !== 0) {
+            // Reset horizontal velocity
+            this.vx = 0;
+            
+            // Apply movement input
+            if (Math.abs(movement.x) > 0.1) { // Add deadzone for joystick
+                this.vx = movement.x * this.speed * (this.speedBoost > 0 ? 1.5 : 1);
                 this.facing = movement.x > 0 ? 1 : -1;
             }
         }
@@ -77,7 +81,9 @@ class Player {
         if (input.wasActionJustPressed('jump') && this.grounded && !this.sliding) {
             this.vy = -this.jumpPower;
             this.grounded = false;
-            this.particleSystem.createEffect('jump', this.x + this.width/2, this.y + this.height);
+            if (this.particleSystem) {
+                this.particleSystem.createEffect('jump', this.x + this.width/2, this.y + this.height);
+            }
         }
         
         // Sliding
@@ -92,7 +98,7 @@ class Player {
             }
             if (this.chargeTimer < this.maxCharge) {
                 this.chargeTimer++;
-                if (this.chargeTimer === this.maxCharge) {
+                if (this.chargeTimer === this.maxCharge && this.particleSystem) {
                     this.particleSystem.createEffect('charge', this.x + this.width/2, this.y + this.height/2);
                 }
             }
@@ -106,16 +112,23 @@ class Player {
     updatePhysics(deltaTime) {
         // Apply gravity
         if (!this.grounded) {
-            this.vy += this.config.game?.gravity || 0.5;
+            this.vy += (this.config.game?.gravity || 0.5) * deltaTime * 60;
+        }
+        
+        // Apply friction when grounded and not moving
+        if (this.grounded && Math.abs(this.vx) > 0.1) {
+            this.vx *= Math.pow(0.85, deltaTime * 60); // Friction
+        } else if (this.grounded && Math.abs(this.vx) <= 0.1) {
+            this.vx = 0; // Stop completely when very slow
         }
         
         // Update position
         this.x += this.vx * deltaTime * 60;
         this.y += this.vy * deltaTime * 60;
         
-        // Apply friction if sliding
+        // Apply slide friction
         if (this.sliding) {
-            this.vx *= 0.95;
+            this.vx *= Math.pow(0.95, deltaTime * 60);
         }
     }
     
@@ -128,38 +141,48 @@ class Player {
                 this.y < platform.y + platform.h && 
                 this.y + this.height > platform.y) {
                 
-                // Top collision
-                if (this.vy > 0 && this.y < platform.y) {
-                    this.y = platform.y - this.height;
-                    this.vy = 0;
-                    this.grounded = true;
-                }
-                // Bottom collision
-                else if (this.vy < 0 && this.y > platform.y) {
-                    this.y = platform.y + platform.h;
-                    this.vy = 0;
-                }
-                // Side collisions
-                else if (this.vx > 0 && this.x < platform.x) {
-                    this.x = platform.x - this.width;
-                    this.vx = 0;
-                } else if (this.vx < 0 && this.x > platform.x) {
-                    this.x = platform.x + platform.w;
-                    this.vx = 0;
+                // Calculate overlap
+                const overlapX = Math.min(this.x + this.width - platform.x, platform.x + platform.w - this.x);
+                const overlapY = Math.min(this.y + this.height - platform.y, platform.y + platform.h - this.y);
+                
+                // Resolve collision based on smallest overlap
+                if (overlapX < overlapY) {
+                    // Horizontal collision
+                    if (this.x < platform.x) {
+                        this.x = platform.x - this.width;
+                        if (this.vx > 0) this.vx = 0;
+                    } else {
+                        this.x = platform.x + platform.w;
+                        if (this.vx < 0) this.vx = 0;
+                    }
+                } else {
+                    // Vertical collision
+                    if (this.y < platform.y) {
+                        this.y = platform.y - this.height;
+                        if (this.vy > 0) {
+                            this.vy = 0;
+                            this.grounded = true;
+                        }
+                    } else {
+                        this.y = platform.y + platform.h;
+                        if (this.vy < 0) this.vy = 0;
+                    }
                 }
             }
         });
     }
     
     updateTimers(deltaTime) {
+        const frameTime = deltaTime * 60;
+        
         // Shooting cooldown
         if (this.shootCooldown > 0) {
-            this.shootCooldown -= deltaTime * 60;
+            this.shootCooldown -= frameTime;
         }
         
         // Slide timer
         if (this.sliding) {
-            this.slideTimer -= deltaTime * 60;
+            this.slideTimer -= frameTime;
             if (this.slideTimer <= 0) {
                 this.endSlide();
             }
@@ -167,15 +190,15 @@ class Player {
         
         // Invulnerability
         if (this.invulnerable > 0 && !this.godMode) {
-            this.invulnerable -= deltaTime * 60;
+            this.invulnerable -= frameTime;
         }
         
         // Power-up timers
         if (this.shield > 0) {
-            this.shield -= deltaTime * 60;
+            this.shield -= frameTime;
         }
         if (this.speedBoost > 0) {
-            this.speedBoost -= deltaTime * 60;
+            this.speedBoost -= frameTime;
         }
     }
     
@@ -194,7 +217,7 @@ class Player {
     }
     
     shoot() {
-        if (this.shootCooldown > 0) return;
+        if (this.shootCooldown > 0 || !this.weaponSystem) return;
         
         const weapon = this.weaponSystem.createWeapon(
             this.currentWeapon,
@@ -215,13 +238,17 @@ class Player {
         
         if (this.shield > 0) {
             this.shield = 0;
-            this.particleSystem.createEffect('shield', this.x + this.width/2, this.y + this.height/2);
+            if (this.particleSystem) {
+                this.particleSystem.createEffect('shield', this.x + this.width/2, this.y + this.height/2);
+            }
             return;
         }
         
         this.health -= amount;
         this.invulnerable = this.config.invulnerabilityTime;
-        this.particleSystem.createEffect('damage', this.x + this.width/2, this.y + this.height/2);
+        if (this.particleSystem) {
+            this.particleSystem.createEffect('damage', this.x + this.width/2, this.y + this.height/2);
+        }
         
         if (this.health < 0) {
             this.health = 0;
@@ -269,6 +296,8 @@ class Player {
     setPosition(x, y) {
         this.x = x;
         this.y = y;
+        this.vx = 0; // FIXED: Reset velocity when setting position
+        this.vy = 0;
     }
     
     isInvulnerable() {

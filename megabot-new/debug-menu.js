@@ -3,11 +3,11 @@
 class DebugMenu {
     constructor(gameManager, config) {
         this.gameManager = gameManager;
-        this.config = config;
+        this.config = config || {};
         this.isVisible = false;
         this.holdTimer = 0;
-        this.holdDuration = config.holdDuration || 60;
-        this.menuKey = config.menuKey || '+';
+        this.holdDuration = this.config.holdDuration || 60;
+        this.menuKey = this.config.menuKey || '+';
         
         this.setupEventListeners();
         this.createMenu();
@@ -94,38 +94,38 @@ class DebugMenu {
                 </div>
                 <div>
                     <span class="debug-label">Player Health:</span>
-                    <input type="number" id="debugPlayerHealth" min="0" max="999" value="${this.gameManager.player?.health || 100}" class="debug-input">
+                    <input type="number" id="debugPlayerHealth" min="0" max="999" value="100" class="debug-input">
                 </div>
                 <div>
                     <span class="debug-label">Lives:</span>
-                    <input type="number" id="debugLives" min="0" max="99" value="${this.gameManager.lives}" class="debug-input">
+                    <input type="number" id="debugLives" min="0" max="99" value="3" class="debug-input">
                 </div>
                 <div>
                     <span class="debug-label">Score:</span>
-                    <input type="number" id="debugScore" min="0" max="999999" value="${this.gameManager.score}" class="debug-input">
+                    <input type="number" id="debugScore" min="0" max="999999" value="0" class="debug-input">
                 </div>
             </div>
             
             <div class="debug-section">
                 <h3>Spawn Options</h3>
-                <button class="debug-btn" onclick="window.debugMenu.spawnEnemy('walker')">Spawn Walker</button>
-                <button class="debug-btn" onclick="window.debugMenu.spawnEnemy('flyer')">Spawn Flyer</button>
-                <button class="debug-btn" onclick="window.debugMenu.spawnEnemy('turret')">Spawn Turret</button>
-                <button class="debug-btn" onclick="window.debugMenu.spawnPickup('health')">Spawn Health</button>
-                <button class="debug-btn" onclick="window.debugMenu.spawnPickup('spread')">Spawn Spread</button>
-                <button class="debug-btn" onclick="window.debugMenu.spawnPickup('laser')">Spawn Laser</button>
-                <button class="debug-btn" onclick="window.debugMenu.clearEnemies()">Clear Enemies</button>
+                <button class="debug-btn" onclick="if(window.debugMenu) window.debugMenu.spawnEnemy('walker')">Spawn Walker</button>
+                <button class="debug-btn" onclick="if(window.debugMenu) window.debugMenu.spawnEnemy('flyer')">Spawn Flyer</button>
+                <button class="debug-btn" onclick="if(window.debugMenu) window.debugMenu.spawnEnemy('turret')">Spawn Turret</button>
+                <button class="debug-btn" onclick="if(window.debugMenu) window.debugMenu.spawnPickup('health')">Spawn Health</button>
+                <button class="debug-btn" onclick="if(window.debugMenu) window.debugMenu.spawnPickup('spread')">Spawn Spread</button>
+                <button class="debug-btn" onclick="if(window.debugMenu) window.debugMenu.spawnPickup('laser')">Spawn Laser</button>
+                <button class="debug-btn" onclick="if(window.debugMenu) window.debugMenu.clearEnemies()">Clear Enemies</button>
             </div>
             
             <div class="debug-section">
                 <h3>Level Options</h3>
-                <button class="debug-btn" onclick="window.debugMenu.skipToBoss()">Skip to Boss</button>
-                <button class="debug-btn" onclick="window.debugMenu.winLevel()">Win Level</button>
-                <button class="debug-btn" onclick="window.debugMenu.restartLevel()">Restart Level</button>
+                <button class="debug-btn" onclick="if(window.debugMenu) window.debugMenu.skipToBoss()">Skip to Boss</button>
+                <button class="debug-btn" onclick="if(window.debugMenu) window.debugMenu.winLevel()">Win Level</button>
+                <button class="debug-btn" onclick="if(window.debugMenu) window.debugMenu.restartLevel()">Restart Level</button>
             </div>
             
             <div class="debug-section">
-                <button class="debug-btn" onclick="window.debugMenu.hide()">Close (ESC)</button>
+                <button class="debug-btn" onclick="if(window.debugMenu) window.debugMenu.hide()">Close (ESC)</button>
             </div>
         `;
         
@@ -139,7 +139,9 @@ class DebugMenu {
         if (showHitboxes) {
             showHitboxes.addEventListener('change', (e) => {
                 this.config.showHitboxes = e.target.checked;
-                window.ConfigLoader.setConfigValue('debug.showHitboxes', e.target.checked);
+                if (window.ConfigLoader && window.ConfigLoader.setConfigValue) {
+                    window.ConfigLoader.setConfigValue('debug.showHitboxes', e.target.checked);
+                }
             });
         }
         
@@ -147,7 +149,9 @@ class DebugMenu {
         if (showFPS) {
             showFPS.addEventListener('change', (e) => {
                 this.config.showFPS = e.target.checked;
-                window.ConfigLoader.setConfigValue('debug.showFPS', e.target.checked);
+                if (window.ConfigLoader && window.ConfigLoader.setConfigValue) {
+                    window.ConfigLoader.setConfigValue('debug.showFPS', e.target.checked);
+                }
                 const debugStats = document.getElementById('debugStats');
                 if (debugStats) {
                     debugStats.style.display = e.target.checked ? 'block' : 'none';
@@ -171,7 +175,7 @@ class DebugMenu {
         if (godMode) {
             godMode.addEventListener('change', (e) => {
                 this.config.godMode = e.target.checked;
-                if (this.gameManager.player) {
+                if (this.gameManager && this.gameManager.player) {
                     this.gameManager.player.godMode = e.target.checked;
                 }
             });
@@ -205,7 +209,7 @@ class DebugMenu {
             timeScale.addEventListener('input', (e) => {
                 const value = parseFloat(e.target.value);
                 timeScaleValue.textContent = value.toFixed(1);
-                if (this.gameManager.timeManager) {
+                if (this.gameManager && this.gameManager.timeManager) {
                     this.gameManager.timeManager.setTimeScale(value);
                 }
             });
@@ -215,9 +219,11 @@ class DebugMenu {
         if (playerHealth) {
             playerHealth.addEventListener('change', (e) => {
                 const value = parseInt(e.target.value);
-                if (this.gameManager.player) {
+                if (this.gameManager && this.gameManager.player) {
                     this.gameManager.player.health = value;
-                    this.gameManager.uiManager.updateHealth(value, this.gameManager.player.maxHealth);
+                    if (this.gameManager.uiManager) {
+                        this.gameManager.uiManager.updateHealth(value, this.gameManager.player.maxHealth);
+                    }
                 }
             });
         }
@@ -226,8 +232,12 @@ class DebugMenu {
         if (lives) {
             lives.addEventListener('change', (e) => {
                 const value = parseInt(e.target.value);
-                this.gameManager.lives = value;
-                this.gameManager.uiManager.updateLives(value);
+                if (this.gameManager) {
+                    this.gameManager.lives = value;
+                    if (this.gameManager.uiManager) {
+                        this.gameManager.uiManager.updateLives(value);
+                    }
+                }
             });
         }
         
@@ -235,8 +245,12 @@ class DebugMenu {
         if (score) {
             score.addEventListener('change', (e) => {
                 const value = parseInt(e.target.value);
-                this.gameManager.score = value;
-                this.gameManager.uiManager.updateScore(value);
+                if (this.gameManager) {
+                    this.gameManager.score = value;
+                    if (this.gameManager.uiManager) {
+                        this.gameManager.uiManager.updateScore(value);
+                    }
+                }
             });
         }
     }
@@ -246,7 +260,9 @@ class DebugMenu {
         if (menu) {
             menu.style.display = 'block';
             this.isVisible = true;
-            this.gameManager.timeManager.pause();
+            if (this.gameManager && this.gameManager.timeManager) {
+                this.gameManager.timeManager.pause();
+            }
         }
     }
     
@@ -255,13 +271,15 @@ class DebugMenu {
         if (menu) {
             menu.style.display = 'none';
             this.isVisible = false;
-            this.gameManager.timeManager.resume();
+            if (this.gameManager && this.gameManager.timeManager) {
+                this.gameManager.timeManager.resume();
+            }
         }
     }
     
     // Spawn functions
     spawnEnemy(type) {
-        if (!this.gameManager.player) return;
+        if (!this.gameManager || !this.gameManager.player || !this.gameManager.enemySystem) return;
         
         const enemy = this.gameManager.enemySystem.createEnemy({
             x: this.gameManager.player.x + 200,
@@ -275,7 +293,7 @@ class DebugMenu {
     }
     
     spawnPickup(type) {
-        if (!this.gameManager.player) return;
+        if (!this.gameManager || !this.gameManager.player) return;
         
         const pickup = new Pickup({
             x: this.gameManager.player.x + 100,
@@ -289,28 +307,43 @@ class DebugMenu {
     }
     
     clearEnemies() {
-        this.gameManager.enemies = [];
+        if (this.gameManager) {
+            this.gameManager.enemies = [];
+        }
     }
     
     skipToBoss() {
-        if (this.gameManager.player && this.gameManager.boss) {
+        if (this.gameManager && this.gameManager.player && this.gameManager.boss) {
             this.gameManager.player.x = this.gameManager.boss.triggerX - 100;
-            this.gameManager.cameraSystem.setPosition(this.gameManager.player.x - 400, 0);
+            if (this.gameManager.cameraSystem) {
+                this.gameManager.cameraSystem.setPosition(this.gameManager.player.x - 400, 0);
+            }
         }
     }
     
     winLevel() {
-        if (this.gameManager.boss) {
+        if (this.gameManager && this.gameManager.boss) {
             this.gameManager.boss.health = 0;
         }
     }
     
     restartLevel() {
         this.hide();
-        this.gameManager.resetGameState();
-        this.gameManager.startGame();
+        if (this.gameManager) {
+            this.gameManager.resetGameState();
+            this.gameManager.startGame();
+        }
+    }
+}
+
+// Safe initialization function
+function initializeDebugMenu() {
+    if (window.gameManager && !window.debugMenu) {
+        const debugConfig = window.gameManager.config?.debug || {};
+        window.debugMenu = new DebugMenu(window.gameManager, debugConfig);
     }
 }
 
 // Make it globally accessible
 window.DebugMenu = DebugMenu;
+window.initializeDebugMenu = initializeDebugMenu;

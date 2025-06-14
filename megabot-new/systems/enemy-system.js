@@ -1,342 +1,229 @@
-// input.js - Input handling system
+// enemy-system.js - Enemy creation and behavior management
 
-class InputSystem {
+class EnemySystem {
     constructor(config) {
         this.config = config;
-        this.keys = new Map();
-        this.previousKeys = new Map();
-        this.gamepadState = null;
-        this.touchState = {
-            joystick: { active: false, x: 0, y: 0 },
-            buttons: new Map()
-        };
-        
-        this.setupEventListeners();
-        this.setupMobileControls();
+        this.enemies = [];
     }
     
-    setupEventListeners() {
-        // Keyboard events
-        window.addEventListener('keydown', (e) => {
-            this.keys.set(e.key.toLowerCase(), true);
-            this.keys.set(e.code.toLowerCase(), true);
-            
-            // Prevent default for game keys
-            if (this.isGameKey(e.key.toLowerCase()) || this.isGameKey(e.code.toLowerCase())) {
-                e.preventDefault();
-            }
-        });
+    createEnemy(data) {
+        const type = data.type || 'walker';
+        const config = this.config[type];
         
-        window.addEventListener('keyup', (e) => {
-            this.keys.set(e.key.toLowerCase(), false);
-            this.keys.set(e.code.toLowerCase(), false);
-        });
-        
-        // Prevent context menu on right click
-        window.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-        });
-        
-        // Gamepad events
-        window.addEventListener('gamepadconnected', (e) => {
-            console.log('Gamepad connected:', e.gamepad);
-        });
-        
-        window.addEventListener('gamepaddisconnected', (e) => {
-            console.log('Gamepad disconnected:', e.gamepad);
-        });
-    }
-    
-    isGameKey(key) {
-        // Check if key is used in game controls
-        const allKeys = [];
-        Object.values(this.config.keyboard).forEach(keys => {
-            allKeys.push(...keys);
-        });
-        return allKeys.includes(key);
-    }
-    
-    setupMobileControls() {
-        const joystick = document.getElementById('joystick');
-        const joystickKnob = document.getElementById('joystickKnob');
-        const jumpBtn = document.getElementById('jumpBtn');
-        const shootBtn = document.getElementById('shootBtn');
-        
-        if (joystick && joystickKnob) {
-            this.setupJoystick(joystick, joystickKnob);
+        if (!config) {
+            console.warn(`Unknown enemy type: ${type}`);
+            return null;
         }
         
-        if (jumpBtn) {
-            this.setupButton(jumpBtn, 'jump');
-        }
-        
-        if (shootBtn) {
-            this.setupButton(shootBtn, 'shoot');
-        }
-    }
-    
-    setupJoystick(joystick, knob) {
-        const rect = joystick.getBoundingClientRect();
-        const centerX = rect.width / 2;
-        const centerY = rect.height / 2;
-        const maxDistance = centerX - 20;
-        
-        let touchId = null;
-        
-        const handleStart = (clientX, clientY, id) => {
-            touchId = id;
-            this.touchState.joystick.active = true;
-            handleMove(clientX, clientY);
+        const enemy = {
+            x: data.x,
+            y: data.y,
+            width: config.width,
+            height: config.height,
+            vx: 0,
+            vy: 0,
+            type: type,
+            health: config.health,
+            maxHealth: config.health,
+            damage: config.damage,
+            speed: config.speed,
+            scoreValue: config.scoreValue,
+            detectionRange: config.detectionRange,
+            
+            // AI state
+            shootTimer: 0,
+            moveTimer: 0,
+            direction: -1,
+            facing: -1,
+            targetX: 0,
+            targetY: 0,
+            shouldShoot: false,
+            
+            // Type-specific properties
+            ...(type === 'flyer' && {
+                floatOffset: Math.random() * Math.PI * 2,
+                baseY: data.y,
+                floatSpeed: 0.02,
+                floatAmplitude: config.floatAmplitude || 30
+            }),
+            
+            ...(type === 'turret' && {
+                shootCooldown: config.shootCooldown || 60,
+                projectileSpeed: config.projectileSpeed || 5
+            })
         };
         
-        const handleMove = (clientX, clientY) => {
-            if (!this.touchState.joystick.active) return;
-            
-            const rect = joystick.getBoundingClientRect();
-            const deltaX = clientX - rect.left - centerX;
-            const deltaY = clientY - rect.top - centerY;
-            
-            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-            const clampedDistance = Math.min(distance, maxDistance);
-            
-            if (distance > 0) {
-                const normalizedX = (deltaX / distance) * clampedDistance;
-                const normalizedY = (deltaY / distance) * clampedDistance;
-                
-                this.touchState.joystick.x = normalizedX / maxDistance;
-                this.touchState.joystick.y = normalizedY / maxDistance;
-                
-                knob.style.transform = `translate(${normalizedX}px, ${normalizedY}px)`;
-            } else {
-                this.touchState.joystick.x = 0;
-                this.touchState.joystick.y = 0;
-                knob.style.transform = 'translate(0px, 0px)';
-            }
-        };
-        
-        const handleEnd = (id) => {
-            if (id === touchId || touchId === null) {
-                this.touchState.joystick.active = false;
-                this.touchState.joystick.x = 0;
-                this.touchState.joystick.y = 0;
-                knob.style.transform = 'translate(0px, 0px)';
-                touchId = null;
-            }
-        };
-        
-        // Touch events
-        joystick.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            const touch = e.touches[0];
-            handleStart(touch.clientX, touch.clientY, touch.identifier);
-        });
-        
-        joystick.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            for (let i = 0; i < e.touches.length; i++) {
-                const touch = e.touches[i];
-                if (touch.identifier === touchId) {
-                    handleMove(touch.clientX, touch.clientY);
-                    break;
-                }
-            }
-        });
-        
-        joystick.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            for (let i = 0; i < e.changedTouches.length; i++) {
-                if (e.changedTouches[i].identifier === touchId) {
-                    handleEnd(e.changedTouches[i].identifier);
-                    break;
-                }
-            }
-        });
-        
-        joystick.addEventListener('touchcancel', (e) => {
-            e.preventDefault();
-            handleEnd(touchId);
-        });
-        
-        // Mouse events for testing
-        joystick.addEventListener('mousedown', (e) => {
-            handleStart(e.clientX, e.clientY, 'mouse');
-            
-            const mouseMoveHandler = (e) => {
-                handleMove(e.clientX, e.clientY);
-            };
-            
-            const mouseUpHandler = () => {
-                handleEnd('mouse');
-                window.removeEventListener('mousemove', mouseMoveHandler);
-                window.removeEventListener('mouseup', mouseUpHandler);
-            };
-            
-            window.addEventListener('mousemove', mouseMoveHandler);
-            window.addEventListener('mouseup', mouseUpHandler);
-        });
+        return enemy;
     }
     
-    setupButton(button, action) {
-        const handleStart = () => {
-            this.touchState.buttons.set(action, true);
-        };
-        
-        const handleEnd = () => {
-            this.touchState.buttons.set(action, false);
-        };
-        
-        // Touch events
-        button.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            handleStart();
-        });
-        
-        button.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            handleEnd();
-        });
-        
-        button.addEventListener('touchcancel', (e) => {
-            e.preventDefault();
-            handleEnd();
-        });
-        
-        // Mouse events for testing
-        button.addEventListener('mousedown', (e) => {
-            e.preventDefault();
-            handleStart();
-        });
-        
-        button.addEventListener('mouseup', (e) => {
-            e.preventDefault();
-            handleEnd();
-        });
-        
-        button.addEventListener('mouseleave', (e) => {
-            handleEnd();
-        });
-    }
-    
-    update() {
-        // Store previous frame keys
-        this.previousKeys.clear();
-        this.keys.forEach((value, key) => {
-            this.previousKeys.set(key, value);
-        });
-        
-        // Update gamepad state
-        this.updateGamepad();
-    }
-    
-    updateGamepad() {
-        const gamepads = navigator.getGamepads();
-        if (gamepads[0]) {
-            this.gamepadState = gamepads[0];
-        }
-    }
-    
-    isActionPressed(action) {
-        const bindings = this.config.keyboard[action] || [];
-        
-        // Check keyboard
-        for (const key of bindings) {
-            if (this.keys.get(key)) {
-                return true;
-            }
-        }
-        
-        // Check mobile controls
-        if (this.touchState.buttons.get(action)) {
+    updateEnemies(enemies, player, deltaTime, projectiles, platforms, physics) {
+        return enemies.filter(enemy => {
+            if (enemy.health <= 0) return false;
+            
+            // Update enemy AI based on type
+            this.updateEnemyAI(enemy, player, deltaTime);
+            
+            // Update physics
+            this.updateEnemyPhysics(enemy, platforms, physics, deltaTime);
+            
             return true;
-        }
-        
-        // Check gamepad
-        if (this.gamepadState) {
-            switch (action) {
-                case 'jump':
-                    return this.gamepadState.buttons[0]?.pressed; // A button
-                case 'shoot':
-                    return this.gamepadState.buttons[1]?.pressed; // B button
-                case 'slide':
-                    return this.gamepadState.buttons[2]?.pressed; // X button
-            }
-        }
-        
-        return false;
+        });
     }
     
-    wasActionJustPressed(action) {
-        const bindings = this.config.keyboard[action] || [];
+    updateEnemyAI(enemy, player, deltaTime) {
+        const frameTime = deltaTime * 60;
         
-        // Check keyboard
-        for (const key of bindings) {
-            if (this.keys.get(key) && !this.previousKeys.get(key)) {
-                return true;
-            }
+        switch (enemy.type) {
+            case 'walker':
+                this.updateWalkerAI(enemy, player, frameTime);
+                break;
+            case 'flyer':
+                this.updateFlyerAI(enemy, player, frameTime);
+                break;
+            case 'turret':
+                this.updateTurretAI(enemy, player, frameTime);
+                break;
         }
-        
-        // Mobile controls don't have proper just-pressed detection in this implementation
-        // Would need to track previous state for proper implementation
-        
-        return false;
     }
     
-    getMovementVector() {
-        let x = 0;
-        let y = 0;
+    updateWalkerAI(enemy, player, frameTime) {
+        const config = this.config.walker;
         
-        // Keyboard input
-        if (this.isActionPressed('left')) x -= 1;
-        if (this.isActionPressed('right')) x += 1;
-        if (this.isActionPressed('slide')) y = 1; // Down for slide
+        // Basic patrol movement
+        enemy.moveTimer += frameTime;
         
-        // Mobile joystick input
-        if (this.touchState.joystick.active) {
-            const deadzone = this.config.mobile?.joystickDeadzone || 0.3;
-            
-            if (Math.abs(this.touchState.joystick.x) > deadzone) {
-                x = this.touchState.joystick.x;
-            }
-            
-            // For slide, check if joystick is pushed down
-            if (this.touchState.joystick.y > deadzone) {
-                y = 1;
-            }
+        if (enemy.moveTimer > 120) { // Change direction every 2 seconds
+            enemy.direction *= -1;
+            enemy.facing = enemy.direction;
+            enemy.moveTimer = 0;
         }
         
-        // Gamepad input
-        if (this.gamepadState) {
-            const deadzone = this.config.mobile?.joystickDeadzone || 0.3;
-            const gamepadX = this.gamepadState.axes[0];
-            const gamepadY = this.gamepadState.axes[1];
+        enemy.vx = enemy.direction * enemy.speed;
+        
+        // Detect player
+        const distance = Math.abs(player.x - enemy.x);
+        if (distance < enemy.detectionRange) {
+            // Face player
+            enemy.facing = player.x > enemy.x ? 1 : -1;
             
-            if (Math.abs(gamepadX) > deadzone) {
-                x = gamepadX;
+            // Move towards player
+            if (distance > 100) {
+                enemy.vx = enemy.facing * enemy.speed * 1.5;
             }
-            if (gamepadY > deadzone) {
-                y = 1; // Down for slide
+            
+            // Shoot at player
+            enemy.shootTimer += frameTime;
+            if (enemy.shootTimer > config.shootCooldown) {
+                enemy.shouldShoot = true;
+                enemy.targetX = player.x + player.width / 2;
+                enemy.targetY = player.y + player.height / 2;
+                enemy.shootTimer = 0;
             }
         }
-        
-        // Clamp values
-        x = Math.max(-1, Math.min(1, x));
-        y = Math.max(-1, Math.min(1, y));
-        
-        return { x, y };
     }
     
-    reset() {
-        this.keys.clear();
-        this.previousKeys.clear();
-        this.touchState.joystick.active = false;
-        this.touchState.joystick.x = 0;
-        this.touchState.joystick.y = 0;
-        this.touchState.buttons.clear();
+    updateFlyerAI(enemy, player, frameTime) {
+        const config = this.config.flyer;
         
-        // Reset joystick visual
-        const knob = document.getElementById('joystickKnob');
-        if (knob) {
-            knob.style.transform = 'translate(0px, 0px)';
+        // Floating motion
+        enemy.floatOffset += enemy.floatSpeed * frameTime;
+        enemy.y = enemy.baseY + Math.sin(enemy.floatOffset) * enemy.floatAmplitude;
+        
+        // Move towards player horizontally
+        const distance = Math.abs(player.x - enemy.x);
+        if (distance < enemy.detectionRange) {
+            enemy.facing = player.x > enemy.x ? 1 : -1;
+            enemy.vx = enemy.facing * enemy.speed;
+            
+            // Shoot at player
+            enemy.shootTimer += frameTime;
+            if (enemy.shootTimer > config.shootCooldown) {
+                enemy.shouldShoot = true;
+                enemy.targetX = player.x + player.width / 2;
+                enemy.targetY = player.y + player.height / 2;
+                enemy.shootTimer = 0;
+            }
+        } else {
+            enemy.vx *= 0.9; // Slow down when not chasing
         }
+    }
+    
+    updateTurretAI(enemy, player, frameTime) {
+        const config = this.config.turret;
+        
+        // Turrets don't move
+        enemy.vx = 0;
+        
+        // Always face player
+        enemy.facing = player.x > enemy.x ? 1 : -1;
+        
+        // Shoot at player if in range
+        const distance = Math.sqrt(
+            Math.pow(player.x - enemy.x, 2) + 
+            Math.pow(player.y - enemy.y, 2)
+        );
+        
+        if (distance < enemy.detectionRange) {
+            enemy.shootTimer += frameTime;
+            if (enemy.shootTimer > config.shootCooldown) {
+                enemy.shouldShoot = true;
+                enemy.targetX = player.x + player.width / 2;
+                enemy.targetY = player.y + player.height / 2;
+                enemy.shootTimer = 0;
+            }
+        }
+    }
+    
+    updateEnemyPhysics(enemy, platforms, physics, deltaTime) {
+        // Apply gravity (except for flyers)
+        if (enemy.type !== 'flyer' && enemy.type !== 'turret') {
+            physics.applyGravity(enemy, deltaTime);
+        }
+        
+        // Update position
+        physics.updatePosition(enemy, deltaTime);
+        
+        // Check platform collisions
+        if (enemy.type === 'walker') {
+            physics.checkPlatformCollisions(enemy, platforms);
+            
+            // Reverse direction if about to fall off platform
+            if (enemy.grounded) {
+                const futureX = enemy.x + enemy.vx * 2;
+                let onPlatform = false;
+                
+                for (const platform of platforms) {
+                    if (futureX + enemy.width > platform.x && 
+                        futureX < platform.x + platform.w &&
+                        enemy.y + enemy.height <= platform.y + platform.h + 10 &&
+                        enemy.y + enemy.height >= platform.y - 10) {
+                        onPlatform = true;
+                        break;
+                    }
+                }
+                
+                if (!onPlatform) {
+                    enemy.direction *= -1;
+                    enemy.facing = enemy.direction;
+                    enemy.vx = enemy.direction * enemy.speed;
+                }
+            }
+        }
+    }
+    
+    takeDamage(enemy, amount) {
+        enemy.health -= amount;
+        if (enemy.health < 0) enemy.health = 0;
+        return enemy.health <= 0;
+    }
+    
+    getEnemiesInRange(enemies, x, y, range) {
+        return enemies.filter(enemy => {
+            const distance = Math.sqrt(
+                Math.pow(enemy.x + enemy.width/2 - x, 2) + 
+                Math.pow(enemy.y + enemy.height/2 - y, 2)
+            );
+            return distance <= range;
+        });
     }
 }

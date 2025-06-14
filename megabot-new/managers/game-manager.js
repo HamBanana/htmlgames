@@ -46,6 +46,8 @@ class GameManager {
         this.lives = 3;
     }
     
+    // Add this to the GameManager class initialization section
+
     async initialize() {
         try {
             // Set canvas size from config
@@ -57,6 +59,11 @@ class GameManager {
             
             // Initialize core systems
             this.initializeSystems();
+            
+            // Initialize debug menu safely
+            if (window.initializeDebugMenu) {
+                window.initializeDebugMenu();
+            }
             
             // Load available maps
             await this.loadAvailableMaps();
@@ -74,6 +81,74 @@ class GameManager {
             console.error('Failed to initialize game:', error);
             throw error;
         }
+    }
+
+    // Update the game loop to include debug menu updates
+    update(deltaTime) {
+        // Update input
+        this.input.update();
+        
+        // Update debug menu if it exists
+        if (window.debugMenu) {
+            window.debugMenu.update(deltaTime);
+        }
+        
+        // Update player
+        if (this.player) {
+            this.player.update(deltaTime, this.input, this.levelManager.getPlatforms());
+            
+            // Update camera to follow player
+            this.cameraSystem.followTarget(this.player);
+        }
+        
+        // Update enemies
+        this.enemies = this.enemySystem.updateEnemies(
+            this.enemies, 
+            this.player, 
+            deltaTime,
+            this.projectiles,
+            this.levelManager.getPlatforms(),
+            this.physics
+        );
+        
+        // Update boss
+        if (this.boss && this.boss.active) {
+            this.boss.update(deltaTime, this.player, this.projectiles);
+        }
+        
+        // Handle enemy shooting
+        this.enemies.forEach(enemy => {
+            if (enemy.shouldShoot) {
+                this.weaponSystem.createEnemyProjectile(
+                    enemy.x + enemy.width / 2,
+                    enemy.y + enemy.height / 2,
+                    enemy.targetX,
+                    enemy.targetY,
+                    enemy.damage,
+                    5
+                );
+                enemy.shouldShoot = false;
+            }
+        });
+        
+        // Update projectiles
+        this.projectiles = this.weaponSystem.updateProjectiles(
+            this.projectiles,
+            this.levelManager.getPlatforms(),
+            deltaTime
+        );
+        
+        // Update particles
+        this.particleSystem.update(deltaTime);
+        
+        // Update pickups
+        this.pickups = this.updatePickups(this.pickups, deltaTime);
+        
+        // Check collisions
+        this.checkCollisions();
+        
+        // Check game state
+        this.checkGameState();
     }
     
     initializeSystems() {

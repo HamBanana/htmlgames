@@ -275,9 +275,8 @@ class InputSystem {
             }
         }
         
-        // Mobile controls don't have proper just-pressed detection in this implementation
-        // Would need to track previous state for proper implementation
-        
+        // For mobile controls, we'd need to track previous button states
+        // This is a simplified version
         return false;
     }
     
@@ -285,12 +284,26 @@ class InputSystem {
         let x = 0;
         let y = 0;
         
-        // Keyboard input
-        if (this.isActionPressed('left')) x -= 1;
-        if (this.isActionPressed('right')) x += 1;
-        if (this.isActionPressed('slide')) y = 1; // Down for slide
+        // FIXED: Check each direction independently and return clean values
         
-        // Mobile joystick input
+        // Keyboard input
+        const leftPressed = this.isActionPressed('left');
+        const rightPressed = this.isActionPressed('right');
+        const slidePressed = this.isActionPressed('slide');
+        
+        if (leftPressed && !rightPressed) {
+            x = -1;
+        } else if (rightPressed && !leftPressed) {
+            x = 1;
+        } else {
+            x = 0; // Both pressed or neither pressed
+        }
+        
+        if (slidePressed) {
+            y = 1; // Down for slide
+        }
+        
+        // Mobile joystick input (overrides keyboard if active)
         if (this.touchState.joystick.active) {
             const deadzone = this.config.mobile?.joystickDeadzone || 0.3;
             
@@ -304,7 +317,7 @@ class InputSystem {
             }
         }
         
-        // Gamepad input
+        // Gamepad input (overrides others if active)
         if (this.gamepadState) {
             const deadzone = this.config.mobile?.joystickDeadzone || 0.3;
             const gamepadX = this.gamepadState.axes[0];
@@ -318,9 +331,9 @@ class InputSystem {
             }
         }
         
-        // Clamp values
+        // FIXED: Ensure clean values
         x = Math.max(-1, Math.min(1, x));
-        y = Math.max(-1, Math.min(1, y));
+        y = Math.max(0, Math.min(1, y));
         
         return { x, y };
     }
