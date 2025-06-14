@@ -174,7 +174,7 @@
     ],
     "projectile": {
       "damage": 15,
-      "baseSpeed": 5,
+      "baseSpeed": 2.5,
       "size": {
         "width": 8,
         "height": 8
@@ -191,7 +191,8 @@
       "damage": 10,
       "detectionRange": 200,
       "scoreValue": 100,
-      "shootCooldown": 60,
+      "shootCooldown": 80,
+      "projectileSpeed": 1.5,
       "color": "#ff00ff"
     },
     "flyer": {
@@ -202,7 +203,8 @@
       "damage": 8,
       "flyHeight": 100,
       "scoreValue": 150,
-      "shootCooldown": 60,
+      "shootCooldown": 75,
+      "projectileSpeed": 1.8,
       "color": "#00ffff"
     },
     "turret": {
@@ -212,8 +214,8 @@
       "damage": 10,
       "detectionRange": 300,
       "scoreValue": 100,
-      "shootCooldown": 60,
-      "projectileSpeed": 5,
+      "shootCooldown": 70,
+      "projectileSpeed": 2.0,
       "color": "#ff6600"
     }
   },

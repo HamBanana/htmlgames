@@ -208,8 +208,8 @@ class WeaponSystem {
         return { cooldown: config.cooldown };
     }
     
-    createEnemyProjectile(x, y, targetX, targetY, damage = 10, speed = 2.5) {
-        // FIXED: Much slower enemy projectiles (reduced from 5 to 2.5)
+    createEnemyProjectile(x, y, targetX, targetY, damage = 10, speed = 1.5) {
+        // MUCH SLOWER enemy projectiles (reduced from 2.5 to 1.5)
         const dx = targetX - x;
         const dy = targetY - y;
         const distance = Math.sqrt(dx * dx + dy * dy);
