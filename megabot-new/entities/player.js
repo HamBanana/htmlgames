@@ -16,9 +16,10 @@ class Player {
         this.vx = 0;
         this.vy = 0;
         this.speed = config.speed;
-        this.jumpPower = config.jumpPower;
+        this.jumpPower = Math.abs(config.jumpPower); // Ensure positive for upward jump
         this.grounded = false;
         this.gravityScale = 1;
+        this.wasGrounded = false; // Track previous ground state
         
         // State
         this.facing = 1; // 1 = right, -1 = left
@@ -52,9 +53,14 @@ class Player {
         // Animation state
         this.currentAnimation = 'idle';
         this.animationTimer = 0;
+        
+        // Input tracking for jump
+        this.jumpPressed = false;
+        this.jumpReleased = true;
     }
     
     update(deltaTime, input, platforms) {
+        this.wasGrounded = this.grounded; // Remember previous ground state
         this.handleInput(input, deltaTime);
         this.updatePhysics(deltaTime);
         this.checkPlatformCollisions(platforms);
@@ -77,13 +83,29 @@ class Player {
             }
         }
         
-        // Jumping
-        if (input.wasActionJustPressed('jump') && this.grounded && !this.sliding) {
-            this.vy = -this.jumpPower;
+        // FIXED: Jumping logic with proper button press detection
+        const jumpCurrentlyPressed = input.isActionPressed('jump');
+        
+        // Detect jump button press (transition from not pressed to pressed)
+        if (jumpCurrentlyPressed && this.jumpReleased) {
+            this.jumpPressed = true;
+            this.jumpReleased = false;
+        } else if (!jumpCurrentlyPressed) {
+            this.jumpReleased = true;
+            this.jumpPressed = false;
+        }
+        
+        // Execute jump if button was just pressed and player is grounded
+        if (this.jumpPressed && this.grounded) {
+            this.vy = -this.jumpPower; // Negative for upward movement
             this.grounded = false;
+            this.jumpPressed = false; // Consume the jump press
+            
             if (this.particleSystem) {
                 this.particleSystem.createEffect('jump', this.x + this.width/2, this.y + this.height);
             }
+            
+            console.log('Jump executed! vy:', this.vy, 'jumpPower:', this.jumpPower);
         }
         
         // Sliding
@@ -130,6 +152,11 @@ class Player {
         if (this.sliding) {
             this.vx *= Math.pow(0.95, deltaTime * 60);
         }
+        
+        // Debug logging for jump
+        if (Math.abs(this.vy) > 0.1) {
+            console.log('Player physics - y:', this.y.toFixed(1), 'vy:', this.vy.toFixed(2), 'grounded:', this.grounded);
+        }
     }
     
     checkPlatformCollisions(platforms) {
@@ -158,12 +185,14 @@ class Player {
                 } else {
                     // Vertical collision
                     if (this.y < platform.y) {
+                        // Landing on top of platform
                         this.y = platform.y - this.height;
                         if (this.vy > 0) {
                             this.vy = 0;
                             this.grounded = true;
                         }
                     } else {
+                        // Hitting platform from below
                         this.y = platform.y + platform.h;
                         if (this.vy < 0) this.vy = 0;
                     }
@@ -188,17 +217,20 @@ class Player {
             }
         }
         
-        // Invulnerability
-        if (this.invulnerable > 0 && !this.godMode) {
+        // FIXED: Invulnerability timer (was preventing damage)
+        if (this.invulnerable > 0) {
             this.invulnerable -= frameTime;
+            if (this.invulnerable < 0) this.invulnerable = 0;
         }
         
         // Power-up timers
         if (this.shield > 0) {
             this.shield -= frameTime;
+            if (this.shield < 0) this.shield = 0;
         }
         if (this.speedBoost > 0) {
             this.speedBoost -= frameTime;
+            if (this.speedBoost < 0) this.speedBoost = 0;
         }
     }
     
@@ -234,18 +266,26 @@ class Player {
     }
     
     takeDamage(amount) {
-        if (this.invulnerable > 0 || this.godMode) return;
+        // FIXED: Check invulnerability properly
+        if (this.isInvulnerable()) {
+            console.log('Player is invulnerable, no damage taken');
+            return;
+        }
         
+        // Check shield first
         if (this.shield > 0) {
             this.shield = 0;
             if (this.particleSystem) {
                 this.particleSystem.createEffect('shield', this.x + this.width/2, this.y + this.height/2);
             }
+            console.log('Shield absorbed damage');
             return;
         }
         
+        // Take damage
         this.health -= amount;
         this.invulnerable = this.config.invulnerabilityTime;
+        
         if (this.particleSystem) {
             this.particleSystem.createEffect('damage', this.x + this.width/2, this.y + this.height/2);
         }
@@ -253,6 +293,8 @@ class Player {
         if (this.health < 0) {
             this.health = 0;
         }
+        
+        console.log('Player took', amount, 'damage. Health:', this.health, 'Invulnerable for:', this.invulnerable);
     }
     
     heal(amount) {
@@ -272,6 +314,8 @@ class Player {
         this.chargeTimer = 0;
         this.charging = false;
         this.shootCooldown = 0;
+        this.jumpPressed = false;
+        this.jumpReleased = true;
     }
     
     collectPickup(pickup) {

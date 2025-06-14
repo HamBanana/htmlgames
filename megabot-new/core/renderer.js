@@ -6,6 +6,25 @@ class Renderer {
         this.ctx = ctx;
         this.config = config;
         this.spriteCache = new Map();
+        
+        // Ensure projectile config exists with defaults
+        this.projectileConfig = this.config.sprites?.projectiles || {
+            playerBullet: {
+                color: "#00ff00",
+                glowColor: "#00ff00",
+                glowIntensity: 5
+            },
+            enemyBullet: {
+                color: "#ff0000",
+                glowColor: "#ff0000",
+                glowIntensity: 5
+            },
+            chargedShot: {
+                color: "#ffff00",
+                glowColor: "#ffff00",
+                glowIntensity: 15
+            }
+        };
     }
     
     clear() {
@@ -163,30 +182,38 @@ class Renderer {
     }
     
     renderProjectile(projectile) {
+        // Reset any previous styling
+        this.ctx.globalAlpha = 1;
+        this.ctx.shadowBlur = 0;
+        
         if (projectile.laser) {
             this.ctx.fillStyle = '#ff00ff';
             this.ctx.shadowBlur = 20;
             this.ctx.shadowColor = '#ff00ff';
             this.ctx.globalAlpha = projectile.lifetime / 10;
         } else if (projectile.charged === 'full') {
-            this.ctx.fillStyle = this.config.sprites.projectiles.chargedShot.color;
-            this.ctx.shadowBlur = this.config.sprites.projectiles.chargedShot.glowIntensity;
-            this.ctx.shadowColor = this.config.sprites.projectiles.chargedShot.glowColor;
+            const config = this.projectileConfig.chargedShot;
+            this.ctx.fillStyle = config.color;
+            this.ctx.shadowBlur = config.glowIntensity;
+            this.ctx.shadowColor = config.glowColor;
         } else if (projectile.charged === 'medium') {
             this.ctx.fillStyle = '#00ffff';
             this.ctx.shadowBlur = 10;
             this.ctx.shadowColor = '#00ffff';
         } else {
-            const projConfig = projectile.fromPlayer ? 
-                this.config.sprites.projectiles.playerBullet : 
-                this.config.sprites.projectiles.enemyBullet;
+            // Default projectile rendering
+            const config = projectile.fromPlayer ? 
+                this.projectileConfig.playerBullet : 
+                this.projectileConfig.enemyBullet;
             
-            this.ctx.fillStyle = projConfig.color;
-            this.ctx.shadowBlur = projConfig.glowIntensity;
-            this.ctx.shadowColor = projConfig.glowColor;
+            this.ctx.fillStyle = config.color;
+            this.ctx.shadowBlur = config.glowIntensity;
+            this.ctx.shadowColor = config.glowColor;
         }
         
         this.ctx.fillRect(projectile.x, projectile.y, projectile.width, projectile.height);
+        
+        // Reset styling
         this.ctx.globalAlpha = 1;
         this.ctx.shadowBlur = 0;
     }
@@ -196,27 +223,27 @@ class Renderer {
         
         switch(pickup.type) {
             case 'health':
-                this.ctx.fillStyle = pickupConfig.color;
+                this.ctx.fillStyle = pickupConfig?.color || '#00ff00';
                 this.ctx.fillRect(pickup.x + 5, pickup.y, 10, 20);
                 this.ctx.fillRect(pickup.x, pickup.y + 5, 20, 10);
                 break;
                 
             case 'shield':
-                this.ctx.fillStyle = pickupConfig.color;
+                this.ctx.fillStyle = pickupConfig?.color || '#00ffff';
                 this.ctx.beginPath();
                 this.ctx.arc(pickup.x + pickup.width/2, pickup.y + pickup.height/2, 10, 0, Math.PI * 2);
                 this.ctx.fill();
                 break;
                 
             case 'speed':
-                this.ctx.fillStyle = pickupConfig.color;
+                this.ctx.fillStyle = pickupConfig?.color || '#ff00ff';
                 this.ctx.fillRect(pickup.x, pickup.y + 5, 20, 10);
                 this.ctx.fillRect(pickup.x + 5, pickup.y, 10, 20);
                 break;
                 
             default:
                 // Weapon pickups
-                if (this.config.weapons[pickup.type]) {
+                if (this.config.weapons && this.config.weapons[pickup.type]) {
                     this.renderWeaponPickup(pickup);
                 } else {
                     this.ctx.fillStyle = '#ffff00';
@@ -230,12 +257,16 @@ class Renderer {
             'spread': '#ff00ff',
             'laser': '#ff0000',
             'wave': '#00ffff',
-            'bounce': '#ffff00'
+            'bounce': '#ffff00',
+            'rapid': '#ff6600'
         };
         
-        this.ctx.fillStyle = colors[pickup.type] || '#ffffff';
-        this.ctx.shadowBlur = this.config.pickups.weaponPickup.glowIntensity;
-        this.ctx.shadowColor = colors[pickup.type] || '#ffffff';
+        const color = colors[pickup.type] || '#ffffff';
+        this.ctx.fillStyle = color;
+        
+        const glowIntensity = this.config.pickups?.weaponPickup?.glowIntensity || 10;
+        this.ctx.shadowBlur = glowIntensity;
+        this.ctx.shadowColor = color;
         
         this.ctx.save();
         this.ctx.translate(pickup.x + pickup.width/2, pickup.y + pickup.height/2);
@@ -263,6 +294,11 @@ class Renderer {
                 this.ctx.beginPath();
                 this.ctx.arc(0, 0, 8, 0, Math.PI * 2);
                 this.ctx.fill();
+                break;
+            case 'rapid':
+                for (let i = 0; i < 3; i++) {
+                    this.ctx.fillRect(i * 4 - 6, -1, 2, 2);
+                }
                 break;
         }
         

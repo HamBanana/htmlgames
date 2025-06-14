@@ -49,7 +49,7 @@ class EnemySystem {
             
             ...(type === 'turret' && {
                 shootCooldown: config.shootCooldown || 60,
-                projectileSpeed: config.projectileSpeed || 5
+                projectileSpeed: config.projectileSpeed || 3 // REDUCED from 5 to 3
             })
         };
         
@@ -111,7 +111,7 @@ class EnemySystem {
                 enemy.vx = enemy.facing * enemy.speed * 1.5;
             }
             
-            // Shoot at player
+            // Shoot at player - SLOWER projectiles
             enemy.shootTimer += frameTime;
             if (enemy.shootTimer > config.shootCooldown) {
                 enemy.shouldShoot = true;
@@ -135,7 +135,7 @@ class EnemySystem {
             enemy.facing = player.x > enemy.x ? 1 : -1;
             enemy.vx = enemy.facing * enemy.speed;
             
-            // Shoot at player
+            // Shoot at player - SLOWER projectiles
             enemy.shootTimer += frameTime;
             if (enemy.shootTimer > config.shootCooldown) {
                 enemy.shouldShoot = true;
@@ -157,7 +157,7 @@ class EnemySystem {
         // Always face player
         enemy.facing = player.x > enemy.x ? 1 : -1;
         
-        // Shoot at player if in range
+        // Shoot at player if in range - SLOWER projectiles
         const distance = Math.sqrt(
             Math.pow(player.x - enemy.x, 2) + 
             Math.pow(player.y - enemy.y, 2)

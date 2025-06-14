@@ -218,7 +218,7 @@ class InputSystem {
     }
     
     update() {
-        // Store previous frame keys
+        // Store previous frame keys for wasActionJustPressed detection
         this.previousKeys.clear();
         this.keys.forEach((value, key) => {
             this.previousKeys.set(key, value);
@@ -268,15 +268,28 @@ class InputSystem {
     wasActionJustPressed(action) {
         const bindings = this.config.keyboard[action] || [];
         
-        // Check keyboard
+        // Check keyboard - was just pressed this frame
         for (const key of bindings) {
             if (this.keys.get(key) && !this.previousKeys.get(key)) {
                 return true;
             }
         }
         
-        // For mobile controls, we'd need to track previous button states
-        // This is a simplified version
+        // Check mobile controls (simplified - would need previous state tracking)
+        if (this.touchState.buttons.get(action)) {
+            return true; // For now, treat mobile as always "just pressed" when active
+        }
+        
+        // Check gamepad
+        if (this.gamepadState) {
+            switch (action) {
+                case 'jump':
+                    return this.gamepadState.buttons[0]?.pressed && !this.gamepadState.buttons[0]?.wasPressed;
+                case 'shoot':
+                    return this.gamepadState.buttons[1]?.pressed && !this.gamepadState.buttons[1]?.wasPressed;
+            }
+        }
+        
         return false;
     }
     
