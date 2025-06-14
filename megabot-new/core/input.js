@@ -20,6 +20,11 @@ class InputSystem {
         window.addEventListener('keydown', (e) => {
             this.keys.set(e.key.toLowerCase(), true);
             this.keys.set(e.code.toLowerCase(), true);
+            
+            // Prevent default for game keys
+            if (this.isGameKey(e.key.toLowerCase()) || this.isGameKey(e.code.toLowerCase())) {
+                e.preventDefault();
+            }
         });
         
         window.addEventListener('keyup', (e) => {
@@ -40,6 +45,15 @@ class InputSystem {
         window.addEventListener('gamepaddisconnected', (e) => {
             console.log('Gamepad disconnected:', e.gamepad);
         });
+    }
+    
+    isGameKey(key) {
+        // Check if key is used in game controls
+        const allKeys = [];
+        Object.values(this.config.keyboard).forEach(keys => {
+            allKeys.push(...keys);
+        });
+        return allKeys.includes(key);
     }
     
     setupMobileControls() {
@@ -67,8 +81,12 @@ class InputSystem {
         const centerY = rect.height / 2;
         const maxDistance = centerX - 20;
         
-        const handleStart = (clientX, clientY) => {
+        let touchId = null;
+        
+        const handleStart = (clientX, clientY, id) => {
+            touchId = id;
             this.touchState.joystick.active = true;
+            handleMove(clientX, clientY);
         };
         
         const handleMove = (clientX, clientY) => {
@@ -89,45 +107,72 @@ class InputSystem {
                 this.touchState.joystick.y = normalizedY / maxDistance;
                 
                 knob.style.transform = `translate(${normalizedX}px, ${normalizedY}px)`;
+            } else {
+                this.touchState.joystick.x = 0;
+                this.touchState.joystick.y = 0;
+                knob.style.transform = 'translate(0px, 0px)';
             }
         };
         
-        const handleEnd = () => {
-            this.touchState.joystick.active = false;
-            this.touchState.joystick.x = 0;
-            this.touchState.joystick.y = 0;
-            knob.style.transform = 'translate(0px, 0px)';
+        const handleEnd = (id) => {
+            if (id === touchId || touchId === null) {
+                this.touchState.joystick.active = false;
+                this.touchState.joystick.x = 0;
+                this.touchState.joystick.y = 0;
+                knob.style.transform = 'translate(0px, 0px)';
+                touchId = null;
+            }
         };
         
         // Touch events
         joystick.addEventListener('touchstart', (e) => {
             e.preventDefault();
             const touch = e.touches[0];
-            handleStart(touch.clientX, touch.clientY);
+            handleStart(touch.clientX, touch.clientY, touch.identifier);
         });
         
         joystick.addEventListener('touchmove', (e) => {
             e.preventDefault();
-            const touch = e.touches[0];
-            handleMove(touch.clientX, touch.clientY);
+            for (let i = 0; i < e.touches.length; i++) {
+                const touch = e.touches[i];
+                if (touch.identifier === touchId) {
+                    handleMove(touch.clientX, touch.clientY);
+                    break;
+                }
+            }
         });
         
         joystick.addEventListener('touchend', (e) => {
             e.preventDefault();
-            handleEnd();
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                if (e.changedTouches[i].identifier === touchId) {
+                    handleEnd(e.changedTouches[i].identifier);
+                    break;
+                }
+            }
+        });
+        
+        joystick.addEventListener('touchcancel', (e) => {
+            e.preventDefault();
+            handleEnd(touchId);
         });
         
         // Mouse events for testing
         joystick.addEventListener('mousedown', (e) => {
-            handleStart(e.clientX, e.clientY);
-        });
-        
-        joystick.addEventListener('mousemove', (e) => {
-            handleMove(e.clientX, e.clientY);
-        });
-        
-        joystick.addEventListener('mouseup', () => {
-            handleEnd();
+            handleStart(e.clientX, e.clientY, 'mouse');
+            
+            const mouseMoveHandler = (e) => {
+                handleMove(e.clientX, e.clientY);
+            };
+            
+            const mouseUpHandler = () => {
+                handleEnd('mouse');
+                window.removeEventListener('mousemove', mouseMoveHandler);
+                window.removeEventListener('mouseup', mouseUpHandler);
+            };
+            
+            window.addEventListener('mousemove', mouseMoveHandler);
+            window.addEventListener('mouseup', mouseUpHandler);
         });
     }
     
@@ -151,6 +196,11 @@ class InputSystem {
             handleEnd();
         });
         
+        button.addEventListener('touchcancel', (e) => {
+            e.preventDefault();
+            handleEnd();
+        });
+        
         // Mouse events for testing
         button.addEventListener('mousedown', (e) => {
             e.preventDefault();
@@ -159,6 +209,10 @@ class InputSystem {
         
         button.addEventListener('mouseup', (e) => {
             e.preventDefault();
+            handleEnd();
+        });
+        
+        button.addEventListener('mouseleave', (e) => {
             handleEnd();
         });
     }
@@ -221,10 +275,8 @@ class InputSystem {
             }
         }
         
-        // Check mobile controls (simplified - would need previous state for proper implementation)
-        if (this.touchState.buttons.get(action)) {
-            return true;
-        }
+        // Mobile controls don't have proper just-pressed detection in this implementation
+        // Would need to track previous state for proper implementation
         
         return false;
     }
@@ -236,12 +288,20 @@ class InputSystem {
         // Keyboard input
         if (this.isActionPressed('left')) x -= 1;
         if (this.isActionPressed('right')) x += 1;
-        if (this.isActionPressed('slide')) y += 1; // Down for slide
+        if (this.isActionPressed('slide')) y = 1; // Down for slide
         
         // Mobile joystick input
         if (this.touchState.joystick.active) {
-            x = this.touchState.joystick.x;
-            y = this.touchState.joystick.y;
+            const deadzone = this.config.mobile?.joystickDeadzone || 0.3;
+            
+            if (Math.abs(this.touchState.joystick.x) > deadzone) {
+                x = this.touchState.joystick.x;
+            }
+            
+            // For slide, check if joystick is pushed down
+            if (this.touchState.joystick.y > deadzone) {
+                y = 1;
+            }
         }
         
         // Gamepad input
@@ -253,10 +313,14 @@ class InputSystem {
             if (Math.abs(gamepadX) > deadzone) {
                 x = gamepadX;
             }
-            if (Math.abs(gamepadY) > deadzone) {
-                y = gamepadY;
+            if (gamepadY > deadzone) {
+                y = 1; // Down for slide
             }
         }
+        
+        // Clamp values
+        x = Math.max(-1, Math.min(1, x));
+        y = Math.max(-1, Math.min(1, y));
         
         return { x, y };
     }
@@ -268,5 +332,11 @@ class InputSystem {
         this.touchState.joystick.x = 0;
         this.touchState.joystick.y = 0;
         this.touchState.buttons.clear();
+        
+        // Reset joystick visual
+        const knob = document.getElementById('joystickKnob');
+        if (knob) {
+            knob.style.transform = 'translate(0px, 0px)';
+        }
     }
 }

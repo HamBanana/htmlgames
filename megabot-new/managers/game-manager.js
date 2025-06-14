@@ -326,13 +326,30 @@ class GameManager {
             this.enemies, 
             this.player, 
             deltaTime,
-            this.projectiles
+            this.projectiles,
+            this.levelManager.getPlatforms(),
+            this.physics
         );
         
         // Update boss
         if (this.boss && this.boss.active) {
             this.boss.update(deltaTime, this.player, this.projectiles);
         }
+        
+        // Handle enemy shooting
+        this.enemies.forEach(enemy => {
+            if (enemy.shouldShoot) {
+                this.weaponSystem.createEnemyProjectile(
+                    enemy.x + enemy.width / 2,
+                    enemy.y + enemy.height / 2,
+                    enemy.targetX,
+                    enemy.targetY,
+                    enemy.damage,
+                    5
+                );
+                enemy.shouldShoot = false;
+            }
+        });
         
         // Update projectiles
         this.projectiles = this.weaponSystem.updateProjectiles(
