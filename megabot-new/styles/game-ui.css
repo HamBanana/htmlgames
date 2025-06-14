@@ -7,10 +7,15 @@
     color: #00ff00;
     font-size: 16px;
     text-shadow: 0 0 5px #00ff00;
+    z-index: 10;
+    max-width: 45%;
 }
 
 #ui div {
     margin: 5px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 #chargeIndicator {
@@ -26,6 +31,9 @@
     color: #ff00ff;
     text-shadow: 0 0 10px currentColor;
     font-weight: bold;
+    z-index: 10;
+    max-width: 150px;
+    font-size: 14px;
 }
 
 /* Health Bars */
@@ -46,11 +54,13 @@
 
 /* Boss Health Bar */
 .boss-health {
-    position: absolute;
+    position: fixed;
     top: 50px;
     right: 10px;
     color: #ff0000;
     display: none;
+    z-index: 10;
+    max-width: 220px;
 }
 
 .boss-bar {
@@ -65,7 +75,7 @@
 
 /* Debug Stats Display */
 #debugStats {
-    position: absolute;
+    position: fixed;
     top: 10px;
     right: 10px;
     color: #ff00ff;
@@ -74,6 +84,8 @@
     background: rgba(0, 0, 0, 0.7);
     padding: 5px;
     border: 1px solid #ff00ff;
+    z-index: 10;
+    max-width: 150px;
 }
 
 /* Collision Debug Visualization */

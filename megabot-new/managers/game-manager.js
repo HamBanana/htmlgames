@@ -52,6 +52,9 @@ class GameManager {
             this.canvas.width = this.config.game.width;
             this.canvas.height = this.config.game.height;
             
+            // Set initial canvas display size to fit viewport
+            this.handleResize();
+            
             // Initialize core systems
             this.initializeSystems();
             
@@ -538,20 +541,32 @@ class GameManager {
     }
     
     handleResize() {
-        // Maintain aspect ratio
-        const aspectRatio = this.config.game.width / this.config.game.height;
-        const maxWidth = window.innerWidth;
-        const maxHeight = window.innerHeight;
+        // Get viewport dimensions
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
         
-        let newWidth = maxWidth;
-        let newHeight = maxWidth / aspectRatio;
+        // Leave some padding for the border and UI
+        const maxWidth = viewportWidth - 20;
+        const maxHeight = viewportHeight - 20;
         
-        if (newHeight > maxHeight) {
+        // Calculate aspect ratio
+        const gameAspectRatio = this.config.game.width / this.config.game.height;
+        
+        let newWidth, newHeight;
+        
+        // Fit canvas within viewport while maintaining aspect ratio
+        if (maxWidth / maxHeight > gameAspectRatio) {
+            // Viewport is wider - fit to height
             newHeight = maxHeight;
-            newWidth = maxHeight * aspectRatio;
+            newWidth = newHeight * gameAspectRatio;
+        } else {
+            // Viewport is taller - fit to width
+            newWidth = maxWidth;
+            newHeight = newWidth / gameAspectRatio;
         }
         
-        this.canvas.style.width = newWidth + 'px';
-        this.canvas.style.height = newHeight + 'px';
+        // Apply the calculated dimensions
+        this.canvas.style.width = Math.floor(newWidth) + 'px';
+        this.canvas.style.height = Math.floor(newHeight) + 'px';
     }
 }

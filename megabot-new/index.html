@@ -10,78 +10,80 @@
     <link rel="stylesheet" href="styles/mobile.css">
 </head>
 <body>
-    <div id="gameContainer">
-        <canvas id="gameCanvas"></canvas>
-        
-        <!-- UI Elements -->
-        <div id="ui">
-            <div>HEALTH: <div class="health-bar"><div class="health-fill" id="playerHealth"></div></div></div>
-            <div>LIVES: <span id="lives">3</span></div>
-            <div>SCORE: <span id="score">0</span></div>
-            <div style="font-size: 12px; color: #00cccc;">MAP: <span id="currentMapName">-</span></div>
-            <div id="chargeIndicator" style="display: none;">CHARGE: <span id="chargeLevel">0%</span></div>
-        </div>
-        
-        <div id="weaponIndicator" style="display: none;">WEAPON: <span id="currentWeapon">NORMAL</span></div>
-        
-        <div class="boss-health" id="bossUI">
-            <div>BOSS: <div class="health-bar boss-bar"><div class="health-fill boss-fill" id="bossHealth"></div></div></div>
-        </div>
-        
-        <div id="debugStats">
-            <div>FPS: <span id="fps">0</span></div>
-            <div>Entities: <span id="entityCount">0</span></div>
-            <div>Particles: <span id="particleCount">0</span></div>
-            <div>X: <span id="playerX">0</span></div>
-            <div>Y: <span id="playerY">0</span></div>
-        </div>
-        
-        <div id="debugMenu"></div>
-        
-        <!-- Mobile Controls -->
-        <div class="mobile-controls">
-            <div class="joystick-area">
-                <div class="joystick-base" id="joystick">
-                    <div class="joystick-knob" id="joystickKnob"></div>
+    <div id="gameViewport">
+        <div id="gameContainer">
+            <canvas id="gameCanvas"></canvas>
+            
+            <!-- UI Elements -->
+            <div id="ui">
+                <div>HEALTH: <div class="health-bar"><div class="health-fill" id="playerHealth"></div></div></div>
+                <div>LIVES: <span id="lives">3</span></div>
+                <div>SCORE: <span id="score">0</span></div>
+                <div style="font-size: 12px; color: #00cccc;">MAP: <span id="currentMapName">-</span></div>
+                <div id="chargeIndicator" style="display: none;">CHARGE: <span id="chargeLevel">0%</span></div>
+            </div>
+            
+            <div id="weaponIndicator" style="display: none;">WEAPON: <span id="currentWeapon">NORMAL</span></div>
+            
+            <div class="boss-health" id="bossUI">
+                <div>BOSS: <div class="health-bar boss-bar"><div class="health-fill boss-fill" id="bossHealth"></div></div></div>
+            </div>
+            
+            <div id="debugStats">
+                <div>FPS: <span id="fps">0</span></div>
+                <div>Entities: <span id="entityCount">0</span></div>
+                <div>Particles: <span id="particleCount">0</span></div>
+                <div>X: <span id="playerX">0</span></div>
+                <div>Y: <span id="playerY">0</span></div>
+            </div>
+            
+            <div id="debugMenu"></div>
+            
+            <!-- Mobile Controls -->
+            <div class="mobile-controls">
+                <div class="joystick-area">
+                    <div class="joystick-base" id="joystick">
+                        <div class="joystick-knob" id="joystickKnob"></div>
+                    </div>
+                </div>
+                <div class="action-buttons">
+                    <div class="btn" id="jumpBtn">JUMP</div>
+                    <div class="btn shoot-btn" id="shootBtn">SHOOT</div>
                 </div>
             </div>
-            <div class="action-buttons">
-                <div class="btn" id="jumpBtn">JUMP</div>
-                <div class="btn shoot-btn" id="shootBtn">SHOOT</div>
-            </div>
-        </div>
-        
-        <!-- Start Screen -->
-        <div id="startScreen">
-            <h1>MEGA-BOT</h1>
-            <div id="mapSelection">
-                <h3>SELECT MAP</h3>
-                <div id="mapButtons">
-                    <p style="color: #ffff00;">Loading maps...</p>
+            
+            <!-- Start Screen -->
+            <div id="startScreen">
+                <h1>MEGA-BOT</h1>
+                <div id="mapSelection">
+                    <h3>SELECT MAP</h3>
+                    <div id="mapButtons">
+                        <p style="color: #ffff00;">Loading maps...</p>
+                    </div>
+                </div>
+                <p id="mapInstruction" style="color: #ffff00; margin: 10px 0; font-size: 14px;">Select a map above, then click START GAME</p>
+                <button class="start-btn" onclick="window.gameManager.startGame()">START GAME</button>
+                <div class="instructions">
+                    <p><strong>Controls:</strong></p>
+                    <p>Move: Arrow Keys / WASD</p>
+                    <p>Jump: Z</p>
+                    <p>Shoot: X (hold to charge)</p>
+                    <p>Return to Menu: ESC</p>
+                    <p style="color: #ffff00;">Charge shots pierce through enemies!</p>
+                    <p>Defeat all enemies and reach the boss!</p>
+                    <p style="color: #ff00ff;">Hold + for Debug Menu</p>
                 </div>
             </div>
-            <p id="mapInstruction" style="color: #ffff00; margin: 10px 0; font-size: 14px;">Select a map above, then click START GAME</p>
-            <button class="start-btn" onclick="window.gameManager.startGame()">START GAME</button>
-            <div class="instructions">
-                <p><strong>Controls:</strong></p>
-                <p>Move: Arrow Keys / WASD</p>
-                <p>Jump: Z</p>
-                <p>Shoot: X (hold to charge)</p>
-                <p>Return to Menu: ESC</p>
-                <p style="color: #ffff00;">Charge shots pierce through enemies!</p>
-                <p>Defeat all enemies and reach the boss!</p>
-                <p style="color: #ff00ff;">Hold + for Debug Menu</p>
+            
+            <!-- Game Over Screen -->
+            <div id="gameOverScreen" style="display: none;">
+                <h1 id="gameOverText">GAME OVER</h1>
+                <div>Final Score: <span id="finalScore">0</span></div>
+                <button class="start-btn" onclick="window.gameManager.returnToMapSelection()">SELECT NEW MAP</button>
             </div>
+            
+            <div id="loadingMessage">LOADING...</div>
         </div>
-        
-        <!-- Game Over Screen -->
-        <div id="gameOverScreen" style="display: none;">
-            <h1 id="gameOverText">GAME OVER</h1>
-            <div>Final Score: <span id="finalScore">0</span></div>
-            <button class="start-btn" onclick="window.gameManager.returnToMapSelection()">SELECT NEW MAP</button>
-        </div>
-        
-        <div id="loadingMessage">LOADING...</div>
     </div>
     
     <!-- Core Engine Scripts -->
@@ -123,20 +125,36 @@
     
     <!-- Initialize Game -->
     <script>
+        // Initialize canvas responsiveness
+        window.addEventListener('resize', () => {
+            if (window.gameManager) {
+                window.gameManager.handleResize();
+            }
+        });
+        
         // Wait for DOM to be ready
         window.addEventListener('DOMContentLoaded', async () => {
             try {
+                // Check if ConfigLoader is available
+                if (!window.ConfigLoader) {
+                    throw new Error('ConfigLoader not loaded. Please check that core/config-loader.js exists.');
+                }
+                
                 // Load configuration
+                console.log('Loading game configuration...');
                 const config = await window.ConfigLoader.loadConfig('config/settings.json');
+                console.log('Configuration loaded:', config);
                 
                 // Initialize game with configuration
                 window.gameManager = new GameManager(config);
                 await window.gameManager.initialize();
                 
                 console.log('Game initialized successfully');
+                document.getElementById('loadingMessage').style.display = 'none';
             } catch (error) {
                 console.error('Failed to initialize game:', error);
-                document.getElementById('loadingMessage').textContent = 'ERROR: Failed to load game';
+                document.getElementById('loadingMessage').textContent = 'ERROR: ' + error.message;
+                document.getElementById('loadingMessage').style.color = '#ff0000';
             }
         });
     </script>

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Megabot Test</title>
+    <style>
+        body {
+            background: #000;
+            color: #00ff00;
+            font-family: monospace;
+            padding: 20px;
+        }
+        .success { color: #00ff00; }
+        .error { color: #ff0000; }
+        .info { color: #ffff00; }
+    </style>
+</head>
+<body>
+    <h1>Megabot System Test</h1>
+    <div id="results"></div>
+    
+    <script src="core/config-loader.js"></script>
+    <script>
+        const results = document.getElementById('results');
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = message;
+            results.appendChild(div);
+        }
+        
+        // Test 1: Check if ConfigLoader exists
+        if (window.ConfigLoader) {
+            log('✓ ConfigLoader loaded successfully', 'success');
+        } else {
+            log('✗ ConfigLoader not found', 'error');
+        }
+        
+        // Test 2: Try to load config
+        if (window.ConfigLoader) {
+            window.ConfigLoader.loadConfig('config/settings.json')
+                .then(config => {
+                    log('✓ Configuration loaded successfully', 'success');
+                    log('Game dimensions: ' + config.game.width + 'x' + config.game.height, 'info');
+                })
+                .catch(error => {
+                    log('✗ Failed to load config: ' + error.message, 'error');
+                    log('Using default configuration', 'info');
+                });
+        }
+        
+        // Test 3: Check other core files
+        const coreFiles = [
+            'core/engine.js',
+            'core/input.js',
+            'core/physics.js',
+            'core/renderer.js',
+            'core/time.js'
+        ];
+        
+        log('Checking core files...', 'info');
+        coreFiles.forEach(file => {
+            fetch(file)
+                .then(response => {
+                    if (response.ok) {
+                        log('✓ ' + file + ' exists', 'success');
+                    } else {
+                        log('✗ ' + file + ' not found', 'error');
+                    }
+                })
+                .catch(() => {
+                    log('✗ ' + file + ' not accessible', 'error');
+                });
+        });
+    </script>
+</body>
+</html>

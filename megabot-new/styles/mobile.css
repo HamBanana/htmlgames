@@ -1,11 +1,14 @@
 /* mobile.css - Mobile specific styles and controls */
 
 .mobile-controls {
-    position: absolute;
+    position: fixed;
     bottom: 20px;
+    left: 0;
+    right: 0;
     width: 100%;
     display: none;
     pointer-events: none;
+    z-index: 50;
 }
 
 /* Joystick Controls */
@@ -84,7 +87,11 @@
     }
     
     #gameContainer {
-        max-height: calc(100vh - 140px);
+        padding-bottom: 140px; /* Space for mobile controls */
+    }
+    
+    #gameCanvas {
+        max-height: calc(100vh - 160px); /* Account for controls and padding */
     }
     
     #ui {
@@ -115,31 +122,31 @@
 /* Landscape Mode Adjustments */
 @media (orientation: landscape) and (max-height: 500px) {
     .mobile-controls {
-        bottom: 10px;
+        bottom: 5px;
     }
     
     .joystick-area {
-        width: 100px;
-        height: 100px;
-    }
-    
-    .joystick-base {
         width: 80px;
         height: 80px;
     }
     
+    .joystick-base {
+        width: 60px;
+        height: 60px;
+    }
+    
     .joystick-knob {
-        width: 30px;
-        height: 30px;
+        width: 25px;
+        height: 25px;
     }
     
     .btn {
-        width: 50px;
-        height: 50px;
-        font-size: 12px;
+        width: 40px;
+        height: 40px;
+        font-size: 10px;
     }
     
-    #gameContainer {
-        max-height: calc(100vh - 110px);
+    #gameCanvas {
+        max-height: calc(100vh - 90px);
     }
 }
