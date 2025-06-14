@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mega-Bot Sidescroller</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="styles/game-ui.css">
+    <link rel="stylesheet" href="styles/debug-menu.css">
+    <link rel="stylesheet" href="styles/mobile.css">
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        
+        <!-- UI Elements -->
+        <div id="ui">
+            <div>HEALTH: <div class="health-bar"><div class="health-fill" id="playerHealth"></div></div></div>
+            <div>LIVES: <span id="lives">3</span></div>
+            <div>SCORE: <span id="score">0</span></div>
+            <div style="font-size: 12px; color: #00cccc;">MAP: <span id="currentMapName">-</span></div>
+            <div id="chargeIndicator" style="display: none;">CHARGE: <span id="chargeLevel">0%</span></div>
+        </div>
+        
+        <div id="weaponIndicator" style="display: none;">WEAPON: <span id="currentWeapon">NORMAL</span></div>
+        
+        <div class="boss-health" id="bossUI">
+            <div>BOSS: <div class="health-bar boss-bar"><div class="health-fill boss-fill" id="bossHealth"></div></div></div>
+        </div>
+        
+        <div id="debugStats">
+            <div>FPS: <span id="fps">0</span></div>
+            <div>Entities: <span id="entityCount">0</span></div>
+            <div>Particles: <span id="particleCount">0</span></div>
+            <div>X: <span id="playerX">0</span></div>
+            <div>Y: <span id="playerY">0</span></div>
+        </div>
+        
+        <div id="debugMenu"></div>
+        
+        <!-- Mobile Controls -->
+        <div class="mobile-controls">
+            <div class="joystick-area">
+                <div class="joystick-base" id="joystick">
+                    <div class="joystick-knob" id="joystickKnob"></div>
+                </div>
+            </div>
+            <div class="action-buttons">
+                <div class="btn" id="jumpBtn">JUMP</div>
+                <div class="btn shoot-btn" id="shootBtn">SHOOT</div>
+            </div>
+        </div>
+        
+        <!-- Start Screen -->
+        <div id="startScreen">
+            <h1>MEGA-BOT</h1>
+            <div id="mapSelection">
+                <h3>SELECT MAP</h3>
+                <div id="mapButtons">
+                    <p style="color: #ffff00;">Loading maps...</p>
+                </div>
+            </div>
+            <p id="mapInstruction" style="color: #ffff00; margin: 10px 0; font-size: 14px;">Select a map above, then click START GAME</p>
+            <button class="start-btn" onclick="window.gameManager.startGame()">START GAME</button>
+            <div class="instructions">
+                <p><strong>Controls:</strong></p>
+                <p>Move: Arrow Keys / WASD</p>
+                <p>Jump: Z</p>
+                <p>Shoot: X (hold to charge)</p>
+                <p>Return to Menu: ESC</p>
+                <p style="color: #ffff00;">Charge shots pierce through enemies!</p>
+                <p>Defeat all enemies and reach the boss!</p>
+                <p style="color: #ff00ff;">Hold + for Debug Menu</p>
+            </div>
+        </div>
+        
+        <!-- Game Over Screen -->
+        <div id="gameOverScreen" style="display: none;">
+            <h1 id="gameOverText">GAME OVER</h1>
+            <div>Final Score: <span id="finalScore">0</span></div>
+            <button class="start-btn" onclick="window.gameManager.returnToMapSelection()">SELECT NEW MAP</button>
+        </div>
+        
+        <div id="loadingMessage">LOADING...</div>
+    </div>
+    
+    <!-- Core Engine Scripts -->
+    <script src="scripts/core/config-loader.js"></script>
+    <script src="scripts/core/engine.js"></script>
+    <script src="scripts/core/input.js"></script>
+    <script src="scripts/core/physics.js"></script>
+    <script src="scripts/core/renderer.js"></script>
+    <script src="scripts/core/time.js"></script>
+    
+    <!-- System Scripts -->
+    <script src="scripts/systems/weapon-system.js"></script>
+    <script src="scripts/systems/enemy-system.js"></script>
+    <script src="scripts/systems/particle-system.js"></script>
+    <script src="scripts/systems/audio-system.js"></script>
+    <script src="scripts/systems/collision-system.js"></script>
+    <script src="scripts/systems/camera-system.js"></script>
+    
+    <!-- Manager Scripts -->
+    <script src="scripts/managers/asset-manager.js"></script>
+    <script src="scripts/managers/level-manager.js"></script>
+    <script src="scripts/managers/state-manager.js"></script>
+    <script src="scripts/managers/ui-manager.js"></script>
+    <script src="scripts/managers/save-manager.js"></script>
+    <script src="scripts/managers/game-manager.js"></script>
+    
+    <!-- Entity Scripts -->
+    <script src="scripts/entities/player.js"></script>
+    <script src="scripts/entities/enemy.js"></script>
+    <script src="scripts/entities/boss.js"></script>
+    <script src="scripts/entities/projectile.js"></script>
+    <script src="scripts/entities/pickup.js"></script>
+    
+    <!-- Utility Scripts -->
+    <script src="scripts/utils/helpers.js"></script>
+    <script src="scripts/utils/math.js"></script>
+    <script src="scripts/utils/debug.js"></script>
+    <script src="scripts/utils/performance.js"></script>
+    
+    <!-- Initialize Game -->
+    <script>
+        // Wait for DOM to be ready
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // Load configuration
+                const config = await window.ConfigLoader.loadConfig('config/settings.json');
+                
+                // Initialize game with configuration
+                window.gameManager = new GameManager(config);
+                await window.gameManager.initialize();
+                
+                console.log('Game initialized successfully');
+            } catch (error) {
+                console.error('Failed to initialize game:', error);
+                document.getElementById('loadingMessage').textContent = 'ERROR: Failed to load game';
+            }
+        });
+    </script>
+</body>
+</html>

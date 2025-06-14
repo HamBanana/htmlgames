@@ -1,0 +1,1455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boom House</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            background: linear-gradient(135deg, #8B4513, #D2B48C);
+            font-family: 'Comic Sans MS', cursive;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        #gameContainer {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            cursor: crosshair;
+        }
+
+        .room {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, #87CEEB 0%, #87CEEB 40%, #8B4513 40%, #654321 100%);
+            position: relative;
+        }
+
+        .object {
+            position: absolute;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            border-radius: 8px;
+        }
+
+        .object:hover {
+            transform: scale(1.1);
+            filter: brightness(1.2);
+        }
+
+        /* Room Objects */
+        .sofa {
+            width: 200px;
+            height: 80px;
+            background: #8B0000;
+            bottom: 100px;
+            left: 50px;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+        }
+
+        .tv {
+            width: 150px;
+            height: 100px;
+            background: #2F2F2F;
+            bottom: 120px;
+            right: 80px;
+            border-radius: 8px;
+            border: 5px solid #1a1a1a;
+        }
+
+        .tv::after {
+            content: '';
+            position: absolute;
+            width: 130px;
+            height: 80px;
+            background: #000080;
+            top: 10px;
+            left: 10px;
+            border-radius: 4px;
+        }
+
+        .bookshelf {
+            width: 80px;
+            height: 180px;
+            background: #8B4513;
+            bottom: 40px;
+            left: 300px;
+            border: 3px solid #654321;
+        }
+
+        .bookshelf::before {
+            content: '';
+            position: absolute;
+            width: 70px;
+            height: 20px;
+            background: #654321;
+            top: 60px;
+            left: 5px;
+        }
+
+        .plant {
+            width: 60px;
+            height: 120px;
+            background: linear-gradient(135deg, #32CD32, #228B22);
+            bottom: 200px;
+            left: 400px;
+            border-radius: 50% 50% 0 0;
+            position: absolute;
+            z-index: 10;
+        }
+
+        .plant::before {
+            content: '';
+            position: absolute;
+            width: 40px;
+            height: 60px;
+            background: linear-gradient(45deg, #90EE90, #32CD32);
+            top: 20px;
+            left: -15px;
+            border-radius: 50% 50% 0 0;
+            transform: rotate(-20deg);
+        }
+
+        .plant::after {
+            content: '';
+            position: absolute;
+            width: 80px;
+            height: 35px;
+            background: linear-gradient(135deg, #CD853F, #8B4513);
+            bottom: -35px;
+            left: -10px;
+            border-radius: 50%;
+            border: 3px solid #654321;
+        }
+
+        .window {
+            width: 120px;
+            height: 150px;
+            background: #87CEEB;
+            top: 50px;
+            right: 50px;
+            border: 8px solid #8B4513;
+            border-radius: 8px;
+        }
+
+        .window::before {
+            content: '';
+            position: absolute;
+            width: 4px;
+            height: 100%;
+            background: #8B4513;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .window::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 4px;
+            background: #8B4513;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .cat {
+            width: 50px;
+            height: 40px;
+            background: #FF8C00;
+            bottom: 50px;
+            left: 150px;
+            border-radius: 50% 50% 20px 20px;
+            animation: catMove 4s ease-in-out infinite;
+        }
+
+        .cat::before {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: #FF8C00;
+            top: -10px;
+            left: 15px;
+            border-radius: 50%;
+        }
+
+        @keyframes catMove {
+            0%, 100% { transform: translateX(0); }
+            50% { transform: translateX(30px); }
+        }
+
+        .lamp {
+            width: 30px;
+            height: 100px;
+            background: #FFD700;
+            bottom: 180px;
+            left: 100px;
+            border-radius: 50% 50% 0 0;
+        }
+
+        .lamp::after {
+            content: '';
+            position: absolute;
+            width: 60px;
+            height: 40px;
+            background: #F0E68C;
+            top: -20px;
+            left: -15px;
+            border-radius: 50%;
+            opacity: 0.8;
+            box-shadow: 0 0 30px #FFD700;
+        }
+
+        /* UI Elements */
+        .message {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 25px;
+            font-size: 18px;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .message.show {
+            opacity: 1;
+        }
+
+        .score {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 16px;
+            z-index: 100;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            text-align: center;
+            font-size: 14px;
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 10px;
+        }
+
+        /* Mobile touch indicators */
+        .touch-indicator {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: rgba(255,255,255,0.5);
+            border-radius: 50%;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        /* Explosion Effects */
+        .explosion {
+            position: absolute;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            box-shadow: 0 0 10px currentColor;
+        }
+
+        .particle-small {
+            width: 6px;
+            height: 6px;
+        }
+
+        .particle-medium {
+            width: 12px;
+            height: 12px;
+        }
+
+        .particle-large {
+            width: 20px;
+            height: 20px;
+        }
+
+        .particle-chunk {
+            width: 16px;
+            height: 16px;
+            border-radius: 20%;
+            transform: rotate(45deg);
+        }
+
+        @keyframes explode {
+            0% {
+                transform: translate(0, 0) scale(1) rotate(0deg);
+                opacity: 1;
+            }
+            50% {
+                opacity: 1;
+            }
+            100% {
+                transform: translate(var(--dx), var(--dy)) scale(0) rotate(720deg);
+                opacity: 0;
+            }
+        }
+
+        @keyframes explode-chunk {
+            0% {
+                transform: translate(0, 0) scale(1) rotate(45deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(var(--dx), var(--dy)) scale(0.2) rotate(405deg);
+                opacity: 0;
+            }
+        }
+
+        @keyframes mega-flash {
+            0% { 
+                background: radial-gradient(circle, #ffffff 0%, #ffffff 10%, #ffff00 20%, #ff6600 40%, #ff0000 70%, #cc0000 100%); 
+                transform: scale(0.5); 
+                opacity: 1;
+                filter: brightness(3) saturate(2);
+            }
+            15% { 
+                background: radial-gradient(circle, #ffffff 0%, #ffff88 5%, #ffaa00 15%, #ff3300 35%, #cc0000 60%, #660000 100%); 
+                transform: scale(4); 
+                opacity: 1;
+                filter: brightness(4) saturate(3);
+            }
+            35% { 
+                background: radial-gradient(circle, #ffdd00 0%, #ff8800 10%, #ff4400 30%, #cc1100 50%, #880000 80%, #440000 100%); 
+                transform: scale(6); 
+                opacity: 0.9;
+                filter: brightness(3) saturate(2);
+            }
+            60% { 
+                background: radial-gradient(circle, #ff8800 0%, #ff4400 20%, #cc2200 50%, #881100 80%, #440000 100%); 
+                transform: scale(8); 
+                opacity: 0.6;
+                filter: brightness(2) saturate(1.5);
+            }
+            100% { 
+                background: radial-gradient(circle, #ff4400 0%, #cc2200 40%, #881100 80%, #440000 100%); 
+                transform: scale(0); 
+                opacity: 0; 
+                filter: brightness(1) saturate(1);
+            }
+        }
+
+        .mega-flash-effect {
+            position: absolute;
+            width: 400px;
+            height: 400px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #ffffff 0%, #ffff00 30%, #ff6600 70%, #ff0000 100%);
+            animation: mega-flash 2s ease-out;
+            z-index: 1001;
+            pointer-events: none;
+            box-shadow: 
+                0 0 100px #ffffff,
+                0 0 200px #ffff00, 
+                0 0 300px #ff6600, 
+                0 0 400px #ff3300,
+                0 0 500px #cc0000,
+                inset 0 0 100px #ffaa00;
+        }
+
+        @keyframes nuclear-shockwave {
+            0% {
+                transform: scale(0);
+                opacity: 1;
+                border-width: 15px;
+                filter: brightness(2);
+            }
+            25% {
+                opacity: 1;
+                border-width: 10px;
+                filter: brightness(1.8);
+            }
+            50% {
+                opacity: 0.8;
+                border-width: 6px;
+                filter: brightness(1.5);
+            }
+            100% {
+                transform: scale(15);
+                opacity: 0;
+                border-width: 1px;
+                filter: brightness(1);
+            }
+        }
+
+        .nuclear-shockwave {
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            border: 15px solid #FFD700;
+            border-radius: 50%;
+            animation: nuclear-shockwave 2.5s ease-out;
+            z-index: 1000;
+            pointer-events: none;
+            box-shadow: 
+                0 0 100px #FFD700, 
+                inset 0 0 100px #FFD700,
+                0 0 200px #FF6600,
+                0 0 300px #FF3300;
+        }
+
+        @keyframes triple-shockwave {
+            0% {
+                transform: scale(0);
+                opacity: 0.8;
+                border-width: 12px;
+            }
+            100% {
+                transform: scale(20);
+                opacity: 0;
+                border-width: 1px;
+            }
+        }
+
+        .triple-shockwave {
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            border: 12px solid #FF4500;
+            border-radius: 50%;
+            animation: triple-shockwave 3s ease-out;
+            z-index: 999;
+            pointer-events: none;
+            box-shadow: 0 0 80px #FF4500;
+        }
+
+        @keyframes particle-nova {
+            0% {
+                transform: translate(0, 0) scale(1) rotate(0deg);
+                opacity: 1;
+                filter: brightness(2);
+            }
+            25% {
+                opacity: 1;
+                filter: brightness(1.8);
+            }
+            50% {
+                opacity: 0.8;
+                filter: brightness(1.5);
+            }
+            100% {
+                transform: translate(var(--dx), var(--dy)) scale(0) rotate(1080deg);
+                opacity: 0;
+                filter: brightness(1);
+            }
+        }
+
+        .particle-nova {
+            box-shadow: 0 0 20px currentColor, 0 0 40px currentColor;
+            animation: particle-nova 2.5s ease-out forwards;
+        }
+
+        .particle-trail {
+            width: 4px;
+            height: 30px;
+            border-radius: 50% 50% 0 0;
+            background: linear-gradient(to bottom, currentColor, transparent);
+            animation: explode 2s ease-out forwards;
+        }
+
+        @keyframes mega-debris {
+            0% {
+                transform: translate(0, 0) rotate(0deg) scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(var(--dx), var(--dy)) rotate(var(--rotation)) scale(0.3);
+                opacity: 0;
+            }
+        }
+
+        .mega-debris {
+            position: absolute;
+            background: linear-gradient(45deg, #8B4513, #D2691E, #CD853F);
+            animation: mega-debris 3s ease-out forwards;
+            z-index: 995;
+            pointer-events: none;
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.5);
+        }
+
+        .smoke-puff {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background: radial-gradient(circle, rgba(100,100,100,0.6) 0%, rgba(150,150,150,0.4) 50%, transparent 100%);
+            border-radius: 50%;
+            animation: smoke-rise 4s ease-out forwards;
+            z-index: 994;
+            pointer-events: none;
+        }
+
+        @keyframes smoke-rise {
+            0% {
+                transform: translate(0, 0) scale(0.5);
+                opacity: 0.8;
+            }
+            50% {
+                opacity: 0.4;
+            }
+            100% {
+                transform: translate(var(--dx), var(--dy)) scale(2);
+                opacity: 0;
+            }
+        }
+
+        @keyframes shockwave {
+            0% {
+                transform: scale(0);
+                opacity: 1;
+                border-width: 8px;
+            }
+            50% {
+                opacity: 0.8;
+                border-width: 4px;
+            }
+            100% {
+                transform: scale(8);
+                opacity: 0;
+                border-width: 1px;
+            }
+        }
+
+        .shockwave {
+            position: absolute;
+            width: 150px;
+            height: 150px;
+            border: 8px solid #FFD700;
+            border-radius: 50%;
+            animation: shockwave 1.5s ease-out;
+            z-index: 998;
+            pointer-events: none;
+            box-shadow: 0 0 50px #FFD700, inset 0 0 50px #FFD700;
+        }
+
+        @keyframes secondary-shockwave {
+            0% {
+                transform: scale(0);
+                opacity: 0.6;
+                border-width: 6px;
+            }
+            100% {
+                transform: scale(12);
+                opacity: 0;
+                border-width: 1px;
+            }
+        }
+
+        .secondary-shockwave {
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            border: 6px solid #FF6600;
+            border-radius: 50%;
+            animation: secondary-shockwave 2s ease-out;
+            z-index: 997;
+            pointer-events: none;
+            box-shadow: 0 0 30px #FF6600;
+        }
+
+        @keyframes debris {
+            0% {
+                transform: translate(0, 0) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(var(--dx), var(--dy)) rotate(var(--rotation));
+                opacity: 0;
+            }
+        }
+
+        .debris {
+            position: absolute;
+            width: 8px;
+            height: 24px;
+            background: linear-gradient(45deg, #8B4513, #D2691E);
+            animation: debris 2s ease-out forwards;
+            z-index: 996;
+            pointer-events: none;
+        }
+
+        @media (max-width: 768px) {
+            .object { transform: scale(0.8); }
+            .message { font-size: 16px; padding: 10px 20px; }
+            .controls { font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div class="room">
+            <div class="object sofa" data-name="sofa" data-message="Henry's favorite red sofa - perfect for afternoon naps!"></div>
+            <div class="object tv" data-name="tv" data-message="An old TV showing Henry's favorite nature documentaries."></div>
+            <div class="object bookshelf" data-name="bookshelf" data-message="Henry's collection of mystery novels and cookbooks."></div>
+            <div class="object plant" data-name="plant" data-message="A thriving jade plant that Henry waters every morning."></div>
+            <div class="object window" data-name="window" data-message="The window overlooks Henry's garden with blooming roses."></div>
+            <div class="object cat" data-name="cat" data-message="Whiskers, Henry's orange tabby who loves to explore!"></div>
+            <div class="object lamp" data-name="lamp" data-message="A warm lamp that lights up Henry's reading corner."></div>
+        </div>
+        
+        <div class="message" id="message"></div>
+        <div class="score" id="score">Discovered: 0/7</div>
+        <div class="controls">
+            Click/Tap objects to explore Henry's house!<br>
+            Press R to reset | Press ESC for full exploration
+        </div>
+        <div class="touch-indicator" id="touchIndicator"></div>
+    </div>
+
+    <script>
+        class HenrysHouse {
+            constructor() {
+                this.discovered = new Set();
+                this.totalObjects = 7;
+                this.messageEl = document.getElementById('message');
+                this.scoreEl = document.getElementById('score');
+                this.touchIndicator = document.getElementById('touchIndicator');
+                
+                this.initAudio();
+                this.initEventListeners();
+                this.showWelcomeMessage();
+            }
+
+            initAudio() {
+                // Create audio context for sound synthesis
+                this.audioContext = null;
+                
+                // Initialize audio context on first user interaction
+                this.audioInitialized = false;
+            }
+
+            initializeAudioContext() {
+                if (!this.audioInitialized) {
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    this.audioInitialized = true;
+                }
+            }
+
+            playExplosionSound() {
+                if (!this.audioContext) return;
+
+                // Create ULTIMATE explosion sound layers - ALL AT ONCE!
+                this.playNuclearBoomSound();
+                this.playMegaThunderCrackSound();
+                setTimeout(() => this.playExplosiveWhooshSound(), 20);
+                setTimeout(() => this.playShockwaveSound(), 40);
+                setTimeout(() => this.playFireballRoarSound(), 100);
+                setTimeout(() => this.playMetalShrapnelSound(), 150);
+                setTimeout(() => this.playGlassShatterSound(), 180);
+                setTimeout(() => this.playCrackleSound(), 200);
+                setTimeout(() => this.playSparkleSound(), 400);
+                setTimeout(() => this.playEarthquakeRumbleSound(), 300);
+                
+                // Chain explosion sounds
+                setTimeout(() => this.playChainExplosion(), 300);
+                setTimeout(() => this.playChainExplosion(), 600);
+                setTimeout(() => this.playChainExplosion(), 900);
+                setTimeout(() => this.playFinalBoomSound(), 1200);
+            }
+
+            playNuclearBoomSound() {
+                const duration = 1.8;
+                
+                // Create MASSIVE overlapping nuclear boom
+                for (let i = 0; i < 5; i++) {
+                    setTimeout(() => {
+                        const oscillator = this.audioContext.createOscillator();
+                        const gainNode = this.audioContext.createGain();
+                        const filter = this.audioContext.createBiquadFilter();
+                        const distortion = this.audioContext.createWaveShaper();
+
+                        // ULTRA-LOW frequencies for maximum boom
+                        const startFreq = 35 - (i * 3);
+                        const endFreq = 8 - i;
+                        oscillator.frequency.setValueAtTime(startFreq, this.audioContext.currentTime);
+                        oscillator.frequency.exponentialRampToValueAtTime(endFreq, this.audioContext.currentTime + duration);
+                        oscillator.type = 'sawtooth';
+
+                        // Add distortion for more aggressive sound
+                        const samples = 1024;
+                        const curve = new Float32Array(samples);
+                        for (let j = 0; j < samples; j++) {
+                            const x = (j - samples/2) / (samples/2);
+                            curve[j] = Math.tanh(x * 3) * 0.8;
+                        }
+                        distortion.curve = curve;
+
+                        // Deep explosive filter
+                        filter.type = 'lowpass';
+                        filter.frequency.setValueAtTime(200 - (i * 15), this.audioContext.currentTime);
+                        filter.Q.setValueAtTime(3, this.audioContext.currentTime);
+
+                        // MAXIMUM volume envelope
+                        gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+                        gainNode.gain.linearRampToValueAtTime(0.6, this.audioContext.currentTime + 0.015);
+                        gainNode.gain.setValueAtTime(0.5, this.audioContext.currentTime + 0.2);
+                        gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + duration);
+
+                        oscillator.connect(distortion);
+                        distortion.connect(filter);
+                        filter.connect(gainNode);
+                        gainNode.connect(this.audioContext.destination);
+
+                        oscillator.start(this.audioContext.currentTime);
+                        oscillator.stop(this.audioContext.currentTime + duration);
+                    }, i * 20);
+                }
+            }
+
+            playMegaThunderCrackSound() {
+                const duration = 1.2;
+                
+                // Create MASSIVE thunder crack with white noise
+                const bufferSize = this.audioContext.sampleRate * duration;
+                const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+                const output = buffer.getChannelData(0);
+
+                // Generate white noise for realistic crack
+                for (let i = 0; i < bufferSize; i++) {
+                    output[i] = Math.random() * 2 - 1;
+                }
+
+                const noise = this.audioContext.createBufferSource();
+                const gainNode = this.audioContext.createGain();
+                const filter = this.audioContext.createBiquadFilter();
+
+                noise.buffer = buffer;
+
+                // Sharp crack filter
+                filter.type = 'bandpass';
+                filter.frequency.setValueAtTime(800, this.audioContext.currentTime);
+                filter.Q.setValueAtTime(8, this.audioContext.currentTime);
+
+                // Explosive crack envelope
+                gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.4, this.audioContext.currentTime + 0.003);
+                gainNode.gain.exponentialRampToValueAtTime(0.1, this.audioContext.currentTime + 0.05);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + duration);
+
+                noise.connect(filter);
+                filter.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
+
+                noise.start(this.audioContext.currentTime);
+            }
+
+            playExplosiveWhooshSound() {
+                const duration = 1.0;
+                
+                // Create whooshing air displacement sound
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+                const filter = this.audioContext.createBiquadFilter();
+
+                // Whoosh frequency sweep
+                oscillator.frequency.setValueAtTime(400, this.audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(80, this.audioContext.currentTime + duration);
+                oscillator.type = 'triangle';
+
+                // Whoosh filter
+                filter.type = 'highpass';
+                filter.frequency.setValueAtTime(200, this.audioContext.currentTime);
+                filter.frequency.exponentialRampToValueAtTime(50, this.audioContext.currentTime + duration);
+
+                // Whoosh envelope
+                gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.25, this.audioContext.currentTime + 0.1);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + duration);
+
+                oscillator.connect(filter);
+                filter.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
+
+                oscillator.start(this.audioContext.currentTime);
+                oscillator.stop(this.audioContext.currentTime + duration);
+            }
+
+            playShockwaveSound() {
+                const duration = 1.5;
+                
+                // Create shockwave pressure wave sound
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+                const filter = this.audioContext.createBiquadFilter();
+
+                // Low frequency pressure wave
+                oscillator.frequency.setValueAtTime(60, this.audioContext.currentTime);
+                oscillator.frequency.setValueAtTime(30, this.audioContext.currentTime + 0.5);
+                oscillator.frequency.setValueAtTime(15, this.audioContext.currentTime + duration);
+                oscillator.type = 'sine';
+
+                // Pressure wave filter
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(120, this.audioContext.currentTime);
+
+                // Pressure wave envelope
+                gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.3, this.audioContext.currentTime + 0.2);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + duration);
+
+                oscillator.connect(filter);
+                filter.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
+
+                oscillator.start(this.audioContext.currentTime);
+                oscillator.stop(this.audioContext.currentTime + duration);
+            }
+
+            playFireballRoarSound() {
+                const duration = 2.0;
+                
+                // Create fireball roar with filtered noise
+                const bufferSize = this.audioContext.sampleRate * duration;
+                const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+                const output = buffer.getChannelData(0);
+
+                // Generate pink noise for fire roar
+                for (let i = 0; i < bufferSize; i++) {
+                    output[i] = (Math.random() * 2 - 1) * Math.pow(0.9, i / bufferSize);
+                }
+
+                const noise = this.audioContext.createBufferSource();
+                const gainNode = this.audioContext.createGain();
+                const filter = this.audioContext.createBiquadFilter();
+
+                noise.buffer = buffer;
+
+                // Fire roar filter
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(500, this.audioContext.currentTime);
+                filter.frequency.exponentialRampToValueAtTime(200, this.audioContext.currentTime + duration);
+
+                // Fire roar envelope
+                gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.2, this.audioContext.currentTime + 0.1);
+                gainNode.gain.setValueAtTime(0.15, this.audioContext.currentTime + 1);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + duration);
+
+                noise.connect(filter);
+                filter.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
+
+                noise.start(this.audioContext.currentTime);
+            }
+
+            playMetalShrapnelSound() {
+                const duration = 1.5;
+                
+                // Create metallic shrapnel sounds
+                for (let i = 0; i < 15; i++) {
+                    setTimeout(() => {
+                        const oscillator = this.audioContext.createOscillator();
+                        const gainNode = this.audioContext.createGain();
+                        const filter = this.audioContext.createBiquadFilter();
+
+                        // Metallic frequencies
+                        const freq = 800 + Math.random() * 2000;
+                        oscillator.frequency.setValueAtTime(freq, this.audioContext.currentTime);
+                        oscillator.frequency.exponentialRampToValueAtTime(freq * 0.3, this.audioContext.currentTime + 0.1);
+                        oscillator.type = 'square';
+
+                        // Metallic filter
+                        filter.type = 'highpass';
+                        filter.frequency.setValueAtTime(600, this.audioContext.currentTime);
+
+                        // Sharp metallic envelope
+                        gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+                        gainNode.gain.linearRampToValueAtTime(0.15, this.audioContext.currentTime + 0.005);
+                        gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.2);
+
+                        oscillator.connect(filter);
+                        filter.connect(gainNode);
+                        gainNode.connect(this.audioContext.destination);
+
+                        oscillator.start(this.audioContext.currentTime);
+                        oscillator.stop(this.audioContext.currentTime + 0.2);
+                    }, Math.random() * 500);
+                }
+            }
+
+            playGlassShatterSound() {
+                const duration = 0.8;
+                
+                // Create glass shattering sound
+                for (let i = 0; i < 10; i++) {
+                    setTimeout(() => {
+                        const oscillator = this.audioContext.createOscillator();
+                        const gainNode = this.audioContext.createGain();
+
+                        // High frequency glass shatter
+                        const freq = 2000 + Math.random() * 3000;
+                        oscillator.frequency.setValueAtTime(freq, this.audioContext.currentTime);
+                        oscillator.type = 'triangle';
+
+                        // Glass shatter envelope
+                        gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+                        gainNode.gain.linearRampToValueAtTime(0.1, this.audioContext.currentTime + 0.002);
+                        gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.1);
+
+                        oscillator.connect(gainNode);
+                        gainNode.connect(this.audioContext.destination);
+
+                        oscillator.start(this.audioContext.currentTime);
+                        oscillator.stop(this.audioContext.currentTime + 0.1);
+                    }, i * 20);
+                }
+            }
+
+            playEarthquakeRumbleSound() {
+                const duration = 4.0;
+                
+                // Create extended earthquake rumble
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+                const filter = this.audioContext.createBiquadFilter();
+
+                // Ultra-low earthquake frequencies
+                oscillator.frequency.setValueAtTime(20, this.audioContext.currentTime);
+                oscillator.frequency.setValueAtTime(15, this.audioContext.currentTime + 2);
+                oscillator.frequency.setValueAtTime(8, this.audioContext.currentTime + duration);
+                oscillator.type = 'triangle';
+
+                // Earthquake filter
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(60, this.audioContext.currentTime);
+
+                // Long earthquake envelope
+                gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.25, this.audioContext.currentTime + 0.8);
+                gainNode.gain.setValueAtTime(0.2, this.audioContext.currentTime + 2);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + duration);
+
+                oscillator.connect(filter);
+                filter.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
+
+                oscillator.start(this.audioContext.currentTime);
+                oscillator.stop(this.audioContext.currentTime + duration);
+            }
+
+            playChainExplosion() {
+                // Smaller but still powerful chain explosions
+                this.playNuclearBoomSound();
+                setTimeout(() => this.playMegaThunderCrackSound(), 10);
+            }
+
+            playFinalBoomSound() {
+                // Ultimate final boom
+                const duration = 2.0;
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+                const filter = this.audioContext.createBiquadFilter();
+
+                // Massive final boom
+                oscillator.frequency.setValueAtTime(40, this.audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(5, this.audioContext.currentTime + duration);
+                oscillator.type = 'sawtooth';
+
+                // Ultimate filter
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(150, this.audioContext.currentTime);
+
+                // Final boom envelope
+                gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.5, this.audioContext.currentTime + 0.02);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + duration);
+
+                oscillator.connect(filter);
+                filter.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
+
+                oscillator.start(this.audioContext.currentTime);
+                oscillator.stop(this.audioContext.currentTime + duration);
+            }
+
+            playCrackleSound() {
+                const duration = 0.4;
+                
+                // Generate multiple crackling sounds
+                for (let i = 0; i < 8; i++) {
+                    setTimeout(() => {
+                        const oscillator = this.audioContext.createOscillator();
+                        const gainNode = this.audioContext.createGain();
+                        const filter = this.audioContext.createBiquadFilter();
+
+                        // Random high frequency crackle
+                        const freq = 800 + Math.random() * 1200;
+                        oscillator.frequency.setValueAtTime(freq, this.audioContext.currentTime);
+                        oscillator.type = 'square';
+
+                        // High-pass filter for crispy sound
+                        filter.type = 'highpass';
+                        filter.frequency.setValueAtTime(400, this.audioContext.currentTime);
+
+                        // Quick burst envelope
+                        gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+                        gainNode.gain.linearRampToValueAtTime(0.1, this.audioContext.currentTime + 0.005);
+                        gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.05);
+
+                        oscillator.connect(filter);
+                        filter.connect(gainNode);
+                        gainNode.connect(this.audioContext.destination);
+
+                        oscillator.start(this.audioContext.currentTime);
+                        oscillator.stop(this.audioContext.currentTime + 0.05);
+                    }, i * 20);
+                }
+            }
+
+            playSparkleSound() {
+                const duration = 0.6;
+                
+                // Generate sparkle/chime sounds
+                for (let i = 0; i < 12; i++) {
+                    setTimeout(() => {
+                        const oscillator = this.audioContext.createOscillator();
+                        const gainNode = this.audioContext.createGain();
+
+                        // Random high frequency sparkle
+                        const freq = 800 + Math.random() * 2000;
+                        oscillator.frequency.setValueAtTime(freq, this.audioContext.currentTime);
+                        oscillator.frequency.exponentialRampToValueAtTime(freq * 1.5, this.audioContext.currentTime + 0.1);
+                        oscillator.type = 'sine';
+
+                        // Gentle sparkle envelope
+                        gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+                        gainNode.gain.linearRampToValueAtTime(0.05, this.audioContext.currentTime + 0.01);
+                        gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.2);
+
+                        oscillator.connect(gainNode);
+                        gainNode.connect(this.audioContext.destination);
+
+                        oscillator.start(this.audioContext.currentTime);
+                        oscillator.stop(this.audioContext.currentTime + 0.2);
+                    }, i * 30);
+                }
+            }
+
+            playDiscoverySound() {
+                if (!this.audioContext) return;
+
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+
+                // Pleasant discovery chime
+                oscillator.frequency.setValueAtTime(523.25, this.audioContext.currentTime); // C5
+                oscillator.frequency.setValueAtTime(659.25, this.audioContext.currentTime + 0.1); // E5
+                oscillator.frequency.setValueAtTime(783.99, this.audioContext.currentTime + 0.2); // G5
+                oscillator.type = 'sine';
+
+                gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.1, this.audioContext.currentTime + 0.05);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.5);
+
+                oscillator.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
+
+                oscillator.start(this.audioContext.currentTime);
+                oscillator.stop(this.audioContext.currentTime + 0.5);
+            }
+
+            playCompletionSound() {
+                if (!this.audioContext) return;
+
+                // Victory fanfare
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                
+                notes.forEach((freq, index) => {
+                    setTimeout(() => {
+                        const oscillator = this.audioContext.createOscillator();
+                        const gainNode = this.audioContext.createGain();
+
+                        oscillator.frequency.setValueAtTime(freq, this.audioContext.currentTime);
+                        oscillator.type = 'triangle';
+
+                        gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+                        gainNode.gain.linearRampToValueAtTime(0.15, this.audioContext.currentTime + 0.05);
+                        gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.4);
+
+                        oscillator.connect(gainNode);
+                        gainNode.connect(this.audioContext.destination);
+
+                        oscillator.start(this.audioContext.currentTime);
+                        oscillator.stop(this.audioContext.currentTime + 0.4);
+                    }, index * 150);
+                });
+            }
+
+            initEventListeners() {
+                // Object interactions
+                document.querySelectorAll('.object').forEach(obj => {
+                    obj.addEventListener('click', (e) => this.handleObjectClick(e));
+                    obj.addEventListener('touchstart', (e) => this.handleObjectClick(e));
+                });
+
+                // Keyboard controls
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'r' || e.key === 'R') {
+                        this.reset();
+                    } else if (e.key === 'Escape') {
+                        this.revealAll();
+                    }
+                });
+
+                // Touch indicator
+                document.addEventListener('touchstart', (e) => this.showTouchIndicator(e));
+                document.addEventListener('touchend', () => this.hideTouchIndicator());
+            }
+
+            handleObjectClick(e) {
+                e.preventDefault();
+                
+                // Initialize audio on first click
+                this.initializeAudioContext();
+                
+                const obj = e.target;
+                const name = obj.dataset.name;
+                const message = obj.dataset.message;
+
+                // Play explosion sound
+                this.playExplosionSound();
+
+                if (!this.discovered.has(name)) {
+                    this.discovered.add(name);
+                    obj.style.filter = 'brightness(1.3) saturate(1.2)';
+                    this.updateScore();
+                    
+                    // Play discovery sound after explosion
+                    setTimeout(() => this.playDiscoverySound(), 400);
+                    
+                    if (this.discovered.size === this.totalObjects) {
+                        setTimeout(() => {
+                            this.showCompletionMessage();
+                            this.playCompletionSound();
+                        }, 1000);
+                    }
+                }
+
+                this.showMessage(message);
+                this.addClickEffect(obj);
+            }
+
+            showMessage(text) {
+                this.messageEl.textContent = text;
+                this.messageEl.classList.add('show');
+                
+                clearTimeout(this.messageTimeout);
+                this.messageTimeout = setTimeout(() => {
+                    this.messageEl.classList.remove('show');
+                }, 3000);
+            }
+
+            updateScore() {
+                this.scoreEl.textContent = `Discovered: ${this.discovered.size}/${this.totalObjects}`;
+            }
+
+            addClickEffect(element) {
+                // Create spectacular explosion
+                this.createExplosion(element);
+                
+                // Make object shake and then return
+                element.style.animation = 'none';
+                element.style.transform = 'scale(1.2)';
+                setTimeout(() => {
+                    element.style.transform = '';
+                }, 200);
+            }
+
+            createExplosion(element) {
+                const rect = element.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+
+                // Create MEGA flash effect - Nuclear-level brightness
+                const megaFlash = document.createElement('div');
+                megaFlash.className = 'mega-flash-effect';
+                megaFlash.style.left = (centerX - 200) + 'px';
+                megaFlash.style.top = (centerY - 200) + 'px';
+                document.body.appendChild(megaFlash);
+
+                // Create NUCLEAR shockwave
+                const nuclearShockwave = document.createElement('div');
+                nuclearShockwave.className = 'nuclear-shockwave';
+                nuclearShockwave.style.left = (centerX - 100) + 'px';
+                nuclearShockwave.style.top = (centerY - 100) + 'px';
+                document.body.appendChild(nuclearShockwave);
+
+                // Create TRIPLE shockwave
+                const tripleShockwave = document.createElement('div');
+                tripleShockwave.className = 'triple-shockwave';
+                tripleShockwave.style.left = (centerX - 150) + 'px';
+                tripleShockwave.style.top = (centerY - 150) + 'px';
+                document.body.appendChild(tripleShockwave);
+
+                // Create smoke effects
+                this.createSmokeEffects(centerX, centerY, 20);
+
+                // Create MEGA debris explosion
+                this.createMegaDebris(centerX, centerY, 30);
+
+                // Create MASSIVE particle nova systems
+                this.createParticleNova(centerX, centerY, 'nova', 60, 400, '#FF0000', '#FF4500', '#FF6600', '#FFD700');
+                this.createParticleNova(centerX, centerY, 'trail', 40, 350, '#FF1493', '#FF69B4', '#FF6347', '#FFA500');
+                this.createParticleNova(centerX, centerY, 'small', 80, 300, '#00FF00', '#00FFFF', '#0080FF', '#8000FF');
+                this.createParticleNova(centerX, centerY, 'medium', 50, 450, '#FFFF00', '#FF8C00', '#DC143C', '#9400D3');
+                this.createParticleNova(centerX, centerY, 'large', 30, 500, '#32CD32', '#FF1493', '#1E90FF', '#FFD700');
+                this.createParticleNova(centerX, centerY, 'chunk', 25, 550, '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4');
+
+                // Add CATASTROPHIC screen shake
+                this.catastrophicScreenShake();
+
+                // Multiple delayed secondary explosions
+                setTimeout(() => this.createSecondaryExplosion(centerX + 50, centerY - 30), 300);
+                setTimeout(() => this.createSecondaryExplosion(centerX - 60, centerY + 40), 600);
+                setTimeout(() => this.createSecondaryExplosion(centerX + 30, centerY + 50), 900);
+
+                // Clean up mega effects
+                setTimeout(() => {
+                    if (megaFlash.parentNode) megaFlash.parentNode.removeChild(megaFlash);
+                    if (nuclearShockwave.parentNode) nuclearShockwave.parentNode.removeChild(nuclearShockwave);
+                    if (tripleShockwave.parentNode) tripleShockwave.parentNode.removeChild(tripleShockwave);
+                }, 4000);
+            }
+
+            createParticleNova(centerX, centerY, type, count, maxDistance, ...colors) {
+                for (let i = 0; i < count; i++) {
+                    const particle = document.createElement('div');
+                    
+                    if (type === 'trail') {
+                        particle.className = `particle particle-trail`;
+                    } else {
+                        particle.className = `particle particle-${type} particle-nova`;
+                    }
+                    
+                    // Brilliant glowing colors
+                    const color = colors[Math.floor(Math.random() * colors.length)];
+                    particle.style.background = color;
+                    particle.style.color = color;
+                    
+                    // Position at explosion center
+                    particle.style.left = centerX + 'px';
+                    particle.style.top = centerY + 'px';
+                    
+                    // EXTREME spread pattern
+                    const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 1.5;
+                    const distance = (maxDistance * 0.3) + Math.random() * (maxDistance * 0.7);
+                    const dx = Math.cos(angle) * distance + (Math.random() - 0.5) * 100;
+                    const dy = Math.sin(angle) * distance + (Math.random() - 0.5) * 100;
+                    
+                    particle.style.setProperty('--dx', dx + 'px');
+                    particle.style.setProperty('--dy', dy + 'px');
+                    
+                    const duration = 2 + Math.random() * 1.5;
+                    
+                    document.body.appendChild(particle);
+                    
+                    // Remove particle after animation
+                    setTimeout(() => {
+                        if (particle.parentNode) {
+                            particle.parentNode.removeChild(particle);
+                        }
+                    }, (duration + 1) * 1000);
+                }
+            }
+
+            createMegaDebris(centerX, centerY, count) {
+                for (let i = 0; i < count; i++) {
+                    const debris = document.createElement('div');
+                    debris.className = 'mega-debris';
+                    
+                    // Random debris shapes and sizes
+                    const width = 8 + Math.random() * 20;
+                    const height = 12 + Math.random() * 35;
+                    debris.style.width = width + 'px';
+                    debris.style.height = height + 'px';
+                    debris.style.borderRadius = Math.random() * 20 + '%';
+                    
+                    // Position at explosion center
+                    debris.style.left = centerX + 'px';
+                    debris.style.top = centerY + 'px';
+                    
+                    // MASSIVE spread
+                    const angle = Math.random() * Math.PI * 2;
+                    const distance = 200 + Math.random() * 400;
+                    const dx = Math.cos(angle) * distance;
+                    const dy = Math.sin(angle) * distance + 100; // More gravity
+                    const rotation = Math.random() * 2160; // 6 full rotations
+                    
+                    debris.style.setProperty('--dx', dx + 'px');
+                    debris.style.setProperty('--dy', dy + 'px');
+                    debris.style.setProperty('--rotation', rotation + 'deg');
+                    
+                    document.body.appendChild(debris);
+                    
+                    // Remove debris after animation
+                    setTimeout(() => {
+                        if (debris.parentNode) {
+                            debris.parentNode.removeChild(debris);
+                        }
+                    }, 3000);
+                }
+            }
+
+            createSmokeEffects(centerX, centerY, count) {
+                for (let i = 0; i < count; i++) {
+                    setTimeout(() => {
+                        const smoke = document.createElement('div');
+                        smoke.className = 'smoke-puff';
+                        
+                        // Start near explosion center
+                        smoke.style.left = (centerX + (Math.random() - 0.5) * 100) + 'px';
+                        smoke.style.top = (centerY + (Math.random() - 0.5) * 100) + 'px';
+                        
+                        // Smoke rises and spreads
+                        const dx = (Math.random() - 0.5) * 200;
+                        const dy = -100 - Math.random() * 200; // Rise upward
+                        
+                        smoke.style.setProperty('--dx', dx + 'px');
+                        smoke.style.setProperty('--dy', dy + 'px');
+                        
+                        document.body.appendChild(smoke);
+                        
+                        // Remove smoke after animation
+                        setTimeout(() => {
+                            if (smoke.parentNode) {
+                                smoke.parentNode.removeChild(smoke);
+                            }
+                        }, 4000);
+                    }, i * 100);
+                }
+            }
+
+            createSecondaryExplosion(x, y) {
+                // Smaller but still impressive secondary explosions
+                this.createParticleNova(x, y, 'small', 20, 150, '#FF4500', '#FF6347', '#FFA500');
+                
+                const secondaryFlash = document.createElement('div');
+                secondaryFlash.className = 'flash-effect';
+                secondaryFlash.style.left = (x - 50) + 'px';
+                secondaryFlash.style.top = (y - 50) + 'px';
+                secondaryFlash.style.width = '100px';
+                secondaryFlash.style.height = '100px';
+                secondaryFlash.style.animation = 'flash 0.8s ease-out';
+                document.body.appendChild(secondaryFlash);
+                
+                setTimeout(() => {
+                    if (secondaryFlash.parentNode) {
+                        secondaryFlash.parentNode.removeChild(secondaryFlash);
+                    }
+                }, 800);
+            }
+
+            catastrophicScreenShake() {
+                const gameContainer = document.getElementById('gameContainer');
+                gameContainer.style.animation = 'none';
+                gameContainer.style.transform = 'translate(0, 0) rotate(0deg)';
+                
+                let shakeIntensity = 50; // EXTREME shake
+                let shakeCount = 0;
+                const maxShakes = 35; // Long duration shake
+                
+                const shake = () => {
+                    if (shakeCount < maxShakes) {
+                        const x = (Math.random() - 0.5) * shakeIntensity;
+                        const y = (Math.random() - 0.5) * shakeIntensity;
+                        const rotation = (Math.random() - 0.5) * 8; // Heavy rotation
+                        const scale = 0.95 + Math.random() * 0.1; // Scale variation
+                        gameContainer.style.transform = `translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${scale})`;
+                        
+                        shakeIntensity *= 0.92; // Very slow decay
+                        shakeCount++;
+                        
+                        setTimeout(shake, 20); // Very fast shake
+                    } else {
+                        gameContainer.style.transform = 'translate(0, 0) rotate(0deg) scale(1)';
+                    }
+                };
+                
+                shake();
+            }
+
+            showTouchIndicator(e) {
+                if (e.touches && e.touches[0]) {
+                    const touch = e.touches[0];
+                    this.touchIndicator.style.left = touch.clientX + 'px';
+                    this.touchIndicator.style.top = touch.clientY + 'px';
+                    this.touchIndicator.style.opacity = '1';
+                }
+            }
+
+            hideTouchIndicator() {
+                this.touchIndicator.style.opacity = '0';
+            }
+
+            showWelcomeMessage() {
+                setTimeout(() => {
+                    this.showMessage("Welcome to Henry's cozy house! Explore and discover all the interesting objects.");
+                }, 1000);
+            }
+
+            showCompletionMessage() {
+                this.showMessage("🎉 Amazing! You've explored every corner of Henry's house! Press R to explore again.");
+            }
+
+            reset() {
+                this.discovered.clear();
+                this.updateScore();
+                
+                document.querySelectorAll('.object').forEach(obj => {
+                    obj.style.filter = '';
+                    obj.style.transform = '';
+                });
+                
+                this.showMessage("Henry's house is ready for a new exploration!");
+            }
+
+            revealAll() {
+                document.querySelectorAll('.object').forEach(obj => {
+                    const name = obj.dataset.name;
+                    if (!this.discovered.has(name)) {
+                        this.discovered.add(name);
+                        obj.style.filter = 'brightness(1.3) saturate(1.2)';
+                    }
+                });
+                
+                this.updateScore();
+                this.showMessage("All of Henry's treasures revealed! What a wonderful house!");
+            }
+        }
+
+        // Start the game
+        window.addEventListener('load', () => {
+            new HenrysHouse();
+        });
+
+        // Prevent context menu on mobile
+        document.addEventListener('contextmenu', e => e.preventDefault());
+    </script>
+</body>
+</html>

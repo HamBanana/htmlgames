@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wealthy Character 3D Model</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            background: #1a1a1a;
+        }
+        #container {
+            width: 100vw;
+            height: 100vh;
+        }
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 20px;
+            border-radius: 10px;
+            color: white;
+        }
+        button {
+            margin: 5px;
+            padding: 10px 20px;
+            background: #4CAF50;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        #exportBtn {
+            background: #2196F3;
+            margin-top: 20px;
+        }
+        #exportBtn:hover {
+            background: #0b7dda;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <div id="controls">
+        <h3>Wealthy Character Model</h3>
+        <p>Animation Controls:</p>
+        <button onclick="playAnimation('idle')">Idle</button>
+        <button onclick="playAnimation('move')">Move</button>
+        <button onclick="playAnimation('attack')">Attack</button>
+        <br>
+        <button id="exportBtn" onclick="exportModel()">Export as GLB</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        let scene, camera, renderer, character, mixer, clock;
+        let animations = {};
+        let currentAction = null;
+        let moneyBills = [];
+        let moneyDropTimer = 0;
+
+        // Initialize Three.js scene
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a1a1a);
+            scene.fog = new THREE.Fog(0x1a1a1a, 10, 50);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 3, 8);
+            camera.lookAt(0, 2, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('container').appendChild(renderer.domElement);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(10, 10, 5);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.camera.near = 0.1;
+            directionalLight.shadow.camera.far = 50;
+            directionalLight.shadow.camera.left = -10;
+            directionalLight.shadow.camera.right = 10;
+            directionalLight.shadow.camera.top = 10;
+            directionalLight.shadow.camera.bottom = -10;
+            scene.add(directionalLight);
+
+            // Ground
+            const groundGeometry = new THREE.PlaneGeometry(20, 20);
+            const groundMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x333333,
+                roughness: 0.8
+            });
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // Create character
+            createCharacter();
+
+            // Initialize animation
+            clock = new THREE.Clock();
+            mixer = new THREE.AnimationMixer(character);
+
+            // Create animations
+            createAnimations();
+
+            // Start with idle animation
+            playAnimation('idle');
+
+            // Mouse controls
+            let mouseX = 0;
+            let mouseY = 0;
+            document.addEventListener('mousemove', (e) => {
+                mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+                mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
+            });
+
+            // Handle window resize
+            window.addEventListener('resize', onWindowResize);
+
+            // Animation loop
+            animate();
+        }
+
+        function createCharacter() {
+            character = new THREE.Group();
+
+            // Body
+            const bodyGeometry = new THREE.CylinderGeometry(0.8, 0.9, 2.5, 8);
+            const suitMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x2c3e50,
+                roughness: 0.7
+            });
+            const body = new THREE.Mesh(bodyGeometry, suitMaterial);
+            body.position.y = 2.5;
+            body.castShadow = true;
+            character.add(body);
+
+            // Head
+            const headGeometry = new THREE.SphereGeometry(0.5, 8, 6);
+            const skinMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0xffdbac,
+                roughness: 0.8
+            });
+            const head = new THREE.Mesh(headGeometry, skinMaterial);
+            head.position.y = 4.2;
+            head.castShadow = true;
+            character.add(head);
+
+            // Top hat
+            const hatBottomGeometry = new THREE.CylinderGeometry(0.7, 0.7, 0.1, 8);
+            const hatTopGeometry = new THREE.CylinderGeometry(0.5, 0.5, 0.8, 8);
+            const hatMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x1a1a1a,
+                roughness: 0.5
+            });
+            const hatBottom = new THREE.Mesh(hatBottomGeometry, hatMaterial);
+            hatBottom.position.y = 4.7;
+            const hatTop = new THREE.Mesh(hatTopGeometry, hatMaterial);
+            hatTop.position.y = 5.1;
+            character.add(hatBottom);
+            character.add(hatTop);
+
+            // Arms
+            const armGeometry = new THREE.CylinderGeometry(0.2, 0.2, 1.5, 6);
+            const leftArm = new THREE.Mesh(armGeometry, suitMaterial);
+            leftArm.position.set(-1, 3, 0);
+            leftArm.rotation.z = Math.PI / 8;
+            leftArm.castShadow = true;
+            character.add(leftArm);
+
+            const rightArm = new THREE.Mesh(armGeometry, suitMaterial);
+            rightArm.position.set(1, 3, 0);
+            rightArm.rotation.z = -Math.PI / 8;
+            rightArm.castShadow = true;
+            character.add(rightArm);
+
+            // Legs
+            const legGeometry = new THREE.CylinderGeometry(0.25, 0.25, 1.5, 6);
+            const leftLeg = new THREE.Mesh(legGeometry, suitMaterial);
+            leftLeg.position.set(-0.4, 0.75, 0);
+            leftLeg.castShadow = true;
+            character.add(leftLeg);
+
+            const rightLeg = new THREE.Mesh(legGeometry, suitMaterial);
+            rightLeg.position.set(0.4, 0.75, 0);
+            rightLeg.castShadow = true;
+            character.add(rightLeg);
+
+            // Pockets with money
+            const pocketGeometry = new THREE.BoxGeometry(0.3, 0.4, 0.2);
+            const pocketMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x1a1a1a,
+                roughness: 0.9
+            });
+            
+            const leftPocket = new THREE.Mesh(pocketGeometry, pocketMaterial);
+            leftPocket.position.set(-0.7, 2.2, 0.4);
+            character.add(leftPocket);
+
+            const rightPocket = new THREE.Mesh(pocketGeometry, pocketMaterial);
+            rightPocket.position.set(0.7, 2.2, 0.4);
+            character.add(rightPocket);
+
+            // Money sticking out of pockets
+            const moneyGeometry = new THREE.BoxGeometry(0.2, 0.15, 0.02);
+            const moneyMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x85bb65,
+                roughness: 0.3
+            });
+
+            for (let i = 0; i < 3; i++) {
+                const money = new THREE.Mesh(moneyGeometry, moneyMaterial);
+                money.position.set(-0.7 + Math.random() * 0.1, 2.4, 0.5);
+                money.rotation.z = Math.random() * 0.3 - 0.15;
+                character.add(money);
+            }
+
+            for (let i = 0; i < 3; i++) {
+                const money = new THREE.Mesh(moneyGeometry, moneyMaterial);
+                money.position.set(0.7 + Math.random() * 0.1, 2.4, 0.5);
+                money.rotation.z = Math.random() * 0.3 - 0.15;
+                character.add(money);
+            }
+
+            // Store body parts for animation
+            character.userData = {
+                body: body,
+                head: head,
+                leftArm: leftArm,
+                rightArm: rightArm,
+                leftLeg: leftLeg,
+                rightLeg: rightLeg,
+                hatTop: hatTop
+            };
+
+            scene.add(character);
+        }
+
+        function createMoneyBill(x, y, z) {
+            const billGeometry = new THREE.BoxGeometry(0.3, 0.15, 0.01);
+            const billMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x85bb65,
+                roughness: 0.3,
+                emissive: 0x85bb65,
+                emissiveIntensity: 0.1
+            });
+            const bill = new THREE.Mesh(billGeometry, billMaterial);
+            bill.position.set(x, y, z);
+            bill.rotation.set(
+                Math.random() * Math.PI,
+                Math.random() * Math.PI,
+                Math.random() * Math.PI
+            );
+            bill.castShadow = true;
+            
+            bill.userData = {
+                velocity: new THREE.Vector3(
+                    (Math.random() - 0.5) * 0.02,
+                    -0.01,
+                    (Math.random() - 0.5) * 0.02
+                ),
+                angularVelocity: new THREE.Vector3(
+                    Math.random() * 0.1,
+                    Math.random() * 0.1,
+                    Math.random() * 0.1
+                )
+            };
+            
+            scene.add(bill);
+            moneyBills.push(bill);
+        }
+
+        function updateMoneyBills(delta) {
+            for (let i = moneyBills.length - 1; i >= 0; i--) {
+                const bill = moneyBills[i];
+                
+                // Update position
+                bill.position.add(bill.userData.velocity);
+                bill.userData.velocity.y -= 0.001; // Gravity
+                
+                // Update rotation
+                bill.rotation.x += bill.userData.angularVelocity.x;
+                bill.rotation.y += bill.userData.angularVelocity.y;
+                bill.rotation.z += bill.userData.angularVelocity.z;
+                
+                // Remove if below ground
+                if (bill.position.y < 0) {
+                    scene.remove(bill);
+                    moneyBills.splice(i, 1);
+                }
+            }
+        }
+
+        function createAnimations() {
+            // Idle animation
+            const idleTimes = [0, 1, 2];
+            const idleValues = [
+                0, 0, 0,  // Start position
+                0, 0.05, 0,  // Slight up
+                0, 0, 0   // Back to start
+            ];
+            const idleKF = new THREE.VectorKeyframeTrack('.position', idleTimes, idleValues);
+            
+            const idleClip = new THREE.AnimationClip('idle', 2, [idleKF]);
+            animations.idle = mixer.clipAction(idleClip);
+            animations.idle.setLoop(THREE.LoopRepeat);
+
+            // Move animation
+            const moveTimes = [0, 0.5, 1];
+            const moveValues = [
+                0, 0, 0,
+                0, 0.1, 0.2,
+                0, 0, 0
+            ];
+            const moveKF = new THREE.VectorKeyframeTrack('.position', moveTimes, moveValues);
+            
+            const moveClip = new THREE.AnimationClip('move', 1, [moveKF]);
+            animations.move = mixer.clipAction(moveClip);
+            animations.move.setLoop(THREE.LoopRepeat);
+
+            // Attack animation (throwing money)
+            const attackTimes = [0, 0.3, 0.6, 1];
+            const attackValues = [
+                0, 0, 0,
+                -Math.PI/4, 0, 0,
+                Math.PI/6, 0, 0,
+                0, 0, 0
+            ];
+            const attackKF = new THREE.VectorKeyframeTrack('.userData.rightArm.rotation', attackTimes, attackValues);
+            
+            const attackClip = new THREE.AnimationClip('attack', 1, [attackKF]);
+            animations.attack = mixer.clipAction(attackClip);
+            animations.attack.setLoop(THREE.LoopOnce);
+        }
+
+        function playAnimation(name) {
+            if (currentAction) {
+                currentAction.fadeOut(0.5);
+            }
+            
+            currentAction = animations[name];
+            if (currentAction) {
+                currentAction.reset().fadeIn(0.5).play();
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const delta = clock.getDelta();
+            
+            if (mixer) {
+                mixer.update(delta);
+            }
+            
+            // Animate character parts manually
+            const time = clock.getElapsedTime();
+            
+            if (character && character.userData) {
+                const parts = character.userData;
+                
+                // Idle breathing
+                if (currentAction === animations.idle) {
+                    parts.body.scale.y = 1 + Math.sin(time * 2) * 0.02;
+                    parts.head.position.y = 4.2 + Math.sin(time * 2) * 0.05;
+                    moneyDropTimer += delta;
+                    if (moneyDropTimer > 3) {
+                        createMoneyBill(
+                            character.position.x + (Math.random() - 0.5) * 1.5,
+                            character.position.y + 2.2,
+                            character.position.z + 0.5
+                        );
+                        moneyDropTimer = 0;
+                    }
+                }
+                
+                // Walking animation
+                if (currentAction === animations.move) {
+                    parts.leftLeg.rotation.x = Math.sin(time * 8) * 0.5;
+                    parts.rightLeg.rotation.x = -Math.sin(time * 8) * 0.5;
+                    parts.leftArm.rotation.x = -Math.sin(time * 8) * 0.3;
+                    parts.rightArm.rotation.x = Math.sin(time * 8) * 0.3;
+                    character.position.z = Math.sin(time * 4) * 0.5;
+                    
+                    moneyDropTimer += delta;
+                    if (moneyDropTimer > 0.5) {
+                        createMoneyBill(
+                            character.position.x + (Math.random() - 0.5) * 1.5,
+                            character.position.y + 2.2,
+                            character.position.z + 0.5
+                        );
+                        moneyDropTimer = 0;
+                    }
+                }
+                
+                // Attack animation
+                if (currentAction === animations.attack) {
+                    const attackProgress = (time % 1);
+                    if (attackProgress < 0.3) {
+                        parts.rightArm.rotation.z = -Math.PI / 8 - attackProgress * Math.PI / 2;
+                    } else if (attackProgress < 0.6) {
+                        parts.rightArm.rotation.z = -Math.PI / 8 + (attackProgress - 0.3) * Math.PI;
+                        if (moneyDropTimer === 0) {
+                            // Throw money
+                            for (let i = 0; i < 5; i++) {
+                                const bill = createMoneyBill(
+                                    character.position.x + 1,
+                                    character.position.y + 3,
+                                    character.position.z
+                                );
+                                moneyBills[moneyBills.length - 1].userData.velocity = new THREE.Vector3(
+                                    0.1 + Math.random() * 0.1,
+                                    0.1 + Math.random() * 0.05,
+                                    (Math.random() - 0.5) * 0.1
+                                );
+                            }
+                            moneyDropTimer = 1;
+                        }
+                    } else {
+                        parts.rightArm.rotation.z = -Math.PI / 8;
+                        moneyDropTimer = 0;
+                    }
+                }
+                
+                // Subtle idle movement
+                parts.hatTop.rotation.y = Math.sin(time) * 0.05;
+            }
+            
+            // Update money bills
+            updateMoneyBills(delta);
+            
+            // Camera orbit
+            camera.position.x = Math.sin(time * 0.1) * 8;
+            camera.position.z = Math.cos(time * 0.1) * 8;
+            camera.lookAt(0, 2, 0);
+            
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function exportModel() {
+            // Dynamically load GLTFExporter
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js';
+            script.onload = function() {
+                // Now GLTFExporter should be available
+                const exporter = new THREE.GLTFExporter();
+                
+                // Create a clean export scene
+                const exportScene = new THREE.Scene();
+                
+                // Clone the character for export
+                const exportCharacter = character.clone();
+                exportScene.add(exportCharacter);
+                
+                // Export options
+                const options = {
+                    binary: true,
+                    onlyVisible: true,
+                    includeCustomExtensions: false
+                };
+                
+                // Parse and export
+                exporter.parse(
+                    exportScene,
+                    function (result) {
+                        // Download the GLB file
+                        const blob = new Blob([result], { type: 'application/octet-stream' });
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        document.body.appendChild(link);
+                        link.href = URL.createObjectURL(blob);
+                        link.download = 'wealthy-character.glb';
+                        link.click();
+                        document.body.removeChild(link);
+                    },
+                    function (error) {
+                        console.error('An error occurred during export:', error);
+                        alert('Export failed. Please check the console for details.');
+                    },
+                    options
+                );
+            };
+            
+            script.onerror = function() {
+                alert('Failed to load GLTFExporter. Falling back to JSON export...');
+                exportAsJSON();
+            };
+            
+            document.head.appendChild(script);
+        }
+        
+        function exportAsJSON() {
+            // Fallback JSON export with model structure
+            const modelData = {
+                name: "WealthyCharacter",
+                type: "Character",
+                animations: ["idle", "move", "attack"],
+                meshes: []
+            };
+            
+            // Traverse character and collect mesh data
+            character.traverse((child) => {
+                if (child.isMesh) {
+                    modelData.meshes.push({
+                        name: child.name || 'mesh',
+                        position: child.position.toArray(),
+                        rotation: child.rotation.toArray(),
+                        scale: child.scale.toArray(),
+                        geometry: child.geometry.type,
+                        material: {
+                            color: child.material.color ? child.material.color.getHex() : 0xffffff,
+                            roughness: child.material.roughness || 0.5
+                        }
+                    });
+                }
+            });
+            
+            const blob = new Blob([JSON.stringify(modelData, null, 2)], { type: 'application/json' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'wealthy-character-structure.json';
+            link.click();
+        }
+
+        // Initialize the scene
+        init();
+    </script>
+</body>
+</html>

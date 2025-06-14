@@ -1,0 +1,437 @@
+{
+  "sprites": {
+    "directory": "assets/sprites/",
+    "player": {
+      "json": "ninjamand.json",
+      "sheet": "ninjamand.png",
+      "scale": 1.0,
+      "animations": {
+        "idle": "idle",
+        "walk": "walk",
+        "jump": "jump",
+        "shoot": "hrz strike",
+        "slide": "guard crouch",
+        "hurt": "dmg high",
+        "charge": "vrt strike"
+      }
+    },
+    "boss": {
+      "json": "boss-ninja.json",
+      "sheet": "boss-ninja.png",
+      "scale": 2.0
+    },
+    "enemies": {
+      "walker": {
+        "json": "robot-walker.json",
+        "sheet": "robot-walker.png"
+      },
+      "flyer": {
+        "json": "drone.json",
+        "sheet": "drone.png"
+      },
+      "turret": {
+        "json": "turret.json",
+        "sheet": "turret.png"
+      }
+    },
+    "projectiles": {
+      "playerBullet": {
+        "color": "#00ff00",
+        "glowColor": "#00ff00",
+        "glowIntensity": 5
+      },
+      "enemyBullet": {
+        "color": "#ff0000",
+        "glowColor": "#ff0000",
+        "glowIntensity": 5
+      },
+      "chargedShot": {
+        "color": "#ffff00",
+        "glowColor": "#ffff00",
+        "glowIntensity": 15
+      }
+    },
+    "effects": {
+      "explosion": {
+        "json": "explosion.json",
+        "sheet": "explosion.png"
+      },
+      "spark": {
+        "json": "spark.json",
+        "sheet": "spark.png"
+      }
+    }
+  },
+  
+  "game": {
+    "width": 800,
+    "height": 600,
+    "gravity": 0.5,
+    "friction": 0.1,
+    "maxProjectiles": 50,
+    "particleLimit": 200,
+    "levelWidth": 3200,
+    "levelHeight": 600,
+    "backgroundColor": "#000000"
+  },
+  
+  "player": {
+    "width": 30,
+    "height": 40,
+    "health": 100,
+    "maxHealth": 100,
+    "speed": 5,
+    "jumpPower": 12,
+    "slideSpeed": 8,
+    "slideHeight": 20,
+    "slideDuration": 20,
+    "invulnerabilityTime": 60,
+    "maxCharge": 60,
+    "lives": 3,
+    "respawnInvulnerability": 120,
+    "weapon": {
+      "damage": 10,
+      "speed": 10,
+      "cooldown": 10,
+      "size": {
+        "width": 8,
+        "height": 4
+      },
+      "chargedDamageMultiplier": 4,
+      "mediumChargeThreshold": 10
+    }
+  },
+  
+  "weapons": {
+    "normal": {
+      "name": "NORMAL",
+      "damage": 10,
+      "speed": 10,
+      "cooldown": 10,
+      "projectileSize": { "width": 8, "height": 4 }
+    },
+    "rapid": {
+      "name": "RAPID FIRE",
+      "damage": 7,
+      "speed": 15,
+      "cooldown": 3,
+      "burstCount": 3,
+      "projectileSize": { "width": 6, "height": 3 }
+    },
+    "spread": {
+      "name": "SPREAD SHOT",
+      "damage": 8,
+      "speed": 10,
+      "cooldown": 15,
+      "spreadCount": 5,
+      "spreadAngle": 0.2,
+      "projectileSize": { "width": 6, "height": 6 }
+    },
+    "laser": {
+      "name": "LASER",
+      "damage": 5,
+      "speed": 0,
+      "cooldown": 20,
+      "duration": 10,
+      "width": 800,
+      "projectileSize": { "width": 800, "height": 2 }
+    },
+    "wave": {
+      "name": "WAVE BEAM",
+      "damage": 15,
+      "speed": 8,
+      "cooldown": 15,
+      "waveAmplitude": 3,
+      "waveFrequency": 0.3,
+      "projectileSize": { "width": 12, "height": 12 }
+    },
+    "bounce": {
+      "name": "BOUNCE SHOT",
+      "damage": 12,
+      "speed": 10,
+      "cooldown": 12,
+      "bounceCount": 3,
+      "gravity": 0.5,
+      "projectileSize": { "width": 8, "height": 8 }
+    }
+  },
+  
+  "boss": {
+    "width": 80,
+    "height": 100,
+    "health": 200,
+    "maxHealth": 200,
+    "triggerDistance": 2800,
+    "scoreValue": 1000,
+    "phases": [
+      {
+        "healthThreshold": 1.0,
+        "speed": 2,
+        "attackInterval": 80,
+        "movementPattern": "sine",
+        "movementSpeed": 0.02,
+        "patterns": ["triple"]
+      },
+      {
+        "healthThreshold": 0.5,
+        "speed": 3,
+        "attackInterval": 60,
+        "movementPattern": "erratic",
+        "movementSpeed": 0.03,
+        "patterns": ["spread", "triple"]
+      }
+    ],
+    "attacks": {
+      "triple": {
+        "projectileCount": 3,
+        "spread": 2,
+        "damage": 15,
+        "speed": 8
+      },
+      "spread": {
+        "projectileCount": 5,
+        "angleRange": 0.3,
+        "damage": 10,
+        "speed": 7
+      }
+    },
+    "projectile": {
+      "damage": 15,
+      "baseSpeed": 8,
+      "size": {
+        "width": 10,
+        "height": 10
+      }
+    }
+  },
+  
+  "enemies": {
+    "walker": {
+      "width": 30,
+      "height": 35,
+      "health": 20,
+      "speed": 1,
+      "damage": 10,
+      "detectionRange": 300,
+      "scoreValue": 100,
+      "patrolDistance": 100,
+      "shootCooldown": 60,
+      "color": "#ff00ff"
+    },
+    "flyer": {
+      "width": 30,
+      "height": 35,
+      "health": 20,
+      "speed": 0.5,
+      "damage": 10,
+      "detectionRange": 200,
+      "scoreValue": 100,
+      "floatAmplitude": 2,
+      "floatSpeed": 0.05,
+      "shootCooldown": 60,
+      "color": "#00ffff"
+    },
+    "turret": {
+      "width": 40,
+      "height": 30,
+      "health": 30,
+      "damage": 10,
+      "detectionRange": 300,
+      "scoreValue": 100,
+      "shootCooldown": 60,
+      "projectileSpeed": 5,
+      "color": "#ff6600"
+    }
+  },
+  
+  "pickups": {
+    "health": {
+      "size": { "width": 20, "height": 20 },
+      "healAmount": 30,
+      "color": "#00ff00",
+      "floatSpeed": 0.003,
+      "floatAmount": 0.5
+    },
+    "powerup": {
+      "size": { "width": 20, "height": 20 },
+      "scoreAmount": 500,
+      "color": "#ffff00"
+    },
+    "shield": {
+      "size": { "width": 20, "height": 20 },
+      "duration": 300,
+      "color": "#00ffff"
+    },
+    "speed": {
+      "size": { "width": 20, "height": 20 },
+      "duration": 600,
+      "speedMultiplier": 1.5,
+      "color": "#ff00ff"
+    },
+    "weaponPickup": {
+      "size": { "width": 25, "height": 25 },
+      "glowIntensity": 10
+    }
+  },
+  
+  "ui": {
+    "colors": {
+      "primary": "#00ff00",
+      "danger": "#ff0000",
+      "warning": "#ffff00",
+      "boss": "#ff00ff",
+      "charge": "#00ffff",
+      "chargeMax": "#ffff00",
+      "background": "#000000",
+      "text": "#ffffff",
+      "textShadow": "currentColor"
+    },
+    "fonts": {
+      "main": "'Courier New', monospace",
+      "size": {
+        "normal": "16px",
+        "small": "12px",
+        "large": "24px",
+        "title": "48px"
+      }
+    },
+    "healthBar": {
+      "width": 100,
+      "height": 10,
+      "borderWidth": 1,
+      "borderColor": "#00ff00",
+      "backgroundColor": "#333333",
+      "fillColor": "#00ff00"
+    },
+    "bossHealthBar": {
+      "width": 200,
+      "height": 20,
+      "borderWidth": 2,
+      "borderColor": "#ff0000",
+      "backgroundColor": "#333333",
+      "fillColor": "#ff0000"
+    },
+    "shadows": {
+      "blur": 10,
+      "color": "currentColor"
+    }
+  },
+  
+  "particles": {
+    "damage": {
+      "count": 10,
+      "speed": 8,
+      "lifetime": 25,
+      "sizeRange": [2, 6],
+      "color": "#ffff00",
+      "gravity": 0.3
+    },
+    "explosion": {
+      "count": 30,
+      "speed": 8,
+      "lifetime": 25,
+      "sizeRange": [2, 6],
+      "color": "#ff00ff",
+      "gravity": 0.3
+    },
+    "charge": {
+      "count": 15,
+      "speed": 8,
+      "lifetime": 25,
+      "sizeRange": [2, 6],
+      "color": "#ffff00",
+      "gravity": 0
+    },
+    "pickup": {
+      "count": 10,
+      "speed": 8,
+      "lifetime": 25,
+      "sizeRange": [2, 4],
+      "color": "#00ff00",
+      "gravity": 0.1
+    },
+    "hit": {
+      "count": 5,
+      "speed": 8,
+      "lifetime": 15,
+      "sizeRange": [1, 3],
+      "color": "#ffff00",
+      "gravity": 0.2
+    }
+  },
+  
+  "input": {
+    "keyboard": {
+      "left": ["a", "arrowleft"],
+      "right": ["d", "arrowright"],
+      "jump": ["z", "arrowup", "w"],
+      "shoot": ["x"],
+      "slide": ["s", "arrowdown"],
+      "pause": ["escape", "p"],
+      "debug": ["+", "="]
+    },
+    "mobile": {
+      "joystickDeadzone": 0.3,
+      "buttonSize": 60,
+      "joystickSize": 100
+    }
+  },
+  
+  "audio": {
+    "enabled": true,
+    "volumes": {
+      "master": 0.8,
+      "sfx": 0.7,
+      "music": 0.5
+    },
+    "sounds": {
+      "shoot": "audio/sfx/shoot.wav",
+      "charged": "audio/sfx/charged.wav",
+      "hit": "audio/sfx/hit.wav",
+      "explosion": "audio/sfx/explosion.wav",
+      "jump": "audio/sfx/jump.wav",
+      "slide": "audio/sfx/slide.wav",
+      "powerup": "audio/sfx/powerup.wav",
+      "hurt": "audio/sfx/hurt.wav",
+      "bosshit": "audio/sfx/bosshit.wav"
+    },
+    "music": {
+      "menu": "audio/music/menu.mp3",
+      "stage": "audio/music/stage.mp3",
+      "boss": "audio/music/boss.mp3",
+      "victory": "audio/music/victory.mp3",
+      "gameover": "audio/music/gameover.mp3"
+    }
+  },
+  
+  "debug": {
+    "enabled": false,
+    "showHitboxes": false,
+    "showFPS": false,
+    "showStats": false,
+    "godMode": false,
+    "infiniteJumps": false,
+    "instantCharge": false,
+    "noclip": false,
+    "menuKey": "+",
+    "holdDuration": 60
+  },
+  
+  "maps": {
+    "directory": "maps/",
+    "defaultMap": "map1.json",
+    "availableMaps": [
+      "map1.json",
+      "map2.json",
+      "map3.json",
+      "factory.json"
+    ]
+  },
+  
+  "performance": {
+    "targetFPS": 60,
+    "maxDeltaTime": 0.05,
+    "particlePoolSize": 500,
+    "projectilePoolSize": 100
+  }
+}

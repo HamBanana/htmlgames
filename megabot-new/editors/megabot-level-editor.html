@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Megabot Level Editor</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+            color: #00ff00;
+            touch-action: none;
+        }
+        
+        #container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        #toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            padding: 10px;
+            background: #111;
+            border-bottom: 2px solid #00ff00;
+            box-shadow: 0 2px 10px #00ff00;
+        }
+        
+        .tool-btn {
+            padding: 8px 12px;
+            background: #000;
+            border: 2px solid #00ff00;
+            color: #00ff00;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            text-shadow: 0 0 5px #00ff00;
+            transition: all 0.2s;
+        }
+        
+        .tool-btn:hover {
+            background: #00ff00;
+            color: #000;
+            box-shadow: 0 0 10px #00ff00;
+        }
+        
+        .tool-btn.active {
+            background: #00ff00;
+            color: #000;
+        }
+        
+        .tool-btn.enemy-type {
+            border-color: #ff00ff;
+            color: #ff00ff;
+            text-shadow: 0 0 5px #ff00ff;
+        }
+        
+        .tool-btn.enemy-type:hover,
+        .tool-btn.enemy-type.active {
+            background: #ff00ff;
+            box-shadow: 0 0 10px #ff00ff;
+        }
+        
+        .tool-btn.pickup-type {
+            border-color: #ffff00;
+            color: #ffff00;
+            text-shadow: 0 0 5px #ffff00;
+        }
+        
+        .tool-btn.pickup-type:hover,
+        .tool-btn.pickup-type.active {
+            background: #ffff00;
+            box-shadow: 0 0 10px #ffff00;
+        }
+        
+        #editorContainer {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            border: 2px solid #00ff00;
+            box-shadow: 0 0 20px #00ff00;
+        }
+        
+        #editorCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            image-rendering: pixelated;
+            cursor: crosshair;
+        }
+        
+        #minimap {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 200px;
+            height: 60px;
+            border: 2px solid #00ff00;
+            background: rgba(0, 0, 0, 0.8);
+            box-shadow: 0 0 10px #00ff00;
+        }
+        
+        #info {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #00ff00;
+            font-size: 12px;
+        }
+        
+        /* Mobile controls */
+        .mobile-controls {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            display: none;
+            gap: 10px;
+        }
+        
+        .control-btn {
+            width: 50px;
+            height: 50px;
+            background: rgba(0, 255, 0, 0.2);
+            border: 2px solid rgba(0, 255, 0, 0.5);
+            border-radius: 50%;
+            color: #00ff00;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        
+        .control-btn:active {
+            background: rgba(0, 255, 0, 0.4);
+            transform: scale(0.95);
+        }
+        
+        @media (max-width: 768px), (pointer: coarse) {
+            .mobile-controls {
+                display: flex;
+            }
+            
+            .tool-btn {
+                font-size: 10px;
+                padding: 6px 8px;
+            }
+            
+            #toolbar {
+                padding: 5px;
+            }
+        }
+        
+        .separator {
+            width: 100%;
+            height: 2px;
+            background: #00ff00;
+            margin: 5px 0;
+        }
+        
+        .tool-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            align-items: center;
+        }
+        
+        .tool-label {
+            color: #00ff00;
+            font-size: 10px;
+            margin-right: 10px;
+            text-shadow: 0 0 5px #00ff00;
+        }
+        
+        #levelData {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #000;
+            border: 2px solid #00ff00;
+            padding: 20px;
+            display: none;
+            max-width: 80%;
+            max-height: 80%;
+            overflow: auto;
+            box-shadow: 0 0 30px #00ff00;
+        }
+        
+        #levelData textarea {
+            width: 400px;
+            height: 300px;
+            background: #111;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            font-family: 'Courier New', monospace;
+            padding: 10px;
+        }
+        
+        #levelData button {
+            margin-top: 10px;
+            padding: 10px 20px;
+            background: #00ff00;
+            color: #000;
+            border: none;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="toolbar">
+            <div class="tool-group">
+                <span class="tool-label">TOOLS:</span>
+                <button class="tool-btn active" data-tool="select">SELECT</button>
+                <button class="tool-btn" data-tool="platform">PLATFORM</button>
+                <button class="tool-btn" data-tool="delete">DELETE</button>
+                <button class="tool-btn" data-tool="player">PLAYER START</button>
+            </div>
+            
+            <div class="separator"></div>
+            
+            <div class="tool-group">
+                <span class="tool-label">ENEMIES:</span>
+                <button class="tool-btn enemy-type" data-tool="enemy" data-enemy="walker">WALKER</button>
+                <button class="tool-btn enemy-type" data-tool="enemy" data-enemy="flyer">FLYER</button>
+                <button class="tool-btn enemy-type" data-tool="enemy" data-enemy="turret">TURRET</button>
+            </div>
+            
+            <div class="separator"></div>
+            
+            <div class="tool-group">
+                <span class="tool-label">PICKUPS:</span>
+                <button class="tool-btn pickup-type" data-tool="pickup" data-pickup="health">HEALTH</button>
+                <button class="tool-btn pickup-type" data-tool="pickup" data-pickup="powerup">POWER</button>
+                <button class="tool-btn pickup-type" data-tool="pickup" data-pickup="spread">SPREAD</button>
+                <button class="tool-btn pickup-type" data-tool="pickup" data-pickup="laser">LASER</button>
+                <button class="tool-btn pickup-type" data-tool="pickup" data-pickup="wave">WAVE</button>
+                <button class="tool-btn pickup-type" data-tool="pickup" data-pickup="bounce">BOUNCE</button>
+            </div>
+            
+            <div class="separator"></div>
+            
+            <div class="tool-group">
+                <span class="tool-label">ACTIONS:</span>
+                <button class="tool-btn" onclick="clearLevel()">CLEAR</button>
+                <button class="tool-btn" onclick="exportLevel()">EXPORT</button>
+                <button class="tool-btn" onclick="importLevel()">IMPORT</button>
+                <button class="tool-btn" onclick="testLevel()">TEST</button>
+            </div>
+        </div>
+        
+        <div id="editorContainer">
+            <canvas id="editorCanvas"></canvas>
+            <canvas id="minimap"></canvas>
+            
+            <div id="info">
+                <div>Position: <span id="mousePos">0, 0</span></div>
+                <div>Grid: <span id="gridPos">0, 0</span></div>
+                <div>Scroll: Arrow Keys / Touch Drag</div>
+            </div>
+            
+            <div class="mobile-controls">
+                <div class="control-btn" id="zoomOut">-</div>
+                <div class="control-btn" id="zoomIn">+</div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="levelData">
+        <h3>Level Data</h3>
+        <textarea id="levelJSON"></textarea>
+        <br>
+        <button onclick="closeLevelData()">CLOSE</button>
+        <button onclick="copyLevelData()">COPY</button>
+        <button onclick="loadLevelData()">LOAD</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('editorCanvas');
+        const ctx = canvas.getContext('2d');
+        const minimapCanvas = document.getElementById('minimap');
+        const minimapCtx = minimapCanvas.getContext('2d');
+        
+        // Editor state
+        let currentTool = 'select';
+        let currentEnemy = 'walker';
+        let currentPickup = 'health';
+        let gridSize = 20;
+        let camera = { x: 0, y: 0 };
+        let zoom = 1;
+        let levelWidth = 3200;
+        let levelHeight = 600;
+        let selectedObject = null;
+        let isDragging = false;
+        let dragStart = { x: 0, y: 0 };
+        let lastTouch = null;
+        
+        // Level data
+        let level = {
+            playerStart: { x: 100, y: 400 },
+            platforms: [],
+            enemies: [],
+            pickups: []
+        };
+        
+        // Initialize with some default platforms
+        level.platforms.push({ x: 0, y: 500, w: 800, h: 100 });
+        level.platforms.push({ x: 200, y: 400, w: 150, h: 20 });
+        
+        // Set canvas size
+        function resizeCanvas() {
+            const container = document.getElementById('editorContainer');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            minimapCanvas.width = 200;
+            minimapCanvas.height = 60;
+        }
+        
+        // Tool selection
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.addEventListener('click', e => {
+                const tool = e.target.dataset.tool;
+                if (tool) {
+                    // Remove active class from all buttons
+                    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+                    
+                    // Add active class to clicked button
+                    e.target.classList.add('active');
+                    
+                    // Update current tool
+                    currentTool = tool;
+                    
+                    // Update sub-types
+                    if (e.target.dataset.enemy) currentEnemy = e.target.dataset.enemy;
+                    if (e.target.dataset.pickup) currentPickup = e.target.dataset.pickup;
+                    
+                    selectedObject = null;
+                }
+            });
+        });
+        
+        // Mouse controls
+        canvas.addEventListener('mousedown', handleMouseDown);
+        canvas.addEventListener('mousemove', handleMouseMove);
+        canvas.addEventListener('mouseup', handleMouseUp);
+        canvas.addEventListener('wheel', handleWheel);
+        
+        // Touch controls
+        canvas.addEventListener('touchstart', handleTouchStart);
+        canvas.addEventListener('touchmove', handleTouchMove);
+        canvas.addEventListener('touchend', handleTouchEnd);
+        
+        // Keyboard controls
+        window.addEventListener('keydown', handleKeyDown);
+        
+        // Mobile zoom buttons
+        document.getElementById('zoomIn').addEventListener('click', () => {
+            zoom = Math.min(2, zoom + 0.2);
+        });
+        
+        document.getElementById('zoomOut').addEventListener('click', () => {
+            zoom = Math.max(0.5, zoom - 0.2);
+        });
+        
+        function handleMouseDown(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / zoom + camera.x;
+            const y = (e.clientY - rect.top) / zoom + camera.y;
+            
+            if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
+                // Middle mouse or shift+left for panning
+                isDragging = true;
+                dragStart = { x: e.clientX, y: e.clientY };
+                e.preventDefault();
+                return;
+            }
+            
+            handleClick(x, y);
+        }
+        
+        function handleMouseMove(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / zoom + camera.x;
+            const y = (e.clientY - rect.top) / zoom + camera.y;
+            
+            // Update position display
+            document.getElementById('mousePos').textContent = `${Math.floor(x)}, ${Math.floor(y)}`;
+            document.getElementById('gridPos').textContent = `${Math.floor(x / gridSize)}, ${Math.floor(y / gridSize)}`;
+            
+            if (isDragging) {
+                camera.x -= (e.clientX - dragStart.x) / zoom;
+                camera.y -= (e.clientY - dragStart.y) / zoom;
+                dragStart = { x: e.clientX, y: e.clientY };
+                
+                // Clamp camera
+                camera.x = Math.max(0, Math.min(levelWidth - canvas.width / zoom, camera.x));
+                camera.y = Math.max(0, Math.min(levelHeight - canvas.height / zoom, camera.y));
+            }
+        }
+        
+        function handleMouseUp(e) {
+            isDragging = false;
+        }
+        
+        function handleWheel(e) {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            zoom = Math.max(0.5, Math.min(2, zoom * delta));
+        }
+        
+        function handleTouchStart(e) {
+            if (e.touches.length === 1) {
+                const touch = e.touches[0];
+                const rect = canvas.getBoundingClientRect();
+                lastTouch = { x: touch.clientX, y: touch.clientY };
+                
+                // Check if it's a tap (will be determined in touchend)
+                setTimeout(() => {
+                    if (lastTouch && e.touches.length === 1) {
+                        isDragging = true;
+                    }
+                }, 200);
+            }
+            e.preventDefault();
+        }
+        
+        function handleTouchMove(e) {
+            if (e.touches.length === 1 && isDragging && lastTouch) {
+                const touch = e.touches[0];
+                camera.x -= (touch.clientX - lastTouch.x) / zoom;
+                camera.y -= (touch.clientY - lastTouch.y) / zoom;
+                lastTouch = { x: touch.clientX, y: touch.clientY };
+                
+                // Clamp camera
+                camera.x = Math.max(0, Math.min(levelWidth - canvas.width / zoom, camera.x));
+                camera.y = Math.max(0, Math.min(levelHeight - canvas.height / zoom, camera.y));
+            }
+            e.preventDefault();
+        }
+        
+        function handleTouchEnd(e) {
+            if (!isDragging && lastTouch) {
+                // It was a tap
+                const rect = canvas.getBoundingClientRect();
+                const x = (lastTouch.x - rect.left) / zoom + camera.x;
+                const y = (lastTouch.y - rect.top) / zoom + camera.y;
+                handleClick(x, y);
+            }
+            isDragging = false;
+            lastTouch = null;
+            e.preventDefault();
+        }
+        
+        function handleKeyDown(e) {
+            const scrollSpeed = 20;
+            switch(e.key) {
+                case 'ArrowLeft':
+                    camera.x = Math.max(0, camera.x - scrollSpeed);
+                    e.preventDefault();
+                    break;
+                case 'ArrowRight':
+                    camera.x = Math.min(levelWidth - canvas.width / zoom, camera.x + scrollSpeed);
+                    e.preventDefault();
+                    break;
+                case 'ArrowUp':
+                    camera.y = Math.max(0, camera.y - scrollSpeed);
+                    e.preventDefault();
+                    break;
+                case 'ArrowDown':
+                    camera.y = Math.min(levelHeight - canvas.height / zoom, camera.y + scrollSpeed);
+                    e.preventDefault();
+                    break;
+                case 'Delete':
+                case 'Backspace':
+                    if (selectedObject) {
+                        deleteObject(selectedObject);
+                        selectedObject = null;
+                    }
+                    break;
+            }
+        }
+        
+        function handleClick(x, y) {
+            const gridX = Math.floor(x / gridSize) * gridSize;
+            const gridY = Math.floor(y / gridSize) * gridSize;
+            
+            switch(currentTool) {
+                case 'select':
+                    selectObject(x, y);
+                    break;
+                    
+                case 'platform':
+                    if (!selectedObject) {
+                        // Start drawing platform
+                        selectedObject = {
+                            type: 'platform',
+                            x: gridX,
+                            y: gridY,
+                            w: gridSize,
+                            h: gridSize,
+                            creating: true
+                        };
+                        level.platforms.push(selectedObject);
+                    } else if (selectedObject.creating) {
+                        // Finish drawing platform
+                        selectedObject.w = Math.max(gridSize, gridX - selectedObject.x + gridSize);
+                        selectedObject.h = Math.max(gridSize, gridY - selectedObject.y + gridSize);
+                        delete selectedObject.creating;
+                        selectedObject = null;
+                    }
+                    break;
+                    
+                case 'enemy':
+                    const enemy = {
+                        type: 'enemy',
+                        enemyType: currentEnemy,
+                        x: gridX,
+                        y: gridY,
+                        w: currentEnemy === 'turret' ? 40 : 30,
+                        h: currentEnemy === 'turret' ? 30 : 35
+                    };
+                    level.enemies.push(enemy);
+                    break;
+                    
+                case 'pickup':
+                    const pickup = {
+                        type: 'pickup',
+                        pickupType: currentPickup,
+                        x: gridX,
+                        y: gridY,
+                        w: currentPickup.includes('weapon') || ['spread','laser','wave','bounce'].includes(currentPickup) ? 25 : 20,
+                        h: currentPickup.includes('weapon') || ['spread','laser','wave','bounce'].includes(currentPickup) ? 25 : 20
+                    };
+                    level.pickups.push(pickup);
+                    break;
+                    
+                case 'player':
+                    level.playerStart.x = gridX;
+                    level.playerStart.y = gridY;
+                    break;
+                    
+                case 'delete':
+                    deleteAt(x, y);
+                    break;
+            }
+        }
+        
+        function selectObject(x, y) {
+            selectedObject = null;
+            
+            // Check all objects
+            const allObjects = [
+                ...level.platforms.map(p => ({...p, type: 'platform'})),
+                ...level.enemies.map(e => ({...e, type: 'enemy'})),
+                ...level.pickups.map(p => ({...p, type: 'pickup'}))
+            ];
+            
+            for (const obj of allObjects) {
+                if (x >= obj.x && x <= obj.x + obj.w &&
+                    y >= obj.y && y <= obj.y + obj.h) {
+                    selectedObject = obj;
+                    break;
+                }
+            }
+        }
+        
+        function deleteObject(obj) {
+            if (obj.type === 'platform') {
+                const idx = level.platforms.indexOf(obj);
+                if (idx > -1) level.platforms.splice(idx, 1);
+            } else if (obj.type === 'enemy') {
+                const idx = level.enemies.indexOf(obj);
+                if (idx > -1) level.enemies.splice(idx, 1);
+            } else if (obj.type === 'pickup') {
+                const idx = level.pickups.indexOf(obj);
+                if (idx > -1) level.pickups.splice(idx, 1);
+            }
+        }
+        
+        function deleteAt(x, y) {
+            // Delete platform
+            for (let i = level.platforms.length - 1; i >= 0; i--) {
+                const p = level.platforms[i];
+                if (x >= p.x && x <= p.x + p.w && y >= p.y && y <= p.y + p.h) {
+                    level.platforms.splice(i, 1);
+                    return;
+                }
+            }
+            
+            // Delete enemy
+            for (let i = level.enemies.length - 1; i >= 0; i--) {
+                const e = level.enemies[i];
+                if (x >= e.x && x <= e.x + e.w && y >= e.y && y <= e.y + e.h) {
+                    level.enemies.splice(i, 1);
+                    return;
+                }
+            }
+            
+            // Delete pickup
+            for (let i = level.pickups.length - 1; i >= 0; i--) {
+                const p = level.pickups[i];
+                if (x >= p.x && x <= p.x + p.w && y >= p.y && y <= p.y + p.h) {
+                    level.pickups.splice(i, 1);
+                    return;
+                }
+            }
+        }
+        
+        function render() {
+            // Clear canvas
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.save();
+            ctx.scale(zoom, zoom);
+            ctx.translate(-camera.x, -camera.y);
+            
+            // Draw grid
+            ctx.strokeStyle = '#00ff00';
+            ctx.globalAlpha = 0.1;
+            ctx.lineWidth = 1;
+            
+            for (let x = 0; x <= levelWidth; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, levelHeight);
+                ctx.stroke();
+            }
+            
+            for (let y = 0; y <= levelHeight; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(levelWidth, y);
+                ctx.stroke();
+            }
+            
+            ctx.globalAlpha = 1;
+            
+            // Draw level bounds
+            ctx.strokeStyle = '#00ff00';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(0, 0, levelWidth, levelHeight);
+            
+            // Draw platforms
+            ctx.fillStyle = '#00ff00';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#00ff00';
+            level.platforms.forEach(plat => {
+                if (plat === selectedObject) {
+                    ctx.strokeStyle = '#ffff00';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(plat.x - 2, plat.y - 2, plat.w + 4, plat.h + 4);
+                }
+                
+                ctx.fillRect(plat.x, plat.y, plat.w, plat.h);
+                ctx.fillStyle = '#008800';
+                ctx.fillRect(plat.x, plat.y, plat.w, 4);
+                ctx.fillStyle = '#00ff00';
+            });
+            ctx.shadowBlur = 0;
+            
+            // Draw enemies
+            level.enemies.forEach(enemy => {
+                if (enemy === selectedObject) {
+                    ctx.strokeStyle = '#ffff00';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(enemy.x - 2, enemy.y - 2, enemy.w + 4, enemy.h + 4);
+                }
+                
+                switch(enemy.enemyType) {
+                    case 'walker':
+                        ctx.fillStyle = '#ff00ff';
+                        break;
+                    case 'flyer':
+                        ctx.fillStyle = '#00ffff';
+                        break;
+                    case 'turret':
+                        ctx.fillStyle = '#ff6600';
+                        break;
+                }
+                
+                ctx.fillRect(enemy.x, enemy.y, enemy.w, enemy.h);
+                
+                // Enemy details
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(enemy.x + 5, enemy.y + 5, 4, 4);
+                ctx.fillRect(enemy.x + enemy.w - 9, enemy.y + 5, 4, 4);
+            });
+            
+            // Draw pickups
+            level.pickups.forEach(pickup => {
+                if (pickup === selectedObject) {
+                    ctx.strokeStyle = '#ffff00';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(pickup.x - 2, pickup.y - 2, pickup.w + 4, pickup.h + 4);
+                }
+                
+                if (pickup.pickupType === 'health') {
+                    ctx.fillStyle = '#00ff00';
+                    ctx.fillRect(pickup.x + 5, pickup.y, 10, 20);
+                    ctx.fillRect(pickup.x, pickup.y + 5, 20, 10);
+                } else if (pickup.pickupType === 'powerup') {
+                    ctx.fillStyle = '#ffff00';
+                    ctx.fillRect(pickup.x, pickup.y, pickup.w, pickup.h);
+                } else {
+                    // Weapon pickups
+                    const colors = {
+                        'spread': '#ff00ff',
+                        'laser': '#ff0000',
+                        'wave': '#00ffff',
+                        'bounce': '#ffff00'
+                    };
+                    ctx.fillStyle = colors[pickup.pickupType] || '#ffffff';
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = colors[pickup.pickupType] || '#ffffff';
+                    
+                    ctx.save();
+                    ctx.translate(pickup.x + pickup.w/2, pickup.y + pickup.h/2);
+                    
+                    switch(pickup.pickupType) {
+                        case 'spread':
+                            for (let i = -1; i <= 1; i++) {
+                                ctx.fillRect(0, i * 6, 12, 2);
+                            }
+                            break;
+                        case 'laser':
+                            ctx.fillRect(-10, -1, 20, 2);
+                            break;
+                        case 'wave':
+                            ctx.beginPath();
+                            ctx.moveTo(-10, 0);
+                            for (let x = -10; x <= 10; x += 2) {
+                                ctx.lineTo(x, Math.sin(x * 0.5) * 4);
+                            }
+                            ctx.strokeStyle = ctx.fillStyle;
+                            ctx.lineWidth = 2;
+                            ctx.stroke();
+                            break;
+                        case 'bounce':
+                            ctx.beginPath();
+                            ctx.arc(0, 0, 8, 0, Math.PI * 2);
+                            ctx.fill();
+                            break;
+                    }
+                    
+                    ctx.restore();
+                    ctx.shadowBlur = 0;
+                }
+            });
+            
+            // Draw player start
+            ctx.fillStyle = '#0088ff';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#0088ff';
+            ctx.fillRect(level.playerStart.x, level.playerStart.y, 30, 40);
+            ctx.shadowBlur = 0;
+            
+            // Player details
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(level.playerStart.x + 8, level.playerStart.y + 8, 5, 5);
+            ctx.fillRect(level.playerStart.x + 17, level.playerStart.y + 8, 5, 5);
+            
+            // Platform creation preview
+            if (selectedObject && selectedObject.creating) {
+                ctx.fillStyle = 'rgba(0, 255, 0, 0.5)';
+                ctx.fillRect(selectedObject.x, selectedObject.y, selectedObject.w, selectedObject.h);
+            }
+            
+            ctx.restore();
+            
+            // Draw minimap
+            renderMinimap();
+        }
+        
+        function renderMinimap() {
+            const scale = 200 / levelWidth;
+            
+            minimapCtx.fillStyle = '#000';
+            minimapCtx.fillRect(0, 0, 200, 60);
+            
+            // Draw platforms
+            minimapCtx.fillStyle = '#00ff00';
+            level.platforms.forEach(plat => {
+                minimapCtx.fillRect(
+                    plat.x * scale,
+                    plat.y * scale * 0.3,
+                    plat.w * scale,
+                    plat.h * scale * 0.3
+                );
+            });
+            
+            // Draw enemies
+            minimapCtx.fillStyle = '#ff00ff';
+            level.enemies.forEach(enemy => {
+                minimapCtx.fillRect(
+                    enemy.x * scale,
+                    enemy.y * scale * 0.3,
+                    3,
+                    3
+                );
+            });
+            
+            // Draw viewport
+            minimapCtx.strokeStyle = '#ffff00';
+            minimapCtx.strokeRect(
+                camera.x * scale,
+                camera.y * scale * 0.3,
+                (canvas.width / zoom) * scale,
+                (canvas.height / zoom) * scale * 0.3
+            );
+        }
+        
+        function clearLevel() {
+            if (confirm('Clear all level data?')) {
+                level.platforms = [];
+                level.enemies = [];
+                level.pickups = [];
+                level.playerStart = { x: 100, y: 400 };
+                selectedObject = null;
+            }
+        }
+        
+        function exportLevel() {
+            const levelData = {
+                platforms: level.platforms.map(p => ({
+                    x: p.x, y: p.y, w: p.w, h: p.h
+                })),
+                enemies: level.enemies.map(e => ({
+                    x: e.x, y: e.y, type: e.enemyType
+                })),
+                pickups: level.pickups.map(p => ({
+                    x: p.x, y: p.y, type: p.pickupType
+                })),
+                playerStart: level.playerStart
+            };
+            
+            document.getElementById('levelJSON').value = JSON.stringify(levelData, null, 2);
+            document.getElementById('levelData').style.display = 'block';
+        }
+        
+        function importLevel() {
+            document.getElementById('levelJSON').value = '';
+            document.getElementById('levelData').style.display = 'block';
+        }
+        
+        function loadLevelData() {
+            try {
+                const data = JSON.parse(document.getElementById('levelJSON').value);
+                
+                level.platforms = data.platforms || [];
+                level.enemies = (data.enemies || []).map(e => ({
+                    type: 'enemy',
+                    enemyType: e.type,
+                    x: e.x,
+                    y: e.y,
+                    w: e.type === 'turret' ? 40 : 30,
+                    h: e.type === 'turret' ? 30 : 35
+                }));
+                level.pickups = (data.pickups || []).map(p => ({
+                    type: 'pickup',
+                    pickupType: p.type,
+                    x: p.x,
+                    y: p.y,
+                    w: ['spread','laser','wave','bounce'].includes(p.type) ? 25 : 20,
+                    h: ['spread','laser','wave','bounce'].includes(p.type) ? 25 : 20
+                }));
+                level.playerStart = data.playerStart || { x: 100, y: 400 };
+                
+                closeLevelData();
+                alert('Level loaded successfully!');
+            } catch(e) {
+                alert('Invalid level data!');
+            }
+        }
+        
+        function copyLevelData() {
+            document.getElementById('levelJSON').select();
+            document.execCommand('copy');
+            alert('Level data copied to clipboard!');
+        }
+        
+        function closeLevelData() {
+            document.getElementById('levelData').style.display = 'none';
+        }
+        
+        function testLevel() {
+            alert('Test mode would launch the game with this level data.\nExport the level and integrate it into the Megabot game!');
+        }
+        
+        // Animation loop
+        function animate() {
+            render();
+            requestAnimationFrame(animate);
+        }
+        
+        // Initialize
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        animate();
+    </script>
+</body>
+</html>

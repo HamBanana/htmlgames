@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Powerful Explosion Sprite Shader</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            border: 1px solid #333;
+            cursor: pointer;
+        }
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 14px;
+        }
+        button {
+            background: #ff4444;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:hover {
+            background: #cc3333;
+        }
+        .info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: #888;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <button onclick="triggerExplosion()">MASSIVE EXPLOSION</button>
+        <button onclick="triggerNuke()">NUCLEAR BLAST</button>
+        <div>Click anywhere for DESTRUCTION!</div>
+        <div style="margin-top: 10px;">
+            Power: <input type="range" id="powerSlider" min="0.5" max="3.0" step="0.1" value="1.5" style="width: 100px;">
+            <span id="powerValue">1.5x</span>
+        </div>
+    </div>
+    <div class="info">
+        Optimized for sprite rendering • Use UV coordinates (0,0 to 1,1) for sprite application
+    </div>
+    <canvas id="canvas" width="512" height="512"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const gl = canvas.getContext('webgl');
+        
+        if (!gl) {
+            alert('WebGL not supported');
+        }
+
+        // Vertex shader
+        const vertexShaderSource = `
+            attribute vec2 a_position;
+            varying vec2 v_uv;
+            void main() {
+                v_uv = (a_position + 1.0) * 0.5;
+                gl_Position = vec4(a_position, 0.0, 1.0);
+            }
+        `;
+
+        // Fragment shader - POWERFUL explosion effect for sprites
+        const fragmentShaderSource = `
+            precision mediump float;
+            varying vec2 v_uv;
+            uniform float u_time;
+            uniform vec2 u_explosion_center;
+            uniform float u_explosion_time;
+            uniform float u_power;
+            
+            // High-quality random
+            float hash(vec2 p) {
+                vec3 h = vec3(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)), dot(p, vec2(113.5, 271.9)));
+                return fract(sin(dot(h, vec3(12.9898, 78.233, 37.719))) * 43758.5453123);
+            }
+            
+            // Smooth noise
+            float noise(vec2 p) {
+                vec2 i = floor(p);
+                vec2 f = fract(p);
+                f = f * f * (3.0 - 2.0 * f);
+                
+                float a = hash(i);
+                float b = hash(i + vec2(1.0, 0.0));
+                float c = hash(i + vec2(0.0, 1.0));
+                float d = hash(i + vec2(1.0, 1.0));
+                
+                return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+            }
+            
+            // Ridged noise for sharp energy patterns
+            float ridgedNoise(vec2 p) {
+                return 1.0 - abs(noise(p) * 2.0 - 1.0);
+            }
+            
+            // Multi-octave fractal noise
+            float fbm(vec2 p, int octaves) {
+                float value = 0.0;
+                float amplitude = 0.5;
+                float frequency = 1.0;
+                
+                for (int i = 0; i < 8; i++) {
+                    if (i >= octaves) break;
+                    value += amplitude * noise(p * frequency);
+                    frequency *= 2.0;
+                    amplitude *= 0.5;
+                }
+                return value;
+            }
+            
+            // Ridged FBM for energy patterns
+            float ridgedFbm(vec2 p, int octaves) {
+                float value = 0.0;
+                float amplitude = 0.5;
+                float frequency = 1.0;
+                
+                for (int i = 0; i < 6; i++) {
+                    if (i >= octaves) break;
+                    value += amplitude * ridgedNoise(p * frequency);
+                    frequency *= 2.0;
+                    amplitude *= 0.5;
+                }
+                return value;
+            }
+            
+            // Shockwave function
+            float shockwave(float dist, float time, float power) {
+                float wave_pos = time * 2.0 * power;
+                float wave_width = 0.1 + time * 0.05;
+                return exp(-pow((dist - wave_pos) / wave_width, 2.0)) * (1.0 - time);
+            }
+            
+            void main() {
+                vec2 uv = v_uv;
+                vec2 center = u_explosion_center;
+                
+                // Distance from explosion center
+                float dist = distance(uv, center);
+                
+                // Normalized time (0 to 1 over 4 seconds)
+                float t = clamp(u_explosion_time / 4000.0, 0.0, 1.0);
+                
+                // Power multiplier
+                float power = u_power;
+                
+                // Create multiple explosion phases
+                float explosion_radius = t * 1.2 * power;
+                
+                // Main explosion mask with falloff
+                float explosion_core = 1.0 - smoothstep(0.0, explosion_radius * 0.6, dist);
+                float explosion_outer = 1.0 - smoothstep(explosion_radius * 0.3, explosion_radius, dist);
+                
+                // Add chaotic turbulence
+                vec2 turbulence_coord = uv * 6.0 + u_time * 0.003;
+                float turbulence = fbm(turbulence_coord, 6);
+                
+                // Energy patterns with ridged noise
+                vec2 energy_coord = uv * 8.0 - u_time * 0.002;
+                float energy_pattern = ridgedFbm(energy_coord, 4);
+                
+                // Radial energy waves
+                float radial_waves = sin(dist * 20.0 - u_time * 0.01) * 0.5 + 0.5;
+                radial_waves = pow(radial_waves, 3.0);
+                
+                // Multiple shockwaves
+                float shock1 = shockwave(dist, t, power);
+                float shock2 = shockwave(dist, t - 0.2, power * 0.8);
+                float shock3 = shockwave(dist, t - 0.4, power * 0.6);
+                float combined_shock = shock1 + shock2 + shock3;
+                
+                // Combine all effects
+                float intensity = explosion_core * 2.0 + explosion_outer;
+                intensity += turbulence * explosion_outer * 0.8;
+                intensity += energy_pattern * explosion_core * 1.5;
+                intensity += radial_waves * explosion_outer * 0.3;
+                intensity += combined_shock * 3.0;
+                
+                // Clamp intensity
+                intensity = clamp(intensity, 0.0, 3.0);
+                
+                // Create temperature-based colors
+                vec3 white_hot = vec3(1.0, 1.0, 1.0);
+                vec3 blue_hot = vec3(0.4, 0.8, 1.0);
+                vec3 yellow_hot = vec3(1.0, 1.0, 0.2);
+                vec3 orange_fire = vec3(1.0, 0.4, 0.0);
+                vec3 red_fire = vec3(1.0, 0.1, 0.0);
+                vec3 dark_smoke = vec3(0.05, 0.05, 0.1);
+                
+                vec3 color = vec3(0.0);
+                
+                // Ultra-hot core (blue-white)
+                if (intensity > 2.5) {
+                    float t_hot = (intensity - 2.5) / 0.5;
+                    color = mix(white_hot, blue_hot, t_hot);
+                }
+                // White hot center
+                else if (intensity > 2.0) {
+                    float t_white = (intensity - 2.0) / 0.5;
+                    color = mix(yellow_hot, white_hot, t_white);
+                }
+                // Yellow-orange flames
+                else if (intensity > 1.5) {
+                    float t_yellow = (intensity - 1.5) / 0.5;
+                    color = mix(orange_fire, yellow_hot, t_yellow);
+                }
+                // Orange-red fire
+                else if (intensity > 1.0) {
+                    float t_orange = (intensity - 1.0) / 0.5;
+                    color = mix(red_fire, orange_fire, t_orange);
+                }
+                // Red fire and smoke
+                else if (intensity > 0.3) {
+                    float t_red = (intensity - 0.3) / 0.7;
+                    color = mix(dark_smoke, red_fire, t_red);
+                }
+                
+                // Add electric blue energy sparks
+                float spark_noise = noise(uv * 25.0 + u_time * 0.02);
+                if (spark_noise > 0.85 && intensity > 1.0) {
+                    color += vec3(0.2, 0.6, 1.0) * (spark_noise - 0.85) * 10.0 * power;
+                }
+                
+                // Add bright yellow-white flashes
+                float flash_noise = noise(uv * 15.0 - u_time * 0.015);
+                if (flash_noise > 0.9 && intensity > 1.5) {
+                    color += vec3(1.0, 1.0, 0.8) * (flash_noise - 0.9) * 15.0;
+                }
+                
+                // Shockwave rim lighting
+                if (combined_shock > 0.1) {
+                    color += vec3(0.8, 0.9, 1.0) * combined_shock * 2.0;
+                }
+                
+                // Fade out over time with power consideration
+                float fade = 1.0 - smoothstep(0.6, 1.0, t);
+                fade = mix(fade, 1.0, power * 0.2); // More powerful explosions last longer
+                
+                // Apply power boost to colors
+                color *= (1.0 + power * 0.5);
+                
+                // Final intensity modulation
+                color *= intensity * fade;
+                
+                // Alpha channel for sprite blending
+                float alpha = clamp(intensity * fade, 0.0, 1.0);
+                
+                gl_FragColor = vec4(color, alpha);
+            }
+        `;
+
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error('Shader compilation error:', gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            
+            return shader;
+        }
+
+        function createProgram(gl, vertexShader, fragmentShader) {
+            const program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+            
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                console.error('Program linking error:', gl.getProgramInfoLog(program));
+                gl.deleteProgram(program);
+                return null;
+            }
+            
+            return program;
+        }
+
+        // Create shaders and program
+        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+        const program = createProgram(gl, vertexShader, fragmentShader);
+
+        // Set up buffers
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+            -1, -1,
+             1, -1,
+            -1,  1,
+             1,  1,
+        ]), gl.STATIC_DRAW);
+
+        // Get uniform and attribute locations
+        const positionLocation = gl.getAttribLocation(program, 'a_position');
+        const timeLocation = gl.getUniformLocation(program, 'u_time');
+        const explosionCenterLocation = gl.getUniformLocation(program, 'u_explosion_center');
+        const explosionTimeLocation = gl.getUniformLocation(program, 'u_explosion_time');
+        const powerLocation = gl.getUniformLocation(program, 'u_power');
+
+        // Animation state
+        let explosionCenter = [0.5, 0.5];
+        let explosionStartTime = 0;
+        let startTime = Date.now();
+        let currentPower = 1.5;
+
+        // Power slider
+        const powerSlider = document.getElementById('powerSlider');
+        const powerValue = document.getElementById('powerValue');
+        
+        powerSlider.addEventListener('input', (e) => {
+            currentPower = parseFloat(e.target.value);
+            powerValue.textContent = currentPower.toFixed(1) + 'x';
+        });
+
+        function triggerExplosion(x = 0.5, y = 0.5) {
+            explosionCenter = [x, 1.0 - y]; // Flip Y for UV coordinates
+            explosionStartTime = Date.now();
+        }
+
+        function triggerNuke() {
+            currentPower = 3.0;
+            powerSlider.value = 3.0;
+            powerValue.textContent = '3.0x';
+            triggerExplosion(0.5, 0.5);
+        }
+
+        // Click to explode
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / canvas.width;
+            const y = (e.clientY - rect.top) / canvas.height;
+            triggerExplosion(x, y);
+        });
+
+        function render() {
+            const currentTime = Date.now();
+            const elapsedTime = currentTime - startTime;
+            const explosionTime = currentTime - explosionStartTime;
+            
+            // Set viewport
+            gl.viewport(0, 0, canvas.width, canvas.height);
+            
+            // Clear canvas
+            gl.clearColor(0, 0, 0, 1);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            
+            // Use shader program
+            gl.useProgram(program);
+            
+            // Set up vertex attributes
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.enableVertexAttribArray(positionLocation);
+            gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+            
+            // Set uniforms
+            gl.uniform1f(timeLocation, elapsedTime);
+            gl.uniform2f(explosionCenterLocation, explosionCenter[0], explosionCenter[1]);
+            gl.uniform1f(explosionTimeLocation, explosionTime);
+            gl.uniform1f(powerLocation, currentPower);
+            
+            // Enable blending for proper sprite rendering
+            gl.enable(gl.BLEND);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+            
+            // Draw
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+            
+            requestAnimationFrame(render);
+        }
+
+        // Start with an initial massive explosion
+        triggerExplosion();
+        render();
+
+        // Auto-trigger powerful explosions
+        setInterval(() => {
+            if (Math.random() < 0.2) {
+                currentPower = 1.0 + Math.random() * 2.0;
+                powerSlider.value = currentPower;
+                powerValue.textContent = currentPower.toFixed(1) + 'x';
+                triggerExplosion(Math.random(), Math.random());
+            }
+        }, 3000);
+    </script>
+</body>
+</html>

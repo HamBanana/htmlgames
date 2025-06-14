@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Skagen Trail</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Courier New', monospace;
+        }
+        
+        body {
+            background: linear-gradient(180deg, #87CEEB 0%, #98FB98 100%);
+            min-height: 100vh;
+            touch-action: manipulation;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 10px;
+            background: #2F4F2F;
+            color: #90EE90;
+            min-height: 100vh;
+            border: 3px solid #8B4513;
+        }
+        
+        .header {
+            text-align: center;
+            background: #8B4513;
+            color: #F5DEB3;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 2px solid #654321;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+        
+        .stat {
+            background: #1C1C1C;
+            padding: 8px;
+            border: 2px solid #4B0082;
+            text-align: center;
+            font-size: 14px;
+        }
+        
+        .progress {
+            background: #000;
+            height: 25px;
+            border: 2px solid #FFF;
+            margin-bottom: 15px;
+            position: relative;
+        }
+        
+        .progress-fill {
+            background: linear-gradient(90deg, #FF4500, #FFD700);
+            height: 100%;
+            transition: width 0.5s ease;
+        }
+        
+        .progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #FFF;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        
+        .event {
+            background: #000;
+            padding: 15px;
+            border: 2px solid #FFF;
+            margin-bottom: 15px;
+            min-height: 120px;
+            text-align: center;
+            color: #90EE90;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .btn {
+            background: #8B4513;
+            color: #F5DEB3;
+            border: none;
+            padding: 12px 8px;
+            font-size: 14px;
+            font-family: inherit;
+            cursor: pointer;
+            border: 2px solid #654321;
+            transition: all 0.2s ease;
+            touch-action: manipulation;
+            user-select: none;
+        }
+        
+        .btn:hover, .btn:active {
+            background: #A0522D;
+            transform: scale(0.95);
+        }
+        
+        .btn:disabled {
+            background: #555;
+            color: #999;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .shop {
+            background: #4B0082;
+            padding: 15px;
+            border: 2px solid #8A2BE2;
+            display: none;
+        }
+        
+        .shop-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 8px 0;
+            padding: 5px;
+            background: #2F1B69;
+        }
+        
+        .danger { background: #8B0000; color: #FFD700; }
+        .warning { background: #FF8C00; color: #000; }
+        .victory { background: #006400; color: #FFF; padding: 20px; }
+        .game-over { background: #8B0000; color: #FFF; padding: 20px; }
+        
+        @media (max-width: 600px) {
+            .controls { grid-template-columns: repeat(2, 1fr); }
+            .btn { padding: 15px 8px; font-size: 16px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💀 THE SKAGEN TRAIL 💀</h1>
+            <p>Survive 387km from Copenhagen to Skagen!</p>
+        </div>
+        
+        <div class="stats">
+            <div class="stat">Distance: <span id="distance">0</span>/387km</div>
+            <div class="stat">Money: <span id="money">300</span>kr</div>
+            <div class="stat">Health: <span id="health">100</span>%</div>
+            <div class="stat">Food: <span id="food">10</span>kg</div>
+        </div>
+        
+        <div class="progress">
+            <div class="progress-fill" id="progressFill"></div>
+            <div class="progress-text" id="progressText">Copenhagen</div>
+        </div>
+        
+        <div class="event" id="eventText">
+            Welcome to The Skagen Trail! Survive the deadly 387km journey from Copenhagen to Skagen. Danish weather is brutal, food is scarce, and danger lurks everywhere. Use WASD or touch controls. Good luck!
+        </div>
+        
+        <div class="controls" id="gameControls">
+            <button class="btn" onclick="walk()" data-key="w">🚶 Walk (W)</button>
+            <button class="btn" onclick="rest()" data-key="a">😴 Rest (A)</button>
+            <button class="btn" onclick="shop()" data-key="s">🏪 Shop (S)</button>
+            <button class="btn" onclick="hunt()" data-key="d">🏹 Hunt (D)</button>
+            <button class="btn" onclick="work()" data-key="q">💼 Work (Q)</button>
+            <button class="btn" onclick="forage()" data-key="e">🍄 Forage (E)</button>
+        </div>
+        
+        <div style="text-align: center;">
+            <button class="btn" onclick="restart()" style="background: #8B0000;">🔄 Restart (R)</button>
+        </div>
+        
+        <div class="shop" id="shopArea">
+            <h3>🏪 General Store</h3>
+            <div class="shop-item">
+                <span>Food (3kg) - 60kr</span>
+                <button class="btn" onclick="buyFood()">Buy</button>
+            </div>
+            <div class="shop-item">
+                <span>Medicine - 150kr</span>
+                <button class="btn" onclick="buyMedicine()">Buy</button>
+            </div>
+            <div class="shop-item">
+                <span>Clothes - 200kr</span>
+                <button class="btn" onclick="buyClothes()">Buy</button>
+            </div>
+            <div class="shop-item">
+                <span>Rifle - 250kr</span>
+                <button class="btn" onclick="buyRifle()">Buy</button>
+            </div>
+            <button class="btn" onclick="closeShop()">Leave</button>
+        </div>
+    </div>
+
+    <script>
+        let g = {
+            distance: 0, money: 300, health: 100, food: 10, day: 1,
+            clothes: false, medicine: 0, rifle: false, gameOver: false, victory: false
+        };
+
+        const dangers = [
+            { text: "🚗 German tourists nearly run you over!", damage: 30, avoid: false },
+            { text: "🐗 Wild boar charges at you!", damage: 35, avoid: () => g.rifle },
+            { text: "🦶 You twist your ankle badly!", damage: 40, avoid: false },
+            { text: "🤒 Food poisoning from gas station food!", damage: 30, avoid: () => g.medicine > 0 },
+            { text: "👤 Sketchy guys demand your money!", damage: 0, avoid: () => g.rifle, rob: true },
+            { text: "🐍 You step on Denmark's only venomous snake!", damage: 45, avoid: () => g.medicine > 0 }
+        ];
+
+        const weather = [
+            "🌧️ Perfect Danish rain! (+5 health, +5km)",
+            "❄️ Viking blood keeps you warm! (+10 health)",
+            "🌨️ You make a snowman! (+15 health)",
+            "💨 Classic Danish storm! (+5 health)"
+        ];
+
+        const mild = [
+            "Cozy café gives free coffee. (+10 health)",
+            "Farmer pays for help. (+50kr, +2 food)",
+            "Wild blackberries found! (+3 food)",
+            "Tourist guide tips! (+75kr)"
+        ];
+
+        function update() {
+            document.getElementById('distance').textContent = g.distance;
+            document.getElementById('money').textContent = g.money;
+            document.getElementById('health').textContent = g.health;
+            document.getElementById('food').textContent = g.food;
+            
+            const pct = (g.distance / 387) * 100;
+            document.getElementById('progressFill').style.width = pct + '%';
+            
+            let city = "Copenhagen";
+            if (g.distance >= 350) city = "Near Skagen";
+            else if (g.distance >= 280) city = "Aalborg";
+            else if (g.distance >= 200) city = "Jutland";
+            else if (g.distance >= 100) city = "Zealand Coast";
+            else if (g.distance >= 50) city = "Countryside";
+            
+            document.getElementById('progressText').textContent = `${city} (${g.distance}km)`;
+        }
+
+        function event(text, cls = '') {
+            document.getElementById('eventText').innerHTML = `<div class="${cls}">${text}</div>`;
+        }
+
+        function walk() {
+            if (g.gameOver || g.victory) return;
+            if (g.food <= 0) {
+                event("💀 You're starving! You collapse from hunger!", "danger");
+                g.health -= 20;
+                check();
+                update();
+                return;
+            }
+            if (g.health <= 10) {
+                event("💀 Too injured to walk! Rest first.", "warning");
+                return;
+            }
+
+            g.food -= Math.floor(Math.random() * 3) + 2;
+            if (g.food < 0) g.food = 0;
+            
+            const dist = Math.floor(Math.random() * 15) + 10;
+            g.distance += dist;
+            g.health -= Math.floor(Math.random() * 8) + 5;
+            g.day++;
+
+            if (Math.random() < 0.4) {
+                const d = dangers[Math.floor(Math.random() * dangers.length)];
+                let txt = `Day ${g.day}: ${d.text}`;
+                
+                const canAvoid = typeof d.avoid === 'function' ? d.avoid() : d.avoid;
+                if (canAvoid) {
+                    txt += " But you were prepared!";
+                    g.health -= Math.floor(d.damage / 3);
+                } else {
+                    g.health -= d.damage;
+                    if (d.rob && g.money > 50) {
+                        const stolen = Math.floor(g.money * 0.5);
+                        g.money -= stolen;
+                        txt += ` They steal ${stolen}kr!`;
+                    }
+                }
+                event(txt, "danger");
+            } else if (Math.random() < 0.3) {
+                const w = weather[Math.floor(Math.random() * weather.length)];
+                event(`Day ${g.day}: Walked ${dist}km. ${w}`);
+                
+                if (w.includes("+5 health, +5km")) {
+                    g.health += 5;
+                    g.distance += 5;
+                } else if (w.includes("+10 health")) g.health += 10;
+                else if (w.includes("+15 health")) g.health += 15;
+                else g.health += 5;
+                
+                if (g.health > 100) g.health = 100;
+            } else if (Math.random() < 0.2) {
+                const m = mild[Math.floor(Math.random() * mild.length)];
+                event(`Day ${g.day}: Walked ${dist}km. ${m}`);
+                
+                if (m.includes("+10 health")) g.health += 10;
+                if (m.includes("+50kr")) g.money += 50;
+                if (m.includes("+75kr")) g.money += 75;
+                if (m.includes("+2 food")) g.food += 2;
+                if (m.includes("+3 food")) g.food += 3;
+                
+                if (g.health > 100) g.health = 100;
+            } else {
+                event(`Day ${g.day}: Walked ${dist}km. The Danish landscape feels like home.`);
+            }
+
+            check();
+            update();
+        }
+
+        function rest() {
+            if (g.gameOver || g.victory) return;
+            
+            g.health += Math.floor(Math.random() * 15) + 10;
+            g.food -= Math.floor(Math.random() * 2) + 1;
+            g.day++;
+            
+            if (g.health > 100) g.health = 100;
+            if (g.food < 0) g.food = 0;
+            
+            if (Math.random() < 0.25) {
+                const restDanger = ["Thieves steal supplies!", "Storm damages shelter!", "Animals raid camp!"];
+                const danger = restDanger[Math.floor(Math.random() * restDanger.length)];
+                event(`Day ${g.day}: While resting - ${danger}`, "danger");
+                
+                if (danger.includes("steal")) {
+                    g.money -= Math.floor(Math.random() * 50) + 20;
+                    if (g.money < 0) g.money = 0;
+                }
+                if (danger.includes("Storm")) g.health -= 15;
+                if (danger.includes("Animals")) {
+                    g.food -= Math.floor(Math.random() * 3) + 1;
+                    if (g.food < 0) g.food = 0;
+                }
+            } else {
+                event(`Day ${g.day}: You rest and recover strength.`);
+            }
+            
+            check();
+            update();
+        }
+
+        function hunt() {
+            if (g.gameOver || g.victory) return;
+            if (!g.rifle) {
+                event("❌ You need a rifle to hunt!", "warning");
+                return;
+            }
+            
+            g.day++;
+            
+            if (Math.random() < 0.6) {
+                const foodGained = Math.floor(Math.random() * 8) + 4;
+                g.food += foodGained;
+                g.health -= 5;
+                event(`Day ${g.day}: Successful hunt! Gained ${foodGained}kg meat.`);
+            } else {
+                g.health -= 15;
+                const fails = ["Rifle misfires!", "Lost in woods!", "Boar attacks!"];
+                const fail = fails[Math.floor(Math.random() * fails.length)];
+                event(`Day ${g.day}: Hunt failed! ${fail}`, "danger");
+            }
+            
+            check();
+            update();
+        }
+
+        function work() {
+            if (g.gameOver || g.victory) return;
+            
+            g.day++;
+            g.food -= Math.floor(Math.random() * 2) + 1;
+            if (g.food < 0) g.food = 0;
+            
+            const jobs = [
+                { name: "Farm work", pay: [50, 80], danger: 0.1 },
+                { name: "Construction", pay: [70, 120], danger: 0.15 },
+                { name: "Delivery", pay: [80, 140], danger: 0.1 },
+                { name: "Tour guide", pay: [60, 100], danger: 0.05 }
+            ];
+            
+            const job = jobs[Math.floor(Math.random() * jobs.length)];
+            const earnings = Math.floor(Math.random() * (job.pay[1] - job.pay[0] + 1)) + job.pay[0];
+            
+            if (Math.random() < job.danger) {
+                const injury = Math.floor(Math.random() * 15) + 10;
+                g.health -= injury;
+                g.money += Math.floor(earnings * 0.5);
+                event(`Day ${g.day}: ${job.name} - injured! Earned ${Math.floor(earnings * 0.5)}kr`, "danger");
+            } else {
+                g.money += earnings;
+                event(`Day ${g.day}: ${job.name} - earned ${earnings}kr!`);
+            }
+            
+            check();
+            update();
+        }
+
+        function forage() {
+            if (g.gameOver || g.victory) return;
+            
+            g.day++;
+            g.health -= Math.floor(Math.random() * 5) + 5;
+            
+            if (Math.random() < 0.7) {
+                const finds = [
+                    { desc: "berries", food: 3, money: 0 },
+                    { desc: "mushrooms", food: 2, money: 40 },
+                    { desc: "bottles", food: 0, money: 20 }
+                ];
+                const find = finds[Math.floor(Math.random() * finds.length)];
+                g.food += find.food;
+                g.money += find.money;
+                event(`Day ${g.day}: Found ${find.desc}! (+${find.food}kg food, +${find.money}kr)`);
+            } else {
+                event(`Day ${g.day}: Found nothing useful.`);
+            }
+            
+            check();
+            update();
+        }
+
+        function shop() {
+            if (g.gameOver || g.victory) return;
+            if (g.distance < 50 || (g.distance % 100 > 50 && g.distance % 100 < 80)) {
+                document.getElementById('shopArea').style.display = 'block';
+            } else {
+                event("❌ No shops in this remote area.", "warning");
+            }
+        }
+
+        function closeShop() {
+            document.getElementById('shopArea').style.display = 'none';
+        }
+
+        function buyFood() {
+            if (g.money >= 60) {
+                g.money -= 60;
+                g.food += 3;
+                event("Bought food rations!");
+                update();
+            } else {
+                event("❌ Not enough money!", "warning");
+            }
+        }
+
+        function buyMedicine() {
+            if (g.money >= 150) {
+                g.money -= 150;
+                g.medicine += 2;
+                event("Bought medicine!");
+                update();
+            } else {
+                event("❌ Not enough money!", "warning");
+            }
+        }
+
+        function buyClothes() {
+            if (g.money >= 200 && !g.clothes) {
+                g.money -= 200;
+                g.clothes = true;
+                event("Bought warm clothes!");
+                update();
+            } else if (g.clothes) {
+                event("❌ Already have clothes!");
+            } else {
+                event("❌ Not enough money!", "warning");
+            }
+        }
+
+        function buyRifle() {
+            if (g.money >= 250 && !g.rifle) {
+                g.money -= 250;
+                g.rifle = true;
+                event("Bought hunting rifle!");
+                update();
+            } else if (g.rifle) {
+                event("❌ Already have rifle!");
+            } else {
+                event("❌ Not enough money!", "warning");
+            }
+        }
+
+        function check() {
+            if (g.distance >= 387) {
+                g.victory = true;
+                event(`🎉 VICTORY! 🎉<br>You survived the Skagen Trail!<br>Distance: 387km<br>Days: ${g.day}<br>Health: ${g.health}%<br>Money: ${g.money}kr<br><br>You conquered Denmark! 🇩🇰`, "victory");
+                document.getElementById('gameControls').style.display = 'none';
+                return;
+            }
+            
+            if (g.health <= 0) {
+                g.gameOver = true;
+                event(`💀 YOU DIED 💀<br>The trail claimed another victim...<br>Distance: ${g.distance}/387km<br>Days survived: ${g.day}<br><br><button class="btn" onclick="restart()">Try Again</button>`, "game-over");
+                return;
+            }
+            
+            if (g.health <= 20) {
+                event("⚠️ WARNING: Health critically low!", "warning");
+            } else if (g.food <= 2) {
+                event("⚠️ WARNING: Almost out of food!", "warning");
+            }
+        }
+
+        function restart() {
+            g = {
+                distance: 0, money: 300, health: 100, food: 10, day: 1,
+                clothes: false, medicine: 0, rifle: false, gameOver: false, victory: false
+            };
+            document.getElementById('gameControls').style.display = 'grid';
+            document.getElementById('shopArea').style.display = 'none';
+            event("Welcome to The Skagen Trail! Survive the deadly 387km journey from Copenhagen to Skagen. Use WASD or touch controls. Good luck!");
+            update();
+        }
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            const key = e.key.toLowerCase();
+            if (key === 'w') walk();
+            else if (key === 'a') rest();
+            else if (key === 's') shop();
+            else if (key === 'd') hunt();
+            else if (key === 'q') work();
+            else if (key === 'e') forage();
+            else if (key === 'r') restart();
+        });
+
+        // Touch feedback
+        document.querySelectorAll('.btn').forEach(btn => {
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                btn.style.transform = 'scale(0.95)';
+            });
+            btn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                btn.style.transform = '';
+                btn.click();
+            });
+        });
+
+        // Initialize
+        update();
+    </script>
+</body>
+</html>

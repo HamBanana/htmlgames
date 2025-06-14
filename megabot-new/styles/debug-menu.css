@@ -1,0 +1,85 @@
+/* debug-menu.css - Debug menu specific styles */
+
+#debugMenu {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.95);
+    border: 2px solid #ff00ff;
+    box-shadow: 0 0 30px #ff00ff;
+    padding: 20px;
+    color: #ff00ff;
+    display: none;
+    z-index: 1000;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+    font-size: 12px;
+}
+
+#debugMenu h2 {
+    margin: 0 0 15px 0;
+    text-align: center;
+    text-shadow: 0 0 10px #ff00ff;
+}
+
+.debug-section {
+    margin: 10px 0;
+    padding: 10px;
+    border: 1px solid #ff00ff;
+}
+
+.debug-section h3 {
+    margin: 0 0 10px 0;
+    color: #ffff00;
+}
+
+.debug-btn {
+    background: #ff00ff;
+    color: #000;
+    border: none;
+    padding: 5px 10px;
+    margin: 2px;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+}
+
+.debug-btn:hover {
+    background: #ff66ff;
+}
+
+.debug-input {
+    background: #222;
+    color: #ff00ff;
+    border: 1px solid #ff00ff;
+    padding: 3px;
+    margin: 2px;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+}
+
+.debug-label {
+    color: #00ffff;
+    margin-right: 5px;
+}
+
+.debug-checkbox {
+    margin: 5px;
+}
+
+.key-binding {
+    display: flex;
+    align-items: center;
+    margin: 5px 0;
+}
+
+.key-binding span {
+    width: 100px;
+    color: #00ffff;
+}
+
+.key-binding input {
+    width: 80px;
+}

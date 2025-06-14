@@ -1,0 +1,1499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Hopper</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: monospace;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        #gameContainer {
+            position: relative;
+            max-width: 100vw;
+            max-height: 100vh;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        canvas {
+            border: 2px solid #00ff00;
+            box-shadow: 0 0 20px #00ff00;
+            image-rendering: pixelated;
+            max-width: 100%;
+            max-height: 60vh;
+            width: auto;
+            height: auto;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #00ff00;
+            font-size: 18px;
+            text-shadow: 0 0 10px #00ff00;
+            z-index: 100;
+        }
+        
+        #controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            z-index: 100;
+        }
+        
+        #joystick {
+            width: 120px;
+            height: 120px;
+            background: rgba(0, 255, 0, 0.1);
+            border: 2px solid #00ff00;
+            border-radius: 50%;
+            position: relative;
+            touch-action: none;
+        }
+        
+        #joystickKnob {
+            width: 40px;
+            height: 40px;
+            background: #00ff00;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            box-shadow: 0 0 20px #00ff00;
+        }
+        
+        .gameBtn {
+            padding: 15px 25px;
+            background: rgba(0, 255, 0, 0.2);
+            border: 2px solid #00ff00;
+            color: #00ff00;
+            font-size: 16px;
+            font-family: monospace;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-shadow: 0 0 5px #00ff00;
+        }
+        
+        .gameBtn:active {
+            background: rgba(0, 255, 0, 0.4);
+            transform: scale(0.95);
+        }
+        
+        .gameBtn.cooldown {
+            background: rgba(255, 0, 0, 0.2);
+            border-color: #ff0000;
+            color: #ff0000;
+            text-shadow: 0 0 5px #ff0000;
+        }
+        
+        #combo {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: #ffff00;
+            font-size: 24px;
+            text-shadow: 0 0 10px #ffff00;
+            display: none;
+        }
+        
+        #timer {
+            position: absolute;
+            top: 50px;
+            left: 10px;
+            color: #ff0000;
+            font-size: 20px;
+            text-shadow: 0 0 10px #ff0000;
+        }
+        
+        #powerup {
+            position: absolute;
+            bottom: 150px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 20px;
+            text-shadow: 0 0 10px currentColor;
+        }
+        
+        .screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #00ff00;
+            z-index: 1000;
+        }
+        
+        .screen h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px #00ff00;
+        }
+        
+        .screen button {
+            margin: 10px;
+            padding: 15px 30px;
+            font-size: 20px;
+        }
+        
+        #startScreen {
+            display: flex;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .pulse {
+            animation: pulse 1s infinite;
+        }
+        
+        @media (max-width: 600px) {
+            #ui { font-size: 14px; }
+            #timer { font-size: 16px; top: 40px; }
+            #combo { font-size: 18px; }
+            .gameBtn { padding: 10px 20px; font-size: 14px; }
+            #joystick { width: 100px; height: 100px; }
+            #joystickKnob { width: 30px; height: 30px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="ui">
+            <div>SCORE: <span id="score">0</span></div>
+            <div>LIVES: <span id="lives">3</span></div>
+            <div>LEVEL: <span id="level">1</span></div>
+            <div>FROGS SAVED: <span id="frogsSaved">0/5</span></div>
+        </div>
+        
+        <div id="timer">TIME: <span id="timeLeft">60</span></div>
+        
+        <div id="combo">
+            <div>COMBO x<span id="comboCount">0</span></div>
+        </div>
+        
+        <div id="powerup">
+            <div id="powerupDisplay"></div>
+        </div>
+        
+        <div id="controls">
+            <div id="joystick">
+                <div id="joystickKnob"></div>
+            </div>
+            <button class="gameBtn" id="abilityBtn">DASH</button>
+        </div>
+        
+        <div id="startScreen" class="screen">
+            <h1>FROGGER ULTIMATE</h1>
+            <p style="margin: 20px; text-align: center;">
+                Save all 5 frogs by getting them to the lily pads!<br>
+                Use arrow keys or joystick to move<br>
+                SPACE or DASH button for special ability
+            </p>
+            <button class="gameBtn pulse" onclick="startGame()">START GAME</button>
+        </div>
+        
+        <div id="gameOverScreen" class="screen">
+            <h1>GAME OVER</h1>
+            <p style="font-size: 24px;">Final Score: <span id="finalScore">0</span></p>
+            <button class="gameBtn" onclick="restartGame()">TRY AGAIN</button>
+        </div>
+        
+        <div id="winScreen" class="screen">
+            <h1>LEVEL COMPLETE!</h1>
+            <p style="font-size: 24px;">Score: <span id="winScore">0</span></p>
+            <button class="gameBtn pulse" onclick="nextLevel()">NEXT LEVEL</button>
+        </div>
+    </div>
+    
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Game constants
+        const GRID_SIZE = 30;
+        const COLS = 20;
+        const ROWS = 20;
+        
+        // Set canvas size
+        canvas.width = COLS * GRID_SIZE;
+        canvas.height = ROWS * GRID_SIZE;
+        
+        // Game state
+        let gameState = 'start';
+        let score = 0;
+        let lives = 3;
+        let level = 1;
+        let timeLeft = 60;
+        let combo = 0;
+        let comboTimer = 0;
+        let frameCount = 0;
+        let lastTime = 0;
+        let deltaTime = 0;
+        let screenShake = 0;
+        let timer = null;
+        
+        // Player
+        const player = {
+            x: 9,
+            y: 19,
+            gridX: 9,
+            gridY: 19,
+            smoothX: 9 * GRID_SIZE,
+            smoothY: 19 * GRID_SIZE,
+            color: '#00ff00',
+            moving: false,
+            moveProgress: 0,
+            moveStartX: 9,
+            moveStartY: 19,
+            invulnerable: false,
+            invulnerableTimer: 0,
+            powerup: null,
+            powerupTimer: 0,
+            dashCooldown: 0,
+            trail: [],
+            dashTrail: [],
+            glowIntensity: 1,
+            visible: true,
+            spawnAnimation: 0,
+            ridingLog: null,
+            logOffset: 0
+        };
+        
+        // Power-ups
+        const powerupTypes = {
+            shield: { color: '#0088ff', duration: 300, name: 'SHIELD' },
+            speed: { color: '#ffff00', duration: 360, name: 'SPEED BOOST' },
+            timeSlow: { color: '#ff00ff', duration: 240, name: 'TIME SLOW' },
+            superJump: { color: '#ff8800', duration: 180, name: 'SUPER JUMP' },
+            magnet: { color: '#00ffff', duration: 300, name: 'LOG MAGNET' }
+        };
+        
+        const powerups = [];
+        
+        // Vehicles
+        const vehicles = [];
+        const vehicleTypes = [
+            { width: 2, speed: 1, color: '#ff0000', glow: '#ff6666' },
+            { width: 3, speed: 1.5, color: '#ffff00', glow: '#ffff66' },
+            { width: 2, speed: 2, color: '#ff00ff', glow: '#ff66ff' }
+        ];
+        
+        // Logs
+        const logs = [];
+        const logTypes = [
+            { width: 3, speed: 1, color: '#8b4513', glow: '#a0522d' },
+            { width: 4, speed: 0.8, color: '#654321', glow: '#7a5230' },
+            { width: 2, speed: 1.2, color: '#964b00', glow: '#ab5600' }
+        ];
+        
+        // Lily pads (win spots)
+        const lilyPads = [];
+        const occupiedPads = [];
+        const padFlashTimers = [];
+        
+        // Particles
+        const particles = [];
+        
+        // Text messages
+        const messages = [];
+        
+        // Input
+        const keys = {};
+        let joystickActive = false;
+        let joystickInput = { x: 0, y: 0 };
+        
+        // Initialize game
+        function init() {
+            // Create lily pads
+            lilyPads.length = 0;
+            occupiedPads.length = 0;
+            padFlashTimers.length = 0;
+            for (let i = 0; i < 5; i++) {
+                lilyPads.push({
+                    x: 1 + i * 4,
+                    y: 0,
+                    occupied: false
+                });
+                padFlashTimers.push(0);
+            }
+            
+            // Create vehicles (bottom 8 lanes)
+            vehicles.length = 0;
+            for (let lane = 0; lane < 8; lane++) {
+                const type = vehicleTypes[lane % vehicleTypes.length];
+                const count = 3 + Math.floor(Math.random() * 2);
+                const spacing = COLS / count;
+                const direction = lane % 2 === 0 ? 1 : -1;
+                
+                for (let i = 0; i < count; i++) {
+                    vehicles.push({
+                        x: direction > 0 ? i * -spacing : COLS + i * spacing,
+                        y: 11 + lane,
+                        width: type.width,
+                        speed: type.speed * direction * (0.8 + level * 0.1),
+                        color: type.color,
+                        glow: type.glow
+                    });
+                }
+            }
+            
+            // Create logs (water lanes)
+            logs.length = 0;
+            for (let lane = 0; lane < 9; lane++) {
+                const type = logTypes[lane % logTypes.length];
+                const count = 2 + Math.floor(Math.random() * 2);
+                const spacing = COLS / count * 1.5;
+                const direction = lane % 2 === 0 ? 1 : -1;
+                
+                for (let i = 0; i < count; i++) {
+                    logs.push({
+                        x: direction > 0 ? i * -spacing : COLS + i * spacing,
+                        y: 1 + lane,
+                        width: type.width,
+                        speed: type.speed * direction * (0.6 + level * 0.05),
+                        color: type.color,
+                        glow: type.glow
+                    });
+                }
+            }
+            
+            // Create random powerups
+            powerups.length = 0;
+            const powerupKeys = Object.keys(powerupTypes);
+            for (let i = 0; i < 3; i++) {
+                const lane = 5 + Math.floor(Math.random() * 5);
+                powerups.push({
+                    x: Math.random() * COLS,
+                    y: lane,
+                    type: powerupKeys[Math.floor(Math.random() * powerupKeys.length)],
+                    collected: false,
+                    pulse: 0
+                });
+            }
+        }
+        
+        // FIXED: Check lily pad collision with better precision
+        function checkLilyPad() {
+            let foundPad = false;
+            
+            for (let i = 0; i < lilyPads.length; i++) {
+                const pad = lilyPads[i];
+                // FIXED: Use <= 0.5 for more precise collision detection
+                if (Math.abs(player.gridX - pad.x) <= 0.5 && !pad.occupied) {
+                    pad.occupied = true;
+                    occupiedPads.push(i);
+                    padFlashTimers[i] = 30;
+                    score += 100 * (combo > 0 ? combo : 1);
+                    score += timeLeft * 2;
+                    createParticles(
+                        pad.x * GRID_SIZE + GRID_SIZE/2,
+                        pad.y * GRID_SIZE + GRID_SIZE/2,
+                        '#ffff00',
+                        30
+                    );
+                    foundPad = true;
+                    
+                    // Show success message
+                    messages.push({
+                        text: `FROG ${occupiedPads.length} SAFE!`,
+                        x: canvas.width / 2,
+                        y: canvas.height / 3,
+                        life: 60,
+                        color: '#ffff00',
+                        size: 24
+                    });
+                    
+                    // Show score bonus
+                    messages.push({
+                        text: `+${100 * (combo > 0 ? combo : 1) + timeLeft * 2} POINTS!`,
+                        x: canvas.width / 2,
+                        y: canvas.height / 3 + 30,
+                        life: 60,
+                        color: '#00ffff',
+                        size: 16
+                    });
+                    
+                    // Check if all pads occupied
+                    if (occupiedPads.length === lilyPads.length) {
+                        // All frogs saved - complete level
+                        setTimeout(() => {
+                            levelComplete();
+                        }, 1000);
+                    } else {
+                        // Spawn new frog after delay
+                        player.visible = false;
+                        
+                        messages.push({
+                            text: 'GET READY!',
+                            x: canvas.width / 2,
+                            y: canvas.height * 0.8,
+                            life: 30,
+                            color: '#00ff00',
+                            size: 16
+                        });
+                        
+                        setTimeout(() => {
+                            resetPlayerPosition();
+                            player.visible = true;
+                            player.spawnAnimation = 30;
+                            
+                            createParticles(
+                                player.smoothX + GRID_SIZE/2,
+                                player.smoothY + GRID_SIZE/2,
+                                '#00ff00',
+                                30,
+                                6
+                            );
+                            
+                            screenShake = 5;
+                            
+                            messages.push({
+                                text: 'NEW FROG READY!',
+                                x: canvas.width / 2,
+                                y: canvas.height * 0.7,
+                                life: 60,
+                                color: '#00ff00',
+                                size: 18
+                            });
+                            
+                            // Don't reset timer - keep it running for the level
+                            combo = 0;
+                            comboTimer = 0;
+                            document.getElementById('combo').style.display = 'none';
+                            
+                            updateUI();
+                        }, 500);
+                    }
+                    
+                    updateUI();
+                    break;
+                }
+            }
+            
+            if (!foundPad) {
+                // Missed lily pad or tried to land on occupied pad
+                playerHit();
+            }
+        }
+        
+        // Reset player position
+        function resetPlayerPosition() {
+            player.gridX = 9;
+            player.gridY = 19;
+            player.x = 9;
+            player.y = 19;
+            player.smoothX = 9 * GRID_SIZE;
+            player.smoothY = 19 * GRID_SIZE;
+            player.invulnerable = true;
+            player.invulnerableTimer = 60;
+            player.visible = true;
+            player.ridingLog = null;
+            player.logOffset = 0;
+            player.moving = false;
+            player.moveProgress = 0;
+            player.powerup = null;
+            player.powerupTimer = 0;
+            document.getElementById('powerupDisplay').textContent = '';
+        }
+        
+        // Player hit
+        function playerHit() {
+            lives--;
+            combo = 0;
+                                        document.getElementById('combo').style.display = 'none';
+            createParticles(
+                player.smoothX + GRID_SIZE/2,
+                player.smoothY + GRID_SIZE/2,
+                '#ff0000',
+                20
+            );
+            screenShake = 20;
+            
+            if (lives <= 0) {
+                gameOver();
+            } else {
+                messages.push({
+                    text: `${lives} ${lives === 1 ? 'LIFE' : 'LIVES'} LEFT!`,
+                    x: canvas.width / 2,
+                    y: canvas.height / 2,
+                    life: 60,
+                    color: '#ff0000',
+                    size: 20
+                });
+                
+                resetPlayerPosition();
+                updateUI();
+            }
+        }
+        
+        // Level complete
+        function levelComplete() {
+            gameState = 'win';
+            clearInterval(timer);
+            score += timeLeft * 10;
+            document.getElementById('winScore').textContent = score;
+            document.getElementById('winScreen').style.display = 'flex';
+        }
+        
+        // Game over
+        function gameOver() {
+            gameState = 'gameover';
+            clearInterval(timer);
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('gameOverScreen').style.display = 'flex';
+        }
+        
+        // Next level
+        function nextLevel() {
+            level++;
+            timeLeft = 60 + level * 5;
+            gameState = 'playing';
+            combo = 0;
+            document.getElementById('combo').style.display = 'none';
+            document.getElementById('winScreen').style.display = 'none';
+            
+            // Clear all occupied pads for new level
+            lilyPads.forEach(pad => pad.occupied = false);
+            occupiedPads.length = 0;
+            
+            resetPlayerPosition();
+            init();
+            startTimer();
+            updateUI();
+        }
+        
+        // Restart game
+        function restartGame() {
+            score = 0;
+            lives = 3;
+            level = 1;
+            timeLeft = 60;
+            combo = 0;
+            gameState = 'playing';
+            document.getElementById('gameOverScreen').style.display = 'none';
+            document.getElementById('combo').style.display = 'none';
+            
+            lilyPads.forEach(pad => pad.occupied = false);
+            occupiedPads.length = 0;
+            
+            resetPlayerPosition();
+            init();
+            startTimer();
+            updateUI();
+        }
+        
+        // Update UI
+        function updateUI() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('lives').textContent = lives;
+            document.getElementById('level').textContent = level;
+            document.getElementById('timeLeft').textContent = timeLeft;
+            document.getElementById('frogsSaved').textContent = `${occupiedPads.length}/5`;
+        }
+        
+        // Start timer
+        function startTimer() {
+            clearInterval(timer);
+            timer = setInterval(() => {
+                if (gameState === 'playing') {
+                    timeLeft--;
+                    updateUI();
+                    
+                    if (timeLeft <= 0) {
+                        playerHit();
+                        if (lives > 0) {
+                            timeLeft = 60 + level * 5;
+                        }
+                    }
+                }
+            }, 1000);
+        }
+        
+        // Create particles
+        function createParticles(x, y, color, count, spread = 5) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * spread,
+                    vy: (Math.random() - 0.5) * spread,
+                    color: color,
+                    life: 30 + Math.random() * 20,
+                    size: 3 + Math.random() * 3
+                });
+            }
+        }
+        
+        // Update combo
+        function updateCombo() {
+            combo++;
+            comboTimer = 180;
+            document.getElementById('combo').style.display = 'block';
+            document.getElementById('comboCount').textContent = combo;
+        }
+        
+        // Easing function
+        function easeOutCubic(t) {
+            return 1 - Math.pow(1 - t, 3);
+        }
+        
+        // Handle keyboard input
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            
+            if (gameState === 'playing' && !player.moving) {
+                handlePlayerInput();
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+        
+        // Handle joystick
+        const joystick = document.getElementById('joystick');
+        const joystickKnob = document.getElementById('joystickKnob');
+        const abilityBtn = document.getElementById('abilityBtn');
+        
+        function handleJoystick(e) {
+            e.preventDefault();
+            const rect = joystick.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            
+            let x, y;
+            if (e.touches) {
+                x = e.touches[0].clientX - centerX;
+                y = e.touches[0].clientY - centerY;
+            } else {
+                x = e.clientX - centerX;
+                y = e.clientY - centerY;
+            }
+            
+            const distance = Math.sqrt(x * x + y * y);
+            const maxDistance = rect.width / 2 - 20;
+            
+            if (distance > maxDistance) {
+                x = (x / distance) * maxDistance;
+                y = (y / distance) * maxDistance;
+            }
+            
+            joystickKnob.style.transform = `translate(${x}px, ${y}px)`;
+            
+            const threshold = 30;
+            joystickInput.x = Math.abs(x) > threshold ? Math.sign(x) : 0;
+            joystickInput.y = Math.abs(y) > threshold ? Math.sign(y) : 0;
+            
+            if (gameState === 'playing' && !player.moving && (joystickInput.x || joystickInput.y)) {
+                handlePlayerInput();
+            }
+        }
+        
+        function resetJoystick() {
+            joystickActive = false;
+            joystickKnob.style.transform = 'translate(0, 0)';
+            joystickInput.x = 0;
+            joystickInput.y = 0;
+        }
+        
+        joystick.addEventListener('touchstart', (e) => {
+            joystickActive = true;
+            handleJoystick(e);
+        });
+        
+        joystick.addEventListener('touchmove', handleJoystick);
+        joystick.addEventListener('touchend', resetJoystick);
+        joystick.addEventListener('mousedown', (e) => {
+            joystickActive = true;
+            handleJoystick(e);
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if (joystickActive) handleJoystick(e);
+        });
+        
+        document.addEventListener('mouseup', resetJoystick);
+        
+        abilityBtn.addEventListener('click', () => {
+            if (player.dashCooldown <= 0 && gameState === 'playing') {
+                performDash();
+            }
+        });
+        
+        // Handle player input
+        function handlePlayerInput() {
+            let dx = 0, dy = 0;
+            
+            if (keys['ArrowUp'] || joystickInput.y < 0) dy = -1;
+            else if (keys['ArrowDown'] || joystickInput.y > 0) dy = 1;
+            else if (keys['ArrowLeft'] || joystickInput.x < 0) dx = -1;
+            else if (keys['ArrowRight'] || joystickInput.x > 0) dx = 1;
+            
+            if (dx || dy) {
+                let newX = player.gridX + dx;
+                let newY = player.gridY + dy;
+                
+                if (player.powerup === 'superJump') {
+                    newX = player.gridX + dx * 2;
+                    newY = player.gridY + dy * 2;
+                }
+                
+                // When on a log, handle movement differently
+                if (player.ridingLog) {
+                    if (dy === 0) {
+                        // Moving left/right on the log
+                        const log = player.ridingLog;
+                        const potentialX = newX;
+                        
+                        // Check if the new position would still be on the log
+                        if (potentialX >= log.x - 0.3 && potentialX < log.x + log.width + 0.3) {
+                            // Update position and log offset
+                            newX = Math.max(0, Math.min(COLS - 1, newX));
+                            player.logOffset = potentialX - log.x;
+                        } else {
+                            // Would move off the log, so clamp to log bounds
+                            if (dx < 0) {
+                                newX = Math.max(0, Math.ceil(log.x));
+                                player.logOffset = newX - log.x;
+                            } else {
+                                newX = Math.min(COLS - 1, Math.floor(log.x + log.width - 0.5));
+                                player.logOffset = newX - log.x;
+                            }
+                        }
+                    } else {
+                        // Moving up/down from the log - disconnect from log
+                        player.ridingLog = null;
+                        player.logOffset = 0;
+                    }
+                }
+                
+                newX = Math.max(0, Math.min(COLS - 1, newX));
+                newY = Math.max(0, Math.min(ROWS - 1, newY));
+                
+                player.moveStartX = player.gridX;
+                player.moveStartY = player.gridY;
+                player.gridX = newX;
+                player.gridY = newY;
+                player.moving = true;
+                player.moveProgress = 0;
+                
+                player.trail.push({
+                    x: player.smoothX,
+                    y: player.smoothY,
+                    life: 10
+                });
+            }
+            
+            if (keys[' '] && player.dashCooldown <= 0) {
+                performDash();
+            }
+        }
+        
+        // Perform dash
+        function performDash() {
+            let dx = 0, dy = 0;
+            if (keys['ArrowUp'] || joystickInput.y < 0) dy = -3;
+            else if (keys['ArrowDown'] || joystickInput.y > 0) dy = 3;
+            else if (keys['ArrowLeft'] || joystickInput.x < 0) dx = -3;
+            else if (keys['ArrowRight'] || joystickInput.x > 0) dx = 3;
+            else dy = -3;
+            
+            const newX = Math.max(0, Math.min(COLS - 1, player.gridX + dx));
+            const newY = Math.max(0, Math.min(ROWS - 1, player.gridY + dy));
+            
+            for (let i = 1; i <= 3; i++) {
+                player.dashTrail.push({
+                    x: player.smoothX + (dx * GRID_SIZE * i / 3),
+                    y: player.smoothY + (dy * GRID_SIZE * i / 3),
+                    life: 15
+                });
+            }
+            
+            player.gridX = newX;
+            player.gridY = newY;
+            player.smoothX = newX * GRID_SIZE;
+            player.smoothY = newY * GRID_SIZE;
+            player.x = newX;
+            player.y = newY;
+            player.invulnerable = true;
+            player.invulnerableTimer = 15;
+            player.dashCooldown = 180;
+            screenShake = 10;
+            
+            // If dashing horizontally while on a log, update the offset
+            if (player.ridingLog && dy === 0) {
+                player.logOffset = player.x - player.ridingLog.x;
+            } else if (dy !== 0) {
+                // Dashing vertically, so disconnect from log
+                player.ridingLog = null;
+                player.logOffset = 0;
+            }
+            
+            createParticles(
+                player.smoothX + GRID_SIZE/2,
+                player.smoothY + GRID_SIZE/2,
+                '#ff00ff',
+                10
+            );
+        }
+        
+        // Update player
+        function updatePlayer(deltaTime) {
+            if (player.moving) {
+                const moveSpeed = player.powerup === 'speed' ? 12 : 8;
+                player.moveProgress += deltaTime * moveSpeed;
+                
+                if (player.moveProgress >= 1) {
+                    player.x = player.gridX;
+                    player.y = player.gridY;
+                    player.smoothX = player.gridX * GRID_SIZE;
+                    player.smoothY = player.gridY * GRID_SIZE;
+                    player.moving = false;
+                    player.moveProgress = 0;
+                    
+                    // If on a log, update the offset after movement completes
+                    if (player.ridingLog) {
+                        player.logOffset = player.x - player.ridingLog.x;
+                    }
+                    
+                    if (player.gridY === 0) {
+                        checkLilyPad();
+                    }
+                } else {
+                    const t = easeOutCubic(player.moveProgress);
+                    player.smoothX = player.moveStartX * GRID_SIZE + (player.gridX * GRID_SIZE - player.moveStartX * GRID_SIZE) * t;
+                    player.smoothY = player.moveStartY * GRID_SIZE + (player.gridY * GRID_SIZE - player.moveStartY * GRID_SIZE) * t;
+                    player.x = player.smoothX / GRID_SIZE;
+                    player.y = player.smoothY / GRID_SIZE;
+                }
+            }
+            
+            player.glowIntensity = 0.7 + Math.sin(frameCount * 0.1) * 0.3;
+            
+            if (player.spawnAnimation > 0) {
+                player.spawnAnimation--;
+            }
+            
+            if (player.invulnerableTimer > 0) {
+                player.invulnerableTimer--;
+                if (player.invulnerableTimer <= 0) {
+                    player.invulnerable = false;
+                }
+            }
+            
+            if (player.powerupTimer > 0) {
+                player.powerupTimer--;
+                if (player.powerupTimer <= 0) {
+                    player.powerup = null;
+                    document.getElementById('powerupDisplay').textContent = '';
+                }
+            }
+            
+            if (player.dashCooldown > 0) {
+                player.dashCooldown--;
+                abilityBtn.classList.toggle('cooldown', player.dashCooldown > 0);
+                if (player.dashCooldown <= 0) {
+                    abilityBtn.textContent = 'DASH';
+                } else {
+                    abilityBtn.textContent = Math.ceil(player.dashCooldown / 60);
+                }
+            }
+            
+            player.trail = player.trail.filter(t => {
+                t.life--;
+                return t.life > 0;
+            });
+            
+            player.dashTrail = player.dashTrail.filter(t => {
+                t.life--;
+                return t.life > 0;
+            });
+        }
+        
+        // Check collisions
+        function checkCollisions() {
+            if (player.invulnerable || !player.visible) return;
+            
+            const playerGridX = Math.round(player.x);
+            const playerGridY = Math.round(player.y);
+            
+            // Check vehicles
+            for (const vehicle of vehicles) {
+                if (playerGridY === vehicle.y && 
+                    playerGridX >= Math.floor(vehicle.x) && 
+                    playerGridX < Math.floor(vehicle.x) + vehicle.width) {
+                    if (player.powerup !== 'shield') {
+                        playerHit();
+                        return;
+                    } else {
+                        createParticles(
+                            player.smoothX + GRID_SIZE/2,
+                            player.smoothY + GRID_SIZE/2,
+                            '#0088ff',
+                            10
+                        );
+                        score += 10;
+                        updateUI();
+                    }
+                }
+            }
+            
+            // Check logs
+            if (playerGridY >= 1 && playerGridY <= 9) {
+                let onLog = false;
+                let currentLog = null;
+                
+                for (const log of logs) {
+                    // Use the actual player position (which may be offset when riding)
+                    const actualPlayerX = player.ridingLog === log ? player.ridingLog.x + player.logOffset : player.x;
+                    
+                    if (playerGridY === log.y && 
+                        actualPlayerX >= log.x - 0.3 && 
+                        actualPlayerX < log.x + log.width + 0.3) {
+                        onLog = true;
+                        currentLog = log;
+                        break;
+                    }
+                }
+                
+                if (onLog && currentLog) {
+                    if (player.ridingLog !== currentLog) {
+                        player.ridingLog = currentLog;
+                        player.logOffset = player.x - currentLog.x;
+                        score += 5;
+                        updateCombo();
+                        updateUI();
+                    }
+                } else {
+                    if (player.ridingLog) {
+                        player.ridingLog = null;
+                        player.logOffset = 0;
+                    }
+                    playerHit();
+                    return;
+                }
+            } else {
+                player.ridingLog = null;
+                player.logOffset = 0;
+            }
+            
+            // Check powerups
+            for (const powerup of powerups) {
+                if (!powerup.collected &&
+                    Math.abs(playerGridX - Math.round(powerup.x)) < 1 &&
+                    Math.abs(playerGridY - powerup.y) < 1) {
+                    collectPowerup(powerup);
+                }
+            }
+        }
+        
+        // Collect powerup
+        function collectPowerup(powerup) {
+            powerup.collected = true;
+            player.powerup = powerup.type;
+            player.powerupTimer = powerupTypes[powerup.type].duration;
+            
+            document.getElementById('powerupDisplay').textContent = powerupTypes[powerup.type].name;
+            document.getElementById('powerupDisplay').style.color = powerupTypes[powerup.type].color;
+            
+            score += 50;
+            updateCombo();
+            createParticles(
+                powerup.x * GRID_SIZE + GRID_SIZE/2,
+                powerup.y * GRID_SIZE + GRID_SIZE/2,
+                powerupTypes[powerup.type].color,
+                15
+            );
+            updateUI();
+        }
+        
+        // Draw game
+        function draw() {
+            // Clear canvas
+            ctx.fillStyle = '#000033';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Apply screen shake
+            if (screenShake > 0) {
+                ctx.save();
+                ctx.translate(
+                    (Math.random() - 0.5) * screenShake,
+                    (Math.random() - 0.5) * screenShake
+                );
+                screenShake *= 0.9;
+            }
+            
+            // Draw water
+            ctx.fillStyle = '#000066';
+            ctx.fillRect(0, GRID_SIZE, canvas.width, 9 * GRID_SIZE);
+            
+            // Draw water waves
+            ctx.strokeStyle = '#003399';
+            ctx.lineWidth = 1;
+            for (let y = 1; y <= 9; y++) {
+                ctx.beginPath();
+                for (let x = 0; x <= COLS; x++) {
+                    const waveY = y * GRID_SIZE + Math.sin((x + frameCount * 0.02) * 0.5) * 3;
+                    if (x === 0) ctx.moveTo(x * GRID_SIZE, waveY);
+                    else ctx.lineTo(x * GRID_SIZE, waveY);
+                }
+                ctx.stroke();
+            }
+            
+            // Draw road
+            ctx.fillStyle = '#333333';
+            ctx.fillRect(0, 11 * GRID_SIZE, canvas.width, 8 * GRID_SIZE);
+            
+            // Draw road lines
+            ctx.strokeStyle = '#ffff00';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([20, 10]);
+            for (let lane = 1; lane < 8; lane++) {
+                ctx.beginPath();
+                ctx.moveTo(0, (11 + lane) * GRID_SIZE);
+                ctx.lineTo(canvas.width, (11 + lane) * GRID_SIZE);
+                ctx.stroke();
+            }
+            ctx.setLineDash([]);
+            
+            // Draw title
+            ctx.fillStyle = '#00ff00';
+            ctx.font = 'bold 16px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('FROGGER ULTIMATE', canvas.width/2, 20);
+            ctx.textAlign = 'left';
+            
+            // Draw lily pads
+            lilyPads.forEach((pad, index) => {
+                const x = pad.x * GRID_SIZE;
+                const y = pad.y * GRID_SIZE;
+                const bobbing = Math.sin(frameCount * 0.05 + index) * 2;
+                
+                if (padFlashTimers[index] > 0) {
+                    padFlashTimers[index]--;
+                }
+                
+                if (pad.occupied) {
+                    // Flash effect
+                    if (padFlashTimers[index] > 0) {
+                        const flashIntensity = padFlashTimers[index] / 30;
+                        ctx.fillStyle = '#ffffff';
+                        ctx.globalAlpha = flashIntensity * 0.8;
+                        ctx.fillRect(x - 5, y - 5, GRID_SIZE + 10, GRID_SIZE + 10);
+                        ctx.globalAlpha = 1;
+                    }
+                    
+                    // Draw saved frog
+                    const glowSize = 5 + Math.sin(frameCount * 0.1) * 2;
+                    ctx.shadowColor = '#00ff00';
+                    ctx.shadowBlur = glowSize;
+                    ctx.fillStyle = '#00ff00';
+                    ctx.fillRect(x + 5, y + 5 + bobbing, 20, 20);
+                    ctx.shadowBlur = 0;
+                    
+                    // Frog eyes
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(x + 8, y + 8 + bobbing, 4, 4);
+                    ctx.fillRect(x + 18, y + 8 + bobbing, 4, 4);
+                } else {
+                    // Draw empty lily pad
+                    const pulse = 0.7 + Math.sin(frameCount * 0.1 + index * 0.5) * 0.3;
+                    
+                    const gradient = ctx.createRadialGradient(
+                        x + GRID_SIZE/2, y + GRID_SIZE/2 + bobbing, 0,
+                        x + GRID_SIZE/2, y + GRID_SIZE/2 + bobbing, 15
+                    );
+                    gradient.addColorStop(0, '#32cd32');
+                    gradient.addColorStop(1, '#228b22');
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(x + GRID_SIZE/2, y + GRID_SIZE/2 + bobbing, 12 * pulse, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Lily pad highlight
+                    ctx.strokeStyle = '#32cd32';
+                    ctx.lineWidth = 2;
+                    ctx.globalAlpha = 0.8 + Math.sin(frameCount * 0.08 + index) * 0.2;
+                    ctx.stroke();
+                    
+                    // Arrow pointing to empty pad
+                    ctx.fillStyle = '#ffff00';
+                    ctx.globalAlpha = 0.4 + Math.sin(frameCount * 0.1) * 0.2;
+                    ctx.beginPath();
+                    ctx.moveTo(x + GRID_SIZE/2, y + GRID_SIZE + 10);
+                    ctx.lineTo(x + GRID_SIZE/2 - 5, y + GRID_SIZE + 20);
+                    ctx.lineTo(x + GRID_SIZE/2 + 5, y + GRID_SIZE + 20);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.globalAlpha = 1;
+                }
+            });
+            
+            // Draw logs
+            logs.forEach(log => {
+                const x = log.x * GRID_SIZE;
+                const y = log.y * GRID_SIZE;
+                const width = log.width * GRID_SIZE;
+                
+                // Log shadow
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+                ctx.fillRect(x + 3, y + 3, width, GRID_SIZE - 4);
+                
+                // Main log
+                const gradient = ctx.createLinearGradient(x, y, x, y + GRID_SIZE);
+                gradient.addColorStop(0, log.glow);
+                gradient.addColorStop(1, log.color);
+                ctx.fillStyle = gradient;
+                ctx.fillRect(x, y + 2, width, GRID_SIZE - 4);
+                
+                // Log texture
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.lineWidth = 1;
+                for (let i = 0; i < log.width * 2; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(x + i * GRID_SIZE/2 + 5, y + 5);
+                    ctx.lineTo(x + i * GRID_SIZE/2 + 10, y + GRID_SIZE - 5);
+                    ctx.stroke();
+                }
+            });
+            
+            // Draw vehicles
+            vehicles.forEach(vehicle => {
+                const x = vehicle.x * GRID_SIZE;
+                const y = vehicle.y * GRID_SIZE;
+                const width = vehicle.width * GRID_SIZE;
+                
+                // Vehicle shadow
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fillRect(x + 3, y + 3, width, GRID_SIZE - 6);
+                
+                // Main vehicle body
+                const gradient = ctx.createLinearGradient(x, y, x + width, y);
+                gradient.addColorStop(0, vehicle.color);
+                gradient.addColorStop(0.5, vehicle.glow);
+                gradient.addColorStop(1, vehicle.color);
+                ctx.fillStyle = gradient;
+                ctx.fillRect(x, y + 3, width, GRID_SIZE - 6);
+                
+                // Vehicle details
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                if (vehicle.speed > 0) {
+                    ctx.fillRect(x + width - 10, y + 5, 5, GRID_SIZE - 10);
+                    ctx.fillRect(x + width - 20, y + 5, 5, GRID_SIZE - 10);
+                } else {
+                    ctx.fillRect(x + 5, y + 5, 5, GRID_SIZE - 10);
+                    ctx.fillRect(x + 15, y + 5, 5, GRID_SIZE - 10);
+                }
+            });
+            
+            // Draw powerups
+            powerups.forEach(powerup => {
+                if (!powerup.collected) {
+                    const x = powerup.x * GRID_SIZE;
+                    const y = powerup.y * GRID_SIZE;
+                    powerup.pulse = (powerup.pulse + 0.1) % (Math.PI * 2);
+                    const scale = 1 + Math.sin(powerup.pulse) * 0.2;
+                    
+                    ctx.shadowColor = powerupTypes[powerup.type].color;
+                    ctx.shadowBlur = 15;
+                    ctx.fillStyle = powerupTypes[powerup.type].color;
+                    ctx.globalAlpha = 0.8;
+                    
+                    const size = 15 * scale;
+                    ctx.fillRect(
+                        x + (GRID_SIZE - size) / 2,
+                        y + (GRID_SIZE - size) / 2,
+                        size,
+                        size
+                    );
+                    
+                    ctx.globalAlpha = 1;
+                    ctx.shadowBlur = 0;
+                }
+            });
+            
+            // Draw particles
+            particles.forEach(particle => {
+                ctx.fillStyle = particle.color;
+                ctx.globalAlpha = particle.life / 50;
+                ctx.fillRect(
+                    particle.x - particle.size/2,
+                    particle.y - particle.size/2,
+                    particle.size,
+                    particle.size
+                );
+            });
+            ctx.globalAlpha = 1;
+            
+            // Draw player trail
+            player.trail.forEach(t => {
+                const alpha = t.life / 10;
+                ctx.fillStyle = player.powerup ? powerupTypes[player.powerup].color : '#00ff00';
+                ctx.globalAlpha = alpha;
+                const size = 20 - (20 - t.life);
+                ctx.fillRect(
+                    t.x + (GRID_SIZE - size)/2,
+                    t.y + (GRID_SIZE - size)/2,
+                    size,
+                    size
+                );
+            });
+            
+            // Draw dash trail
+            player.dashTrail.forEach(t => {
+                ctx.fillStyle = '#ff00ff';
+                ctx.globalAlpha = t.life / 15;
+                ctx.shadowColor = '#ff00ff';
+                ctx.shadowBlur = 10;
+                ctx.fillRect(t.x, t.y, GRID_SIZE, GRID_SIZE);
+                ctx.shadowBlur = 0;
+            });
+            ctx.globalAlpha = 1;
+            
+            // Draw player
+            if (player.visible) {
+                const playerX = player.smoothX + GRID_SIZE/2;
+                const playerY = player.smoothY + GRID_SIZE/2;
+                
+                // Spawn animation
+                let spawnScale = 1;
+                if (player.spawnAnimation > 0) {
+                    spawnScale = 0.5 + (1 - player.spawnAnimation / 30) * 0.5;
+                    
+                    const ringRadius = (30 - player.spawnAnimation) * 2;
+                    ctx.strokeStyle = '#00ff00';
+                    ctx.lineWidth = 2;
+                    ctx.globalAlpha = player.spawnAnimation / 30;
+                    ctx.beginPath();
+                    ctx.arc(playerX, playerY, ringRadius, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.globalAlpha = 1;
+                }
+                
+                // Shield effect
+                if (player.powerup === 'shield') {
+                    ctx.strokeStyle = '#0088ff';
+                    ctx.lineWidth = 3;
+                    ctx.globalAlpha = 0.5 + Math.sin(frameCount * 0.1) * 0.3;
+                    ctx.shadowColor = '#0088ff';
+                    ctx.shadowBlur = 10;
+                    ctx.beginPath();
+                    ctx.arc(playerX, playerY, 20 * spawnScale, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                    ctx.globalAlpha = 1;
+                }
+                
+                // Invulnerability flashing
+                if (player.invulnerable && Math.floor(player.invulnerableTimer / 5) % 2 === 0) {
+                    ctx.globalAlpha = 0.5;
+                }
+                
+                // Player glow
+                ctx.shadowColor = player.powerup ? powerupTypes[player.powerup].color : player.color;
+                ctx.shadowBlur = 10 * player.glowIntensity;
+                ctx.fillStyle = player.powerup ? powerupTypes[player.powerup].color : player.color;
+                
+                // Draw frog body
+                const frogSize = 20 * spawnScale;
+                ctx.fillRect(
+                    player.smoothX + (GRID_SIZE - frogSize) / 2,
+                    player.smoothY + (GRID_SIZE - frogSize) / 2,
+                    frogSize,
+                    frogSize
+                );
+                
+                // Draw eyes
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(
+                    player.smoothX + 8,
+                    player.smoothY + 8,
+                    4,
+                    4
+                );
+                ctx.fillRect(
+                    player.smoothX + 18,
+                    player.smoothY + 8,
+                    4,
+                    4
+                );
+                
+                ctx.shadowBlur = 0;
+                ctx.globalAlpha = 1;
+            }
+            
+            // Draw spawn point indicator when frog is not visible
+            if (!player.visible) {
+                const spawnX = 9 * GRID_SIZE + GRID_SIZE/2;
+                const spawnY = 19 * GRID_SIZE + GRID_SIZE/2;
+                const spawnGlow = 0.5 + Math.sin(frameCount * 0.05) * 0.3;
+                
+                ctx.strokeStyle = '#00ff00';
+                ctx.lineWidth = 2;
+                ctx.globalAlpha = spawnGlow;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.arc(spawnX, spawnY, 20, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.globalAlpha = 1;
+            }
+            
+            // Draw messages
+            ctx.textAlign = 'center';
+            messages.forEach(msg => {
+                ctx.fillStyle = msg.color;
+                ctx.font = `bold ${msg.size}px monospace`;
+                ctx.globalAlpha = msg.life / 60;
+                ctx.fillText(msg.text, msg.x, msg.y);
+            });
+            ctx.textAlign = 'left';
+            ctx.globalAlpha = 1;
+            
+            // Draw combo
+            if (comboTimer > 0) {
+                document.getElementById('combo').style.display = 'block';
+                document.getElementById('comboCount').textContent = combo;
+                comboTimer--;
+            } else {
+                combo = 0;
+                document.getElementById('combo').style.display = 'none';
+            }
+            
+            if (screenShake > 0) {
+                ctx.restore();
+            }
+        }
+        
+        // Game loop
+        function gameLoop(currentTime) {
+            if (!lastTime) lastTime = currentTime;
+            deltaTime = Math.min((currentTime - lastTime) / 1000, 0.1);
+            lastTime = currentTime;
+            
+            if (gameState === 'playing') {
+                // Update player
+                updatePlayer(deltaTime);
+                
+                // Move player with log
+                if (player.ridingLog && !player.moving) {
+                    player.x = player.ridingLog.x + player.logOffset;
+                    player.gridX = player.x;
+                    player.smoothX = player.x * GRID_SIZE;
+                    
+                    if (player.x < -1 || player.x > COLS) {
+                        playerHit();
+                    }
+                }
+                
+                // Update vehicles
+                const speedMod = player.powerup === 'timeSlow' ? 0.3 : 1;
+                vehicles.forEach(vehicle => {
+                    vehicle.x += vehicle.speed * deltaTime * speedMod;
+                    if (vehicle.speed > 0 && vehicle.x > COLS) {
+                        vehicle.x = -vehicle.width;
+                    } else if (vehicle.speed < 0 && vehicle.x < -vehicle.width) {
+                        vehicle.x = COLS;
+                    }
+                });
+                
+                // Update logs
+                logs.forEach(log => {
+                    log.x += log.speed * deltaTime * speedMod;
+                    if (log.speed > 0 && log.x > COLS) {
+                        log.x = -log.width;
+                    } else if (log.speed < 0 && log.x < -log.width) {
+                        log.x = COLS;
+                    }
+                    
+                    if (player.powerup === 'magnet' && player.ridingLog === log) {
+                        const centerOffset = log.width / 2;
+                        const targetOffset = centerOffset;
+                        player.logOffset += (targetOffset - player.logOffset) * 0.1;
+                    }
+                });
+                
+                // Update particles
+                particles.forEach(particle => {
+                    particle.x += particle.vx;
+                    particle.y += particle.vy;
+                    particle.vy += 0.3;
+                    particle.life--;
+                });
+                
+                // Remove dead particles
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    if (particles[i].life <= 0) {
+                        particles.splice(i, 1);
+                    }
+                }
+                
+                // Update messages
+                messages.forEach(msg => msg.life--);
+                for (let i = messages.length - 1; i >= 0; i--) {
+                    if (messages[i].life <= 0) {
+                        messages.splice(i, 1);
+                    }
+                }
+                
+                // Check collisions
+                checkCollisions();
+            }
+            
+            // Draw everything
+            draw();
+            
+            frameCount++;
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Start game
+        function startGame() {
+            document.getElementById('startScreen').style.display = 'none';
+            gameState = 'playing';
+            init();
+            startTimer();
+            requestAnimationFrame(gameLoop);
+        }
+    </script>
+</body>
+</html>

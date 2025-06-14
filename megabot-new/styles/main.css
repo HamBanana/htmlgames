@@ -1,0 +1,126 @@
+/* main.css - Core styles for Megabot game */
+
+body {
+    margin: 0;
+    padding: 0;
+    background: #000;
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    touch-action: none;
+}
+
+#gameContainer {
+    position: relative;
+    width: 100%;
+    max-width: 800px;
+    height: 100vh;
+    max-height: 600px;
+}
+
+#gameCanvas {
+    background: #000;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+    border: 2px solid #00ff00;
+    box-shadow: 0 0 20px #00ff00;
+}
+
+/* Start and Game Over Screens */
+#startScreen, #gameOverScreen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: #00ff00;
+    text-align: center;
+}
+
+#startScreen h1 {
+    font-size: 48px;
+    margin: 20px 0;
+    text-shadow: 0 0 20px #00ff00;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.start-btn, .map-btn {
+    padding: 15px 30px;
+    font-size: 20px;
+    background: #00ff00;
+    color: #000;
+    border: none;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    margin-top: 10px;
+    box-shadow: 0 0 20px #00ff00;
+    transition: all 0.2s;
+}
+
+.start-btn:hover, .map-btn:hover {
+    background: #00cc00;
+    transform: scale(1.05);
+}
+
+.map-btn {
+    font-size: 16px;
+    padding: 10px 20px;
+    margin: 0;
+    width: 100%;
+    max-width: 350px;
+}
+
+#mapSelection {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#mapSelection h3 {
+    color: #ffff00;
+    margin-bottom: 10px;
+}
+
+.instructions {
+    margin-top: 30px;
+    font-size: 14px;
+    color: #00ffff;
+}
+
+#mapButtons p {
+    margin: 20px;
+    font-size: 16px;
+}
+
+/* Loading Message */
+#loadingMessage {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #00ff00;
+    font-size: 24px;
+    text-shadow: 0 0 10px #00ff00;
+    display: none;
+    background: rgba(0, 0, 0, 0.95);
+    padding: 20px 40px;
+    border: 2px solid #00ff00;
+    z-index: 999;
+    box-shadow: 0 0 30px #00ff00;
+}

@@ -1,0 +1,1885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Megabot Weapon Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: #000;
+            color: #00ff00;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 300px 1fr 350px;
+            grid-template-rows: 60px 1fr;
+            height: 100vh;
+            gap: 2px;
+            background: #00ff00;
+            padding: 2px;
+        }
+
+        .header {
+            grid-column: 1 / -1;
+            background: #111;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            border: 2px solid #00ff00;
+            box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.2);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            text-shadow: 0 0 10px #00ff00;
+            flex: 1;
+        }
+
+        .panel {
+            background: #111;
+            border: 2px solid #00ff00;
+            padding: 15px;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .panel h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #00ffff;
+            text-shadow: 0 0 5px #00ffff;
+        }
+
+        .weapon-list {
+            max-height: calc(100% - 50px);
+            overflow-y: auto;
+        }
+
+        .weapon-item {
+            background: #222;
+            border: 1px solid #00ff00;
+            padding: 10px;
+            margin-bottom: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .weapon-item:hover {
+            background: #333;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+        }
+
+        .weapon-item.selected {
+            background: #004400;
+            border-color: #00ffff;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+        }
+
+        .weapon-name {
+            font-weight: bold;
+            color: #00ffff;
+        }
+
+        .weapon-type {
+            font-size: 12px;
+            color: #888;
+        }
+
+        .delete-btn {
+            position: absolute;
+            right: 5px;
+            top: 5px;
+            background: #ff0000;
+            color: #fff;
+            border: none;
+            padding: 2px 8px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .preview-area {
+            background: #000;
+            border: 2px solid #00ff00;
+            box-shadow: inset 0 0 30px rgba(0, 255, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        #previewCanvas {
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated;
+        }
+
+        .properties-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .property-group {
+            background: #222;
+            border: 1px solid #00ff00;
+            padding: 10px;
+            border-radius: 3px;
+        }
+
+        .property-group h3 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #00ffff;
+            text-transform: uppercase;
+        }
+
+        .property {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            gap: 10px;
+        }
+
+        .property label {
+            flex: 1;
+            font-size: 12px;
+        }
+
+        .property input[type="text"],
+        .property input[type="number"],
+        .property select {
+            background: #000;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 4px 8px;
+            width: 120px;
+            font-family: inherit;
+        }
+
+        .property input[type="color"] {
+            width: 50px;
+            height: 30px;
+            border: 1px solid #00ff00;
+            cursor: pointer;
+        }
+
+        .property input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            accent-color: #00ff00;
+        }
+
+        .property input[type="range"] {
+            width: 120px;
+            accent-color: #00ff00;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button {
+            background: #00ff00;
+            color: #000;
+            border: none;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: bold;
+            text-transform: uppercase;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #00cc00;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+        }
+
+        button.secondary {
+            background: #0088ff;
+        }
+
+        button.secondary:hover {
+            background: #0066cc;
+        }
+
+        button.danger {
+            background: #ff0000;
+        }
+
+        button.danger:hover {
+            background: #cc0000;
+        }
+
+        .preview-controls {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            max-width: 60%;
+        }
+
+        .preview-controls button {
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+
+        .test-object-controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.9);
+            border: 1px solid #00ff00;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .test-object-controls h4 {
+            margin: 0 0 5px 0;
+            color: #00ffff;
+            font-size: 14px;
+        }
+
+        .object-type-buttons {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 5px;
+        }
+
+        .object-type-buttons button {
+            padding: 5px;
+            font-size: 11px;
+        }
+
+        .placement-mode {
+            background: #ffff00 !important;
+            color: #000 !important;
+        }
+
+        .clear-button {
+            background: #ff0000 !important;
+            margin-top: 5px;
+        }
+
+        .stats-display {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #00ff00;
+            padding: 10px;
+            font-size: 12px;
+        }
+
+        .stat-line {
+            margin: 2px 0;
+        }
+
+        .tab-container {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+
+        .tab {
+            padding: 5px 15px;
+            background: #222;
+            border: 1px solid #00ff00;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            background: #00ff00;
+            color: #000;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .pattern-editor {
+            background: #000;
+            border: 1px solid #00ff00;
+            padding: 10px;
+            margin-top: 10px;
+        }
+
+        .pattern-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 30px);
+            gap: 5px;
+            margin-top: 10px;
+        }
+
+        .pattern-cell {
+            width: 30px;
+            height: 30px;
+            border: 1px solid #00ff00;
+            background: #222;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+
+        .pattern-cell.active {
+            background: #00ff00;
+            color: #000;
+        }
+
+        .json-export {
+            background: #000;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            width: 100%;
+            height: 150px;
+            resize: vertical;
+        }
+
+        .info-tooltip {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            background: #00ff00;
+            color: #000;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 16px;
+            font-size: 12px;
+            cursor: help;
+            margin-left: 5px;
+        }
+
+        .tooltip-content {
+            display: none;
+            position: absolute;
+            background: #000;
+            border: 1px solid #00ff00;
+            padding: 5px;
+            font-size: 11px;
+            z-index: 1000;
+            max-width: 200px;
+        }
+
+        .info-tooltip:hover + .tooltip-content {
+            display: block;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #111;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #00ff00;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00cc00;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>MEGABOT WEAPON EDITOR</h1>
+            <button onclick="exportAllWeapons()">Export All</button>
+            <button onclick="importWeapons()">Import</button>
+            <button onclick="resetEditor()">Reset</button>
+        </div>
+
+        <div class="panel">
+            <h2>Weapon Library</h2>
+            <button onclick="createNewWeapon()" style="width: 100%; margin-bottom: 10px;">+ New Weapon</button>
+            <div class="weapon-list" id="weaponList"></div>
+        </div>
+
+        <div class="preview-area">
+            <canvas id="previewCanvas"></canvas>
+            <div class="test-object-controls">
+                <h4>Test Objects</h4>
+                <div class="object-type-buttons">
+                    <button onclick="setPlacementMode('walker')">Walker</button>
+                    <button onclick="setPlacementMode('flyer')">Flyer</button>
+                    <button onclick="setPlacementMode('turret')">Turret</button>
+                    <button onclick="setPlacementMode('block')">Block</button>
+                    <button onclick="setPlacementMode('breakable')">Breakable</button>
+                    <button onclick="setPlacementMode('dummy')">Dummy</button>
+                </div>
+                <button onclick="setPlacementMode('delete')" class="danger">Delete Mode</button>
+                <button onclick="clearAllObjects()" class="clear-button">Clear All</button>
+                <div style="margin-top: 10px; font-size: 11px; color: #888;">
+                    Click to place • WASD/Arrows to move • Space to shoot
+                </div>
+            </div>
+            <div class="preview-controls">
+                <button onclick="togglePreview()">Play/Pause</button>
+                <button onclick="fireWeapon()">Fire</button>
+                <button onclick="toggleAutoFire()">Auto Fire: <span id="autoFireStatus">OFF</span></button>
+                <button onclick="resetPlayer()">Reset Player</button>
+                <button onclick="loadScenario('basic')">Basic Test</button>
+                <button onclick="loadScenario('swarm')">Swarm Test</button>
+                <button onclick="loadScenario('fortress')">Fortress Test</button>
+            </div>
+            <div class="stats-display" id="statsDisplay">
+                <div class="stat-line">DPS: <span id="dpsValue">0</span></div>
+                <div class="stat-line">Energy/Shot: <span id="energyValue">0</span></div>
+                <div class="stat-line">Range: <span id="rangeValue">0</span></div>
+                <div class="stat-line">Objects: <span id="objectCount">0</span></div>
+            </div>
+        </div>
+
+        <div class="panel properties-panel">
+            <h2>Weapon Properties</h2>
+            
+            <div class="tab-container">
+                <div class="tab active" onclick="switchTab('basic')">Basic</div>
+                <div class="tab" onclick="switchTab('projectile')">Projectile</div>
+                <div class="tab" onclick="switchTab('effects')">Effects</div>
+                <div class="tab" onclick="switchTab('special')">Special</div>
+            </div>
+
+            <div id="basicTab" class="tab-content active">
+                <div class="property-group">
+                    <h3>General</h3>
+                    <div class="property">
+                        <label>Name:</label>
+                        <input type="text" id="weaponName" onchange="updateWeapon()">
+                    </div>
+                    <div class="property">
+                        <label>Type:</label>
+                        <select id="weaponType" onchange="updateWeapon()">
+                            <option value="standard">Standard</option>
+                            <option value="rapid">Rapid Fire</option>
+                            <option value="charge">Charge</option>
+                            <option value="spread">Spread</option>
+                            <option value="beam">Beam</option>
+                            <option value="explosive">Explosive</option>
+                            <option value="melee">Melee</option>
+                        </select>
+                    </div>
+                    <div class="property">
+                        <label>Damage:</label>
+                        <input type="number" id="damage" min="1" max="100" onchange="updateWeapon()">
+                    </div>
+                    <div class="property">
+                        <label>Fire Rate:</label>
+                        <input type="range" id="fireRate" min="1" max="60" onchange="updateWeapon()">
+                        <span id="fireRateValue">30</span>
+                    </div>
+                    <div class="property">
+                        <label>Energy Cost:</label>
+                        <input type="number" id="energyCost" min="0" max="50" onchange="updateWeapon()">
+                    </div>
+                </div>
+
+                <div class="property-group">
+                    <h3>Charge Properties</h3>
+                    <div class="property">
+                        <label>Can Charge:</label>
+                        <input type="checkbox" id="canCharge" onchange="updateWeapon()">
+                    </div>
+                    <div class="property">
+                        <label>Charge Time:</label>
+                        <input type="number" id="chargeTime" min="10" max="120" onchange="updateWeapon()">
+                    </div>
+                    <div class="property">
+                        <label>Charge Multiplier:</label>
+                        <input type="number" id="chargeMultiplier" min="1" max="5" step="0.5" onchange="updateWeapon()">
+                    </div>
+                </div>
+            </div>
+
+            <div id="projectileTab" class="tab-content">
+                <div class="property-group">
+                    <h3>Projectile Physics</h3>
+                    <div class="property">
+                        <label>Speed:</label>
+                        <input type="number" id="projectileSpeed" min="1" max="30" onchange="updateWeapon()">
+                    </div>
+                    <div class="property">
+                        <label>Size (W×H):</label>
+                        <input type="number" id="projectileWidth" min="2" max="50" style="width: 50px" onchange="updateWeapon()">
+                        <input type="number" id="projectileHeight" min="2" max="50" style="width: 50px" onchange="updateWeapon()">
+                    </div>
+                    <div class="property">
+                        <label>Gravity:</label>
+                        <input type="range" id="gravity" min="0" max="100" onchange="updateWeapon()">
+                        <span id="gravityValue">0</span>
+                    </div>
+                    <div class="property">
+                        <label>Lifetime (frames):</label>
+                        <input type="number" id="lifetime" min="10" max="300" onchange="updateWeapon()">
+                    </div>
+                </div>
+
+                <div class="property-group">
+                    <h3>Behavior</h3>
+                    <div class="property">
+                        <label>Movement:</label>
+                        <select id="movementType" onchange="updateWeapon()">
+                            <option value="straight">Straight</option>
+                            <option value="arc">Arc</option>
+                            <option value="sine">Sine Wave</option>
+                            <option value="homing">Homing</option>
+                            <option value="boomerang">Boomerang</option>
+                            <option value="spiral">Spiral</option>
+                        </select>
+                    </div>
+                    <div class="property">
+                        <label>Piercing:</label>
+                        <input type="checkbox" id="piercing" onchange="updateWeapon()">
+                    </div>
+                    <div class="property">
+                        <label>Bounces:</label>
+                        <input type="number" id="bounces" min="0" max="10" onchange="updateWeapon()">
+                    </div>
+                    <div class="property">
+                        <label>Split on Hit:</label>
+                        <input type="checkbox" id="splitOnHit" onchange="updateWeapon()">
+                    </div>
+                </div>
+
+                <div class="property-group">
+                    <h3>Spread Pattern</h3>
+                    <div class="property">
+                        <label>Projectile Count:</label>
+                        <input type="number" id="projectileCount" min="1" max="20" onchange="updateWeapon()">
+                    </div>
+                    <div class="property">
+                        <label>Spread Angle:</label>
+                        <input type="range" id="spreadAngle" min="0" max="180" onchange="updateWeapon()">
+                        <span id="spreadAngleValue">0°</span>
+                    </div>
+                    <div class="property">
+                        <label>Pattern:</label>
+                        <select id="spreadPattern" onchange="updateWeapon()">
+                            <option value="cone">Cone</option>
+                            <option value="line">Line</option>
+                            <option value="random">Random</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    <div class="pattern-editor" id="patternEditor" style="display: none;">
+                        <p>Click cells to toggle projectile positions:</p>
+                        <div class="pattern-grid" id="patternGrid"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="effectsTab" class="tab-content">
+                <div class="property-group">
+                    <h3>Visual Effects</h3>
+                    <div class="property">
+                        <label>Primary Color:</label>
+                        <input type="color" id="primaryColor" value="#00ff00" onchange="updateWeapon()">
+                    </div>
+                    <div class="property">
+                        <label>Secondary Color:</label>
+                        <input type="color" id="secondaryColor" value="#00ffff" onchange="updateWeapon()">
+                    </div>
+                    <div class="property">
+                        <label>Trail Effect:</label>
+                        <input type="checkbox" id="hasTrail" onchange="updateWeapon()">
+                    </div>
+                    <div class="property">
+                        <label>Glow Intensity:</label>
+                        <input type="range" id="glowIntensity" min="0" max="100" onchange="updateWeapon()">
+                    </div>
+                    <div class="property">
+                        <label>Particle Count:</label>
+                        <input type="number" id="particleCount" min="0" max="50" onchange="updateWeapon()">
+                    </div>
+                </div>
+
+                <div class="property-group">
+                    <h3>Impact Effects</h3>
+                    <div class="property">
+                        <label>Explosion Size:</label>
+                        <input type="number" id="explosionSize" min="0" max="200" onchange="updateWeapon()">
+                    </div>
+                    <div class="property">
+                        <label>Screen Shake:</label>
+                        <input type="range" id="screenShake" min="0" max="20" onchange="updateWeapon()">
+                    </div>
+                    <div class="property">
+                        <label>Hit Stop (frames):</label>
+                        <input type="number" id="hitStop" min="0" max="10" onchange="updateWeapon()">
+                    </div>
+                </div>
+
+                <div class="property-group">
+                    <h3>Sound (Future)</h3>
+                    <div class="property">
+                        <label>Fire Sound:</label>
+                        <select id="fireSound" onchange="updateWeapon()">
+                            <option value="pew">Pew</option>
+                            <option value="blast">Blast</option>
+                            <option value="laser">Laser</option>
+                            <option value="boom">Boom</option>
+                        </select>
+                    </div>
+                    <div class="property">
+                        <label>Impact Sound:</label>
+                        <select id="impactSound" onchange="updateWeapon()">
+                            <option value="hit">Hit</option>
+                            <option value="explode">Explode</option>
+                            <option value="zap">Zap</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div id="specialTab" class="tab-content">
+                <div class="property-group">
+                    <h3>Special Properties</h3>
+                    <div class="property">
+                        <label>Element:</label>
+                        <select id="element" onchange="updateWeapon()">
+                            <option value="none">None</option>
+                            <option value="fire">Fire</option>
+                            <option value="ice">Ice</option>
+                            <option value="electric">Electric</option>
+                            <option value="poison">Poison</option>
+                            <option value="plasma">Plasma</option>
+                        </select>
+                    </div>
+                    <div class="property">
+                        <label>Status Effect:</label>
+                        <select id="statusEffect" onchange="updateWeapon()">
+                            <option value="none">None</option>
+                            <option value="burn">Burn</option>
+                            <option value="freeze">Freeze</option>
+                            <option value="stun">Stun</option>
+                            <option value="slow">Slow</option>
+                        </select>
+                    </div>
+                    <div class="property">
+                        <label>Effect Duration:</label>
+                        <input type="number" id="effectDuration" min="0" max="300" onchange="updateWeapon()">
+                    </div>
+                </div>
+
+                <div class="property-group">
+                    <h3>Advanced</h3>
+                    <div class="property">
+                        <label>Damage Falloff:</label>
+                        <input type="checkbox" id="damageFalloff" onchange="updateWeapon()">
+                    </div>
+                    <div class="property">
+                        <label>Critical Chance:</label>
+                        <input type="range" id="critChance" min="0" max="100" onchange="updateWeapon()">
+                        <span id="critChanceValue">0%</span>
+                    </div>
+                    <div class="property">
+                        <label>Ammo Type:</label>
+                        <select id="ammoType" onchange="updateWeapon()">
+                            <option value="energy">Energy</option>
+                            <option value="bullets">Bullets</option>
+                            <option value="rockets">Rockets</option>
+                            <option value="unlimited">Unlimited</option>
+                        </select>
+                    </div>
+                    <div class="property">
+                        <label>Max Ammo:</label>
+                        <input type="number" id="maxAmmo" min="1" max="999" onchange="updateWeapon()">
+                    </div>
+                </div>
+
+                <div class="property-group">
+                    <h3>Export/Import</h3>
+                    <button onclick="exportWeapon()" style="width: 100%;">Export Current Weapon</button>
+                    <textarea class="json-export" id="weaponJson" placeholder="Weapon JSON data will appear here..."></textarea>
+                    <button onclick="importSingleWeapon()" style="width: 100%; margin-top: 10px;">Import from JSON</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <input type="file" id="importFile" style="display: none;" accept=".json">
+
+    <script>
+        // Canvas setup
+        const canvas = document.getElementById('previewCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Resize canvas
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            // Update player position after resize
+            if (previewPlayer) {
+                previewPlayer.y = canvas.height / 2;
+            }
+        }
+        
+        // Editor state
+        let weapons = [];
+        let currentWeapon = null;
+        let selectedWeaponIndex = -1;
+        let previewRunning = true;
+        let previewProjectiles = [];
+        let previewPlayer = { x: 100, y: 300, vx: 0, vy: 0, facing: 1, canMove: true };
+        let testObjects = [];
+        let frameCount = 0;
+        let lastFireTime = 0;
+        let placementMode = null;
+        let autoFire = false;
+        let particles = [];
+        
+        // Initialize canvas after DOM is ready
+        window.addEventListener('load', () => {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+        });
+
+        // Test object types
+        const objectTypes = {
+            walker: {
+                w: 30, h: 35, health: 30, speed: 1, color: '#ff00ff',
+                ai: 'patrol', canShoot: true
+            },
+            flyer: {
+                w: 30, h: 30, health: 20, speed: 2, color: '#00ffff',
+                ai: 'hover', canShoot: true
+            },
+            turret: {
+                w: 40, h: 30, health: 40, speed: 0, color: '#ff6600',
+                ai: 'stationary', canShoot: true
+            },
+            block: {
+                w: 40, h: 40, health: -1, speed: 0, color: '#00ff00',
+                ai: 'none', canShoot: false
+            },
+            breakable: {
+                w: 40, h: 40, health: 10, speed: 0, color: '#008800',
+                ai: 'none', canShoot: false
+            },
+            dummy: {
+                w: 40, h: 60, health: 100, speed: 0, color: '#ffff00',
+                ai: 'none', canShoot: false
+            }
+        };
+
+        // Handle canvas clicks for object placement
+        canvas.addEventListener('click', handleCanvasClick);
+        
+        function handleCanvasClick(event) {
+            if (!placementMode) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            
+            if (placementMode === 'delete') {
+                // Delete object at click position
+                for (let i = testObjects.length - 1; i >= 0; i--) {
+                    const obj = testObjects[i];
+                    if (x >= obj.x && x <= obj.x + obj.w &&
+                        y >= obj.y && y <= obj.y + obj.h) {
+                        testObjects.splice(i, 1);
+                        break;
+                    }
+                }
+            } else if (objectTypes[placementMode]) {
+                // Create new object
+                const type = objectTypes[placementMode];
+                const newObject = {
+                    type: placementMode,
+                    x: x - type.w / 2,
+                    y: y - type.h / 2,
+                    w: type.w,
+                    h: type.h,
+                    vx: 0,
+                    vy: 0,
+                    health: type.health,
+                    maxHealth: type.health,
+                    speed: type.speed,
+                    color: type.color,
+                    ai: type.ai,
+                    canShoot: type.canShoot,
+                    shootTimer: 0,
+                    moveTimer: 0,
+                    direction: 1,
+                    active: true
+                };
+                testObjects.push(newObject);
+            }
+            
+            updateObjectCount();
+        }
+
+        function setPlacementMode(mode) {
+            placementMode = mode;
+            
+            // Update button styles
+            document.querySelectorAll('.object-type-buttons button, .test-object-controls .danger').forEach(btn => {
+                btn.classList.remove('placement-mode');
+            });
+            
+            if (mode) {
+                event.target.classList.add('placement-mode');
+            }
+            
+            // Update cursor
+            canvas.style.cursor = mode ? 'crosshair' : 'default';
+        }
+
+        function clearAllObjects() {
+            testObjects = [];
+            updateObjectCount();
+        }
+
+        function updateObjectCount() {
+            document.getElementById('objectCount').textContent = testObjects.length;
+        }
+
+        function toggleAutoFire() {
+            autoFire = !autoFire;
+            document.getElementById('autoFireStatus').textContent = autoFire ? 'ON' : 'OFF';
+        }
+
+        function resetPlayer() {
+            previewPlayer.x = 100;
+            previewPlayer.y = canvas.height / 2;
+            previewPlayer.vx = 0;
+            previewPlayer.vy = 0;
+            previewPlayer.facing = 1;
+        }
+
+        // Load preset scenarios
+        function loadScenario(scenario) {
+            clearAllObjects();
+            
+            switch(scenario) {
+                case 'basic':
+                    // Simple test setup
+                    testObjects.push(createTestObject('walker', 400, canvas.height - 80));
+                    testObjects.push(createTestObject('flyer', 500, canvas.height / 2));
+                    testObjects.push(createTestObject('turret', 600, canvas.height - 80));
+                    testObjects.push(createTestObject('block', 300, canvas.height - 80));
+                    testObjects.push(createTestObject('breakable', 350, canvas.height - 80));
+                    break;
+                    
+                case 'swarm':
+                    // Many enemies
+                    for (let i = 0; i < 8; i++) {
+                        testObjects.push(createTestObject('walker', 
+                            300 + (i % 4) * 100, 
+                            canvas.height - 80 - Math.floor(i / 4) * 60));
+                    }
+                    for (let i = 0; i < 5; i++) {
+                        testObjects.push(createTestObject('flyer', 
+                            350 + i * 80, 
+                            100 + Math.sin(i) * 50));
+                    }
+                    break;
+                    
+                case 'fortress':
+                    // Defensive setup
+                    for (let i = 0; i < 5; i++) {
+                        testObjects.push(createTestObject('block', 
+                            400 + i * 40, 
+                            canvas.height - 80));
+                        if (i % 2 === 0) {
+                            testObjects.push(createTestObject('block', 
+                                400 + i * 40, 
+                                canvas.height - 120));
+                        }
+                    }
+                    testObjects.push(createTestObject('turret', 420, canvas.height - 160));
+                    testObjects.push(createTestObject('turret', 500, canvas.height - 160));
+                    testObjects.push(createTestObject('dummy', 460, canvas.height - 160));
+                    break;
+            }
+            
+            updateObjectCount();
+        }
+
+        function createTestObject(type, x, y) {
+            const typeData = objectTypes[type];
+            return {
+                type: type,
+                x: x,
+                y: y,
+                w: typeData.w,
+                h: typeData.h,
+                vx: 0,
+                vy: 0,
+                health: typeData.health,
+                maxHealth: typeData.health,
+                speed: typeData.speed,
+                color: typeData.color,
+                ai: typeData.ai,
+                canShoot: typeData.canShoot,
+                shootTimer: 0,
+                moveTimer: 0,
+                direction: 1,
+                active: true
+            };
+        }
+
+        // Update AI for test objects
+        function updateTestObjects() {
+            testObjects.forEach(obj => {
+                if (!obj.active || obj.health === 0) return;
+                
+                switch(obj.ai) {
+                    case 'patrol':
+                        // Walker AI - patrol back and forth
+                        obj.moveTimer++;
+                        obj.x += obj.speed * obj.direction;
+                        
+                        if (obj.moveTimer > 100 || obj.x <= 50 || obj.x >= canvas.width - 50) {
+                            obj.direction *= -1;
+                            obj.moveTimer = 0;
+                        }
+                        break;
+                        
+                    case 'hover':
+                        // Flyer AI - hover with sine wave
+                        obj.moveTimer++;
+                        obj.y += Math.sin(obj.moveTimer * 0.05) * 2;
+                        
+                        // Move towards player slightly
+                        if (Math.abs(previewPlayer.x - obj.x) < 300) {
+                            obj.x += (previewPlayer.x > obj.x ? 0.5 : -0.5) * obj.speed;
+                        }
+                        break;
+                        
+                    case 'stationary':
+                        // Turret - just track player
+                        obj.direction = previewPlayer.x > obj.x ? 1 : -1;
+                        break;
+                }
+                
+                // Shooting logic for enemies
+                if (obj.canShoot && Math.abs(previewPlayer.x - obj.x) < 400) {
+                    obj.shootTimer++;
+                    if (obj.shootTimer > 80) {
+                        // Enemy shoots at player
+                        const angle = Math.atan2(
+                            previewPlayer.y + 20 - (obj.y + obj.h/2),
+                            previewPlayer.x + 15 - (obj.x + obj.w/2)
+                        );
+                        
+                        previewProjectiles.push({
+                            x: obj.x + obj.w/2,
+                            y: obj.y + obj.h/2,
+                            vx: Math.cos(angle) * 5,
+                            vy: Math.sin(angle) * 5,
+                            life: 100,
+                            enemy: true,
+                            w: 6,
+                            h: 6,
+                            color: '#ff0000',
+                            damage: 5
+                        });
+                        
+                        obj.shootTimer = 0;
+                    }
+                }
+            });
+        }
+
+        // Create particles for effects
+        function createParticles(x, y, color, count) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8,
+                    color: color,
+                    life: 25,
+                    size: Math.random() * 4 + 2
+                });
+            }
+        }
+
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.3;
+                p.life--;
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        // Initialize with default weapons
+        function initializeDefaultWeapons() {
+            weapons = [
+                {
+                    name: "Mega Buster",
+                    type: "standard",
+                    damage: 10,
+                    fireRate: 30,
+                    energyCost: 0,
+                    canCharge: true,
+                    chargeTime: 60,
+                    chargeMultiplier: 3,
+                    projectileSpeed: 10,
+                    projectileWidth: 8,
+                    projectileHeight: 4,
+                    gravity: 0,
+                    lifetime: 60,
+                    movementType: "straight",
+                    piercing: false,
+                    bounces: 0,
+                    splitOnHit: false,
+                    projectileCount: 1,
+                    spreadAngle: 0,
+                    spreadPattern: "cone",
+                    primaryColor: "#00ff00",
+                    secondaryColor: "#00ffff",
+                    hasTrail: false,
+                    glowIntensity: 20,
+                    particleCount: 3,
+                    explosionSize: 0,
+                    screenShake: 0,
+                    hitStop: 0,
+                    fireSound: "pew",
+                    impactSound: "hit",
+                    element: "none",
+                    statusEffect: "none",
+                    effectDuration: 0,
+                    damageFalloff: false,
+                    critChance: 0,
+                    ammoType: "energy",
+                    maxAmmo: 999,
+                    customPattern: []
+                },
+                {
+                    name: "Flame Burst",
+                    type: "spread",
+                    damage: 8,
+                    fireRate: 40,
+                    energyCost: 2,
+                    canCharge: false,
+                    chargeTime: 0,
+                    chargeMultiplier: 1,
+                    projectileSpeed: 8,
+                    projectileWidth: 10,
+                    projectileHeight: 10,
+                    gravity: 10,
+                    lifetime: 40,
+                    movementType: "arc",
+                    piercing: false,
+                    bounces: 0,
+                    splitOnHit: false,
+                    projectileCount: 3,
+                    spreadAngle: 30,
+                    spreadPattern: "cone",
+                    primaryColor: "#ff4400",
+                    secondaryColor: "#ffaa00",
+                    hasTrail: true,
+                    glowIntensity: 50,
+                    particleCount: 8,
+                    explosionSize: 30,
+                    screenShake: 5,
+                    hitStop: 2,
+                    fireSound: "blast",
+                    impactSound: "explode",
+                    element: "fire",
+                    statusEffect: "burn",
+                    effectDuration: 60,
+                    damageFalloff: true,
+                    critChance: 10,
+                    ammoType: "energy",
+                    maxAmmo: 999,
+                    customPattern: []
+                },
+                {
+                    name: "Thunder Beam",
+                    type: "beam",
+                    damage: 15,
+                    fireRate: 20,
+                    energyCost: 3,
+                    canCharge: false,
+                    chargeTime: 0,
+                    chargeMultiplier: 1,
+                    projectileSpeed: 20,
+                    projectileWidth: 30,
+                    projectileHeight: 6,
+                    gravity: 0,
+                    lifetime: 30,
+                    movementType: "straight",
+                    piercing: true,
+                    bounces: 0,
+                    splitOnHit: false,
+                    projectileCount: 1,
+                    spreadAngle: 0,
+                    spreadPattern: "cone",
+                    primaryColor: "#00ffff",
+                    secondaryColor: "#ffffff",
+                    hasTrail: true,
+                    glowIntensity: 80,
+                    particleCount: 12,
+                    explosionSize: 0,
+                    screenShake: 3,
+                    hitStop: 3,
+                    fireSound: "laser",
+                    impactSound: "zap",
+                    element: "electric",
+                    statusEffect: "stun",
+                    effectDuration: 30,
+                    damageFalloff: false,
+                    critChance: 20,
+                    ammoType: "energy",
+                    maxAmmo: 999,
+                    customPattern: []
+                }
+            ];
+            
+            selectedWeaponIndex = 0;
+            currentWeapon = { ...weapons[0] };
+            updateWeaponList();
+            loadWeaponToEditor();
+        }
+
+        // Create new weapon
+        function createNewWeapon() {
+            const newWeapon = {
+                name: "New Weapon " + (weapons.length + 1),
+                type: "standard",
+                damage: 10,
+                fireRate: 30,
+                energyCost: 1,
+                canCharge: false,
+                chargeTime: 60,
+                chargeMultiplier: 2,
+                projectileSpeed: 10,
+                projectileWidth: 8,
+                projectileHeight: 8,
+                gravity: 0,
+                lifetime: 60,
+                movementType: "straight",
+                piercing: false,
+                bounces: 0,
+                splitOnHit: false,
+                projectileCount: 1,
+                spreadAngle: 0,
+                spreadPattern: "cone",
+                primaryColor: "#00ff00",
+                secondaryColor: "#00ffff",
+                hasTrail: false,
+                glowIntensity: 20,
+                particleCount: 3,
+                explosionSize: 0,
+                screenShake: 0,
+                hitStop: 0,
+                fireSound: "pew",
+                impactSound: "hit",
+                element: "none",
+                statusEffect: "none",
+                effectDuration: 0,
+                damageFalloff: false,
+                critChance: 0,
+                ammoType: "energy",
+                maxAmmo: 999,
+                customPattern: []
+            };
+            
+            weapons.push(newWeapon);
+            selectedWeaponIndex = weapons.length - 1;
+            currentWeapon = { ...newWeapon };
+            updateWeaponList();
+            loadWeaponToEditor();
+        }
+
+        // Update weapon list display
+        function updateWeaponList() {
+            const list = document.getElementById('weaponList');
+            list.innerHTML = '';
+            
+            weapons.forEach((weapon, index) => {
+                const item = document.createElement('div');
+                item.className = 'weapon-item' + (index === selectedWeaponIndex ? ' selected' : '');
+                item.innerHTML = `
+                    <div class="weapon-name">${weapon.name}</div>
+                    <div class="weapon-type">Type: ${weapon.type} | Damage: ${weapon.damage}</div>
+                    <button class="delete-btn" onclick="deleteWeapon(${index})">X</button>
+                `;
+                item.onclick = (e) => {
+                    if (!e.target.classList.contains('delete-btn')) {
+                        selectWeapon(index);
+                    }
+                };
+                list.appendChild(item);
+            });
+        }
+
+        // Select weapon
+        function selectWeapon(index) {
+            if (selectedWeaponIndex !== -1) {
+                weapons[selectedWeaponIndex] = { ...currentWeapon };
+            }
+            selectedWeaponIndex = index;
+            currentWeapon = { ...weapons[index] };
+            updateWeaponList();
+            loadWeaponToEditor();
+        }
+
+        // Delete weapon
+        function deleteWeapon(index) {
+            if (weapons.length <= 1) {
+                alert("You must have at least one weapon!");
+                return;
+            }
+            
+            if (confirm("Are you sure you want to delete this weapon?")) {
+                weapons.splice(index, 1);
+                if (selectedWeaponIndex >= weapons.length) {
+                    selectedWeaponIndex = weapons.length - 1;
+                }
+                currentWeapon = { ...weapons[selectedWeaponIndex] };
+                updateWeaponList();
+                loadWeaponToEditor();
+            }
+        }
+
+        // Load weapon to editor
+        function loadWeaponToEditor() {
+            if (!currentWeapon) return;
+            
+            // Basic properties
+            document.getElementById('weaponName').value = currentWeapon.name;
+            document.getElementById('weaponType').value = currentWeapon.type;
+            document.getElementById('damage').value = currentWeapon.damage;
+            document.getElementById('fireRate').value = currentWeapon.fireRate;
+            document.getElementById('fireRateValue').textContent = currentWeapon.fireRate;
+            document.getElementById('energyCost').value = currentWeapon.energyCost;
+            
+            // Charge properties
+            document.getElementById('canCharge').checked = currentWeapon.canCharge;
+            document.getElementById('chargeTime').value = currentWeapon.chargeTime;
+            document.getElementById('chargeMultiplier').value = currentWeapon.chargeMultiplier;
+            
+            // Projectile properties
+            document.getElementById('projectileSpeed').value = currentWeapon.projectileSpeed;
+            document.getElementById('projectileWidth').value = currentWeapon.projectileWidth;
+            document.getElementById('projectileHeight').value = currentWeapon.projectileHeight;
+            document.getElementById('gravity').value = currentWeapon.gravity;
+            document.getElementById('gravityValue').textContent = currentWeapon.gravity;
+            document.getElementById('lifetime').value = currentWeapon.lifetime;
+            document.getElementById('movementType').value = currentWeapon.movementType;
+            document.getElementById('piercing').checked = currentWeapon.piercing;
+            document.getElementById('bounces').value = currentWeapon.bounces;
+            document.getElementById('splitOnHit').checked = currentWeapon.splitOnHit;
+            document.getElementById('projectileCount').value = currentWeapon.projectileCount;
+            document.getElementById('spreadAngle').value = currentWeapon.spreadAngle;
+            document.getElementById('spreadAngleValue').textContent = currentWeapon.spreadAngle + '°';
+            document.getElementById('spreadPattern').value = currentWeapon.spreadPattern;
+            
+            // Effects
+            document.getElementById('primaryColor').value = currentWeapon.primaryColor;
+            document.getElementById('secondaryColor').value = currentWeapon.secondaryColor;
+            document.getElementById('hasTrail').checked = currentWeapon.hasTrail;
+            document.getElementById('glowIntensity').value = currentWeapon.glowIntensity;
+            document.getElementById('particleCount').value = currentWeapon.particleCount;
+            document.getElementById('explosionSize').value = currentWeapon.explosionSize;
+            document.getElementById('screenShake').value = currentWeapon.screenShake;
+            document.getElementById('hitStop').value = currentWeapon.hitStop;
+            document.getElementById('fireSound').value = currentWeapon.fireSound;
+            document.getElementById('impactSound').value = currentWeapon.impactSound;
+            
+            // Special properties
+            document.getElementById('element').value = currentWeapon.element;
+            document.getElementById('statusEffect').value = currentWeapon.statusEffect;
+            document.getElementById('effectDuration').value = currentWeapon.effectDuration;
+            document.getElementById('damageFalloff').checked = currentWeapon.damageFalloff;
+            document.getElementById('critChance').value = currentWeapon.critChance;
+            document.getElementById('critChanceValue').textContent = currentWeapon.critChance + '%';
+            document.getElementById('ammoType').value = currentWeapon.ammoType;
+            document.getElementById('maxAmmo').value = currentWeapon.maxAmmo;
+            
+            updateStats();
+        }
+
+        // Update weapon from editor
+        function updateWeapon() {
+            if (!currentWeapon) return;
+            
+            // Basic properties
+            currentWeapon.name = document.getElementById('weaponName').value;
+            currentWeapon.type = document.getElementById('weaponType').value;
+            currentWeapon.damage = parseInt(document.getElementById('damage').value);
+            currentWeapon.fireRate = parseInt(document.getElementById('fireRate').value);
+            currentWeapon.energyCost = parseInt(document.getElementById('energyCost').value);
+            
+            // Charge properties
+            currentWeapon.canCharge = document.getElementById('canCharge').checked;
+            currentWeapon.chargeTime = parseInt(document.getElementById('chargeTime').value);
+            currentWeapon.chargeMultiplier = parseFloat(document.getElementById('chargeMultiplier').value);
+            
+            // Projectile properties
+            currentWeapon.projectileSpeed = parseInt(document.getElementById('projectileSpeed').value);
+            currentWeapon.projectileWidth = parseInt(document.getElementById('projectileWidth').value);
+            currentWeapon.projectileHeight = parseInt(document.getElementById('projectileHeight').value);
+            currentWeapon.gravity = parseInt(document.getElementById('gravity').value);
+            currentWeapon.lifetime = parseInt(document.getElementById('lifetime').value);
+            currentWeapon.movementType = document.getElementById('movementType').value;
+            currentWeapon.piercing = document.getElementById('piercing').checked;
+            currentWeapon.bounces = parseInt(document.getElementById('bounces').value);
+            currentWeapon.splitOnHit = document.getElementById('splitOnHit').checked;
+            currentWeapon.projectileCount = parseInt(document.getElementById('projectileCount').value);
+            currentWeapon.spreadAngle = parseInt(document.getElementById('spreadAngle').value);
+            currentWeapon.spreadPattern = document.getElementById('spreadPattern').value;
+            
+            // Effects
+            currentWeapon.primaryColor = document.getElementById('primaryColor').value;
+            currentWeapon.secondaryColor = document.getElementById('secondaryColor').value;
+            currentWeapon.hasTrail = document.getElementById('hasTrail').checked;
+            currentWeapon.glowIntensity = parseInt(document.getElementById('glowIntensity').value);
+            currentWeapon.particleCount = parseInt(document.getElementById('particleCount').value);
+            currentWeapon.explosionSize = parseInt(document.getElementById('explosionSize').value);
+            currentWeapon.screenShake = parseInt(document.getElementById('screenShake').value);
+            currentWeapon.hitStop = parseInt(document.getElementById('hitStop').value);
+            currentWeapon.fireSound = document.getElementById('fireSound').value;
+            currentWeapon.impactSound = document.getElementById('impactSound').value;
+            
+            // Special properties
+            currentWeapon.element = document.getElementById('element').value;
+            currentWeapon.statusEffect = document.getElementById('statusEffect').value;
+            currentWeapon.effectDuration = parseInt(document.getElementById('effectDuration').value);
+            currentWeapon.damageFalloff = document.getElementById('damageFalloff').checked;
+            currentWeapon.critChance = parseInt(document.getElementById('critChance').value);
+            currentWeapon.ammoType = document.getElementById('ammoType').value;
+            currentWeapon.maxAmmo = parseInt(document.getElementById('maxAmmo').value);
+            
+            // Update displays
+            document.getElementById('fireRateValue').textContent = currentWeapon.fireRate;
+            document.getElementById('gravityValue').textContent = currentWeapon.gravity;
+            document.getElementById('spreadAngleValue').textContent = currentWeapon.spreadAngle + '°';
+            document.getElementById('critChanceValue').textContent = currentWeapon.critChance + '%';
+            
+            // Save to weapons array
+            if (selectedWeaponIndex !== -1) {
+                weapons[selectedWeaponIndex] = { ...currentWeapon };
+            }
+            
+            updateWeaponList();
+            updateStats();
+        }
+
+        // Update weapon stats display
+        function updateStats() {
+            if (!currentWeapon) return;
+            
+            // Calculate DPS
+            const shotsPerSecond = 60 / currentWeapon.fireRate;
+            const dps = currentWeapon.damage * shotsPerSecond * currentWeapon.projectileCount;
+            document.getElementById('dpsValue').textContent = dps.toFixed(1);
+            
+            // Energy per shot
+            document.getElementById('energyValue').textContent = currentWeapon.energyCost;
+            
+            // Effective range
+            const range = currentWeapon.projectileSpeed * currentWeapon.lifetime;
+            document.getElementById('rangeValue').textContent = range + 'px';
+        }
+
+        // Tab switching
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            
+            // Show/hide pattern editor if needed
+            if (tabName === 'projectile') {
+                const patternEditor = document.getElementById('patternEditor');
+                const spreadPattern = document.getElementById('spreadPattern').value;
+                patternEditor.style.display = spreadPattern === 'custom' ? 'block' : 'none';
+            }
+        }
+
+        // Preview functions
+        function togglePreview() {
+            previewRunning = !previewRunning;
+        }
+
+        function fireWeapon() {
+            if (!currentWeapon || frameCount - lastFireTime < currentWeapon.fireRate) return;
+            
+            lastFireTime = frameCount;
+            
+            // Create projectiles based on weapon settings
+            for (let i = 0; i < currentWeapon.projectileCount; i++) {
+                let angle = 0;
+                
+                if (currentWeapon.projectileCount > 1) {
+                    if (currentWeapon.spreadPattern === 'cone') {
+                        const spreadRad = (currentWeapon.spreadAngle * Math.PI) / 180;
+                        angle = -spreadRad/2 + (i / (currentWeapon.projectileCount - 1)) * spreadRad;
+                    } else if (currentWeapon.spreadPattern === 'random') {
+                        angle = (Math.random() - 0.5) * (currentWeapon.spreadAngle * Math.PI / 180);
+                    }
+                }
+                
+                const projectile = {
+                    x: previewPlayer.x + 30,
+                    y: previewPlayer.y + 20,
+                    vx: Math.cos(angle) * currentWeapon.projectileSpeed * previewPlayer.facing,
+                    vy: Math.sin(angle) * currentWeapon.projectileSpeed,
+                    life: currentWeapon.lifetime,
+                    bounces: currentWeapon.bounces,
+                    trail: [],
+                    enemy: false,
+                    w: currentWeapon.projectileWidth,
+                    h: currentWeapon.projectileHeight,
+                    damage: currentWeapon.damage
+                };
+                
+                previewProjectiles.push(projectile);
+            }
+            
+            // Muzzle flash particles
+            if (currentWeapon.particleCount > 0) {
+                createParticles(
+                    previewPlayer.x + (previewPlayer.facing > 0 ? 30 : 0),
+                    previewPlayer.y + 20,
+                    currentWeapon.primaryColor,
+                    currentWeapon.particleCount
+                );
+            }
+        }
+
+        // Player movement
+        window.addEventListener('keydown', (e) => {
+            if (!previewPlayer.canMove) return;
+            
+            switch(e.key.toLowerCase()) {
+                case 'a':
+                case 'arrowleft':
+                    previewPlayer.vx = -5;
+                    previewPlayer.facing = -1;
+                    break;
+                case 'd':
+                case 'arrowright':
+                    previewPlayer.vx = 5;
+                    previewPlayer.facing = 1;
+                    break;
+                case 'w':
+                case 'arrowup':
+                    previewPlayer.vy = -5;
+                    break;
+                case 's':
+                case 'arrowdown':
+                    previewPlayer.vy = 5;
+                    break;
+                case ' ':
+                    fireWeapon();
+                    break;
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            switch(e.key.toLowerCase()) {
+                case 'a':
+                case 'd':
+                case 'arrowleft':
+                case 'arrowright':
+                    previewPlayer.vx = 0;
+                    break;
+                case 'w':
+                case 's':
+                case 'arrowup':
+                case 'arrowdown':
+                    previewPlayer.vy = 0;
+                    break;
+            }
+        });
+
+        // Animation loop
+        function animate() {
+            if (!previewRunning) {
+                requestAnimationFrame(animate);
+                return;
+            }
+            
+            frameCount++;
+            
+            // Auto fire
+            if (autoFire && frameCount % 10 === 0) {
+                fireWeapon();
+            }
+            
+            // Update player position
+            previewPlayer.x += previewPlayer.vx;
+            previewPlayer.y += previewPlayer.vy;
+            previewPlayer.x = Math.max(0, Math.min(canvas.width - 30, previewPlayer.x));
+            previewPlayer.y = Math.max(0, Math.min(canvas.height - 40, previewPlayer.y));
+            
+            // Clear canvas
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Grid background
+            ctx.strokeStyle = '#003300';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < canvas.width; x += 50) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += 50) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+            
+            // Update test objects
+            updateTestObjects();
+            
+            // Draw test objects
+            testObjects.forEach(obj => {
+                if (!obj.active) return;
+                
+                ctx.fillStyle = obj.color;
+                ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
+                
+                // Health bar for destructible objects
+                if (obj.health > 0 && obj.health < obj.maxHealth) {
+                    ctx.fillStyle = '#333';
+                    ctx.fillRect(obj.x, obj.y - 8, obj.w, 4);
+                    ctx.fillStyle = '#ff0000';
+                    ctx.fillRect(obj.x, obj.y - 8, obj.w * (obj.health / obj.maxHealth), 4);
+                }
+                
+                // Draw details for enemies
+                if (obj.type === 'walker' || obj.type === 'flyer' || obj.type === 'turret') {
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(obj.x + 5, obj.y + 5, 4, 4);
+                    ctx.fillRect(obj.x + obj.w - 9, obj.y + 5, 4, 4);
+                }
+            });
+            
+            // Draw player
+            ctx.fillStyle = '#0088ff';
+            ctx.fillRect(previewPlayer.x, previewPlayer.y, 30, 40);
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(previewPlayer.x + 8, previewPlayer.y + 8, 5, 5);
+            ctx.fillRect(previewPlayer.x + 17, previewPlayer.y + 8, 5, 5);
+            
+            // Gun
+            ctx.fillStyle = '#0066cc';
+            const gunX = previewPlayer.facing > 0 ? previewPlayer.x + 25 : previewPlayer.x - 5;
+            ctx.fillRect(gunX, previewPlayer.y + 15, 10, 6);
+            
+            // Update and draw projectiles
+            for (let i = previewProjectiles.length - 1; i >= 0; i--) {
+                const proj = previewProjectiles[i];
+                
+                // Store trail positions for player projectiles
+                if (!proj.enemy && currentWeapon && currentWeapon.hasTrail) {
+                    proj.trail.push({ x: proj.x, y: proj.y });
+                    if (proj.trail.length > 10) {
+                        proj.trail.shift();
+                    }
+                }
+                
+                // Update position based on movement type (only for player projectiles)
+                if (!proj.enemy && currentWeapon) {
+                    switch (currentWeapon.movementType) {
+                        case 'straight':
+                            proj.x += proj.vx;
+                            proj.y += proj.vy;
+                            break;
+                        case 'arc':
+                            proj.x += proj.vx;
+                            proj.y += proj.vy;
+                            proj.vy += currentWeapon.gravity / 100;
+                            break;
+                        case 'sine':
+                            proj.x += proj.vx;
+                            proj.y += Math.sin(frameCount * 0.2) * 3;
+                            break;
+                        case 'homing':
+                            // Find nearest enemy
+                            let nearestEnemy = null;
+                            let nearestDist = Infinity;
+                            testObjects.forEach(obj => {
+                                if (obj.active && obj.health > 0) {
+                                    const dx = obj.x + obj.w/2 - proj.x;
+                                    const dy = obj.y + obj.h/2 - proj.y;
+                                    const dist = Math.sqrt(dx*dx + dy*dy);
+                                    if (dist < nearestDist) {
+                                        nearestDist = dist;
+                                        nearestEnemy = obj;
+                                    }
+                                }
+                            });
+                            
+                            if (nearestEnemy) {
+                                const dx = nearestEnemy.x + nearestEnemy.w/2 - proj.x;
+                                const dy = nearestEnemy.y + nearestEnemy.h/2 - proj.y;
+                                const dist = Math.sqrt(dx*dx + dy*dy);
+                                if (dist > 0) {
+                                    proj.vx += (dx / dist) * 0.5;
+                                    proj.vy += (dy / dist) * 0.5;
+                                    const speed = Math.sqrt(proj.vx*proj.vx + proj.vy*proj.vy);
+                                    if (speed > currentWeapon.projectileSpeed) {
+                                        proj.vx = (proj.vx / speed) * currentWeapon.projectileSpeed;
+                                        proj.vy = (proj.vy / speed) * currentWeapon.projectileSpeed;
+                                    }
+                                }
+                            }
+                            proj.x += proj.vx;
+                            proj.y += proj.vy;
+                            break;
+                        case 'boomerang':
+                            proj.x += proj.vx;
+                            proj.y += proj.vy;
+                            proj.vx *= 0.98;
+                            if (Math.abs(proj.vx) < 0.5) {
+                                proj.vx = -currentWeapon.projectileSpeed * previewPlayer.facing;
+                            }
+                            break;
+                        case 'spiral':
+                            const spiralAngle = frameCount * 0.2;
+                            proj.x += proj.vx + Math.cos(spiralAngle) * 3;
+                            proj.y += proj.vy + Math.sin(spiralAngle) * 3;
+                            break;
+                    }
+                    
+                    // Apply gravity if not already applied
+                    if (currentWeapon.movementType !== 'arc' && currentWeapon.gravity > 0) {
+                        proj.vy += currentWeapon.gravity / 100;
+                    }
+                } else {
+                    // Enemy projectiles move straight
+                    proj.x += proj.vx;
+                    proj.y += proj.vy;
+                }
+                
+                // Check collisions
+                let hit = false;
+                
+                if (proj.enemy) {
+                    // Check collision with player
+                    if (proj.x < previewPlayer.x + 30 &&
+                        proj.x + proj.w > previewPlayer.x &&
+                        proj.y < previewPlayer.y + 40 &&
+                        proj.y + proj.h > previewPlayer.y) {
+                        
+                        createParticles(proj.x, proj.y, '#ff0000', 5);
+                        hit = true;
+                    }
+                } else {
+                    // Check collision with test objects
+                    testObjects.forEach(obj => {
+                        if (!hit && obj.active && obj.health !== 0 &&
+                            proj.x < obj.x + obj.w &&
+                            proj.x + proj.w > obj.x &&
+                            proj.y < obj.y + obj.h &&
+                            proj.y + proj.h > obj.y) {
+                            
+                            if (obj.health > 0) {
+                                obj.health -= proj.damage;
+                                if (obj.health <= 0) {
+                                    obj.active = false;
+                                    createParticles(obj.x + obj.w/2, obj.y + obj.h/2, obj.color, 15);
+                                }
+                            }
+                            
+                            // Create impact effects
+                            if (currentWeapon) {
+                                createParticles(proj.x, proj.y, currentWeapon.secondaryColor, 5);
+                                
+                                if (currentWeapon.explosionSize > 0) {
+                                    ctx.fillStyle = currentWeapon.primaryColor + '44';
+                                    ctx.beginPath();
+                                    ctx.arc(proj.x, proj.y, currentWeapon.explosionSize, 0, Math.PI * 2);
+                                    ctx.fill();
+                                }
+                            }
+                            
+                            if (!currentWeapon || !currentWeapon.piercing) {
+                                hit = true;
+                            }
+                        }
+                    });
+                }
+                
+                // Bounce off walls
+                if (proj.bounces > 0) {
+                    if (proj.x <= 0 || proj.x >= canvas.width - proj.w) {
+                        proj.vx *= -1;
+                        proj.bounces--;
+                    }
+                    if (proj.y <= 0 || proj.y >= canvas.height - proj.h) {
+                        proj.vy *= -1;
+                        proj.bounces--;
+                    }
+                }
+                
+                // Update lifetime
+                proj.life--;
+                
+                // Remove if hit, out of bounds, or lifetime expired
+                if (hit || proj.life <= 0 || 
+                    proj.x < -100 || proj.x > canvas.width + 100 ||
+                    proj.y < -100 || proj.y > canvas.height + 100) {
+                    previewProjectiles.splice(i, 1);
+                    continue;
+                }
+                
+                // Draw trail
+                if (!proj.enemy && currentWeapon && currentWeapon.hasTrail && proj.trail.length > 0) {
+                    ctx.strokeStyle = currentWeapon.secondaryColor;
+                    ctx.lineWidth = proj.h / 2;
+                    ctx.globalAlpha = 0.5;
+                    ctx.beginPath();
+                    ctx.moveTo(proj.trail[0].x, proj.trail[0].y);
+                    for (let j = 1; j < proj.trail.length; j++) {
+                        ctx.lineTo(proj.trail[j].x, proj.trail[j].y);
+                    }
+                    ctx.stroke();
+                    ctx.globalAlpha = 1;
+                }
+                
+                // Draw projectile with glow
+                if (!proj.enemy && currentWeapon && currentWeapon.glowIntensity > 0) {
+                    ctx.shadowBlur = currentWeapon.glowIntensity / 5;
+                    ctx.shadowColor = currentWeapon.primaryColor;
+                }
+                
+                ctx.fillStyle = proj.enemy ? proj.color : (currentWeapon ? currentWeapon.primaryColor : '#00ff00');
+                ctx.fillRect(proj.x, proj.y, proj.w, proj.h);
+                
+                ctx.shadowBlur = 0;
+            }
+            
+            // Update and draw particles
+            updateParticles();
+            particles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life / 25;
+                ctx.fillRect(p.x - p.size/2, p.y - p.size/2, p.size, p.size);
+            });
+            ctx.globalAlpha = 1;
+            
+            // Draw placement mode indicator
+            if (placementMode) {
+                ctx.fillStyle = '#ffff00';
+                ctx.font = '12px Courier New';
+                ctx.fillText('Placement Mode: ' + placementMode.toUpperCase(), 10, canvas.height - 10);
+            }
+            
+            requestAnimationFrame(animate);
+        }
+
+        // Export/Import functions
+        function exportWeapon() {
+            if (!currentWeapon) return;
+            document.getElementById('weaponJson').value = JSON.stringify(currentWeapon, null, 2);
+        }
+
+        function importSingleWeapon() {
+            const jsonText = document.getElementById('weaponJson').value;
+            try {
+                const weapon = JSON.parse(jsonText);
+                weapons.push(weapon);
+                selectedWeaponIndex = weapons.length - 1;
+                currentWeapon = { ...weapon };
+                updateWeaponList();
+                loadWeaponToEditor();
+                alert('Weapon imported successfully!');
+            } catch (e) {
+                alert('Invalid JSON format!');
+            }
+        }
+
+        function exportAllWeapons() {
+            const dataStr = JSON.stringify(weapons, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'megabot_weapons.json';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importWeapons() {
+            document.getElementById('importFile').click();
+        }
+
+        document.getElementById('importFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    const importedWeapons = JSON.parse(event.target.result);
+                    weapons = importedWeapons;
+                    selectedWeaponIndex = 0;
+                    currentWeapon = { ...weapons[0] };
+                    updateWeaponList();
+                    loadWeaponToEditor();
+                    alert('Weapons imported successfully!');
+                } catch (e) {
+                    alert('Invalid file format!');
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        function resetEditor() {
+            if (confirm('This will reset all weapons to defaults. Are you sure?')) {
+                initializeDefaultWeapons();
+            }
+        }
+
+        // Initialize
+        resizeCanvas();
+        initializeDefaultWeapons();
+        animate();
+    </script>
+</body>
+</html>

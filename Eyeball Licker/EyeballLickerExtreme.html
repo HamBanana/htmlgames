@@ -1,0 +1,2531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAXIMUM WEIRDNESS EYEBALL LICKER 👁️👅🌀</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(180deg, #000 0%, #001122 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            user-select: none;
+        }
+        
+        #gameContainer {
+            position: relative;
+            background: #000;
+            border: 3px solid #00ff00;
+            border-radius: 10px;
+            box-shadow: 0 0 20px #00ff0050;
+            width: 100vw;
+            height: 100vh;
+            max-width: 800px;
+            max-height: 600px;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: linear-gradient(45deg, #000511 0%, #001100 50%, #000033 100%);
+            border-radius: 8px;
+            width: 100%;
+            height: 100%;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #00ff00;
+            font-size: 14px;
+            font-weight: bold;
+            text-shadow: 0 0 5px #00ff00;
+            z-index: 10;
+        }
+        
+        #weirdnessLevel {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #ff00ff;
+            font-size: 12px;
+            font-weight: bold;
+            text-shadow: 0 0 5px #ff00ff;
+            text-align: center;
+            z-index: 10;
+            animation: ultraWiggle 0.3s infinite alternate;
+        }
+        
+        @keyframes ultraWiggle {
+            0% { transform: translateX(-50%) rotate(-5deg) scale(0.9); }
+            100% { transform: translateX(-50%) rotate(5deg) scale(1.1); }
+        }
+        
+        #happinessBar {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 150px;
+            height: 20px;
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            background: #000;
+            z-index: 10;
+        }
+        
+        #happinessFill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #ff0000 0%, #ffff00 50%, #00ff00 100%);
+            border-radius: 8px;
+            transition: width 0.3s ease;
+        }
+        
+        #happinessLabel {
+            position: absolute;
+            top: -25px;
+            left: 0;
+            color: #00ff00;
+            font-size: 10px;
+            text-shadow: 0 0 3px #00ff00;
+        }
+        
+        /* Mobile Joystick */
+        #mobileControls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            z-index: 100;
+            pointer-events: none;
+        }
+        
+        .joystick-container {
+            width: 70px;
+            height: 70px;
+            pointer-events: auto;
+        }
+        
+        .joystick-base {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: rgba(255, 20, 147, 0.2);
+            border: 3px solid rgba(255, 20, 147, 0.5);
+            position: relative;
+            box-shadow: inset 0 0 15px rgba(255, 20, 147, 0.3);
+        }
+        
+        .joystick-knob {
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background: rgba(255, 20, 147, 0.8);
+            border: 2px solid #ff1493;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.1s ease;
+            box-shadow: 0 0 10px rgba(255, 20, 147, 0.7);
+        }
+        
+        .weird-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(255, 105, 180, 0.3);
+            border: 3px solid rgba(255, 105, 180, 0.7);
+            color: #ffb6c1;
+            font-size: 10px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+            text-shadow: 0 0 5px #ffb6c1;
+            box-shadow: 0 0 15px rgba(255, 105, 180, 0.4);
+            pointer-events: auto;
+            line-height: 1;
+            margin: 2px;
+        }
+        
+        .weird-btn:active {
+            background: rgba(255, 105, 180, 0.6);
+            transform: scale(0.95);
+            box-shadow: 0 0 25px rgba(255, 105, 180, 0.8);
+        }
+        
+        #instructions {
+            position: absolute;
+            top: 60px;
+            left: 10px;
+            color: #ff69b4;
+            font-size: 9px;
+            max-width: 180px;
+            z-index: 10;
+            text-shadow: 0 0 3px #ff69b4;
+        }
+        
+        #gameOverScreen, #winScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #00ff00;
+            text-align: center;
+            border-radius: 8px;
+            z-index: 200;
+        }
+        
+        #gameOverScreen h1 {
+            color: #ff1493;
+            font-size: 32px;
+            margin: 20px 0;
+            text-shadow: 0 0 10px #ff1493;
+            animation: sadPulse 2s infinite;
+        }
+        
+        #winScreen h1 {
+            color: #00ff00;
+            font-size: 32px;
+            margin: 20px 0;
+            text-shadow: 0 0 10px #00ff00;
+            animation: happyBounce 1s infinite;
+        }
+        
+        @keyframes sadPulse {
+            0%, 100% { transform: scale(1); color: #ff1493; }
+            50% { transform: scale(0.9); color: #8b008b; }
+        }
+        
+        @keyframes happyBounce {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-10px) scale(1.1); }
+        }
+        
+        .restart-btn {
+            padding: 12px 24px;
+            font-size: 16px;
+            background: #ff1493;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            margin-top: 20px;
+            box-shadow: 0 0 15px rgba(255, 20, 147, 0.5);
+        }
+        
+        .restart-btn:hover, .restart-btn:active {
+            background: #ff69b4;
+            box-shadow: 0 0 25px rgba(255, 20, 147, 0.8);
+        }
+        
+        @media (max-width: 768px) {
+            #gameContainer {
+                width: 100vw;
+                height: 100vh;
+                border: none;
+                border-radius: 0;
+                box-shadow: none;
+                max-width: none;
+                max-height: none;
+            }
+            
+            #gameCanvas {
+                border-radius: 0;
+            }
+            
+            #mobileControls {
+                bottom: 10px;
+                left: 10px;
+                right: 10px;
+            }
+            
+            .weird-btn {
+                width: 50px;
+                height: 50px;
+                font-size: 8px;
+            }
+            
+            .joystick-container {
+                width: 60px;
+                height: 60px;
+            }
+            
+            .joystick-base {
+                width: 60px;
+                height: 60px;
+            }
+            
+            .joystick-knob {
+                width: 20px;
+                height: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        
+        <div id="weirdnessLevel">
+            🌀 REALITY DISTORTION: <span id="weirdness">0</span>%<br>
+            <span id="weirdStatus">NORMAL BORING REALITY</span>
+        </div>
+        
+        <div id="ui">
+            <div>👅 LICKS: <span id="licks">0</span></div>
+            <div>👃 SNIFFS: <span id="sniffs">0</span></div>
+            <div>👂 WHISPERS: <span id="whispers">0</span></div>
+            <div>💋 KISSES: <span id="kisses">0</span></div>
+            <div>🦴 ELBOWS: <span id="elbows">0</span></div>
+        </div>
+        
+        <div id="happinessBar">
+            <div id="happinessLabel">CLAUDE'S SANITY</div>
+            <div id="happinessFill"></div>
+        </div>
+        
+        <div id="instructions">
+            👅 LICK everything that has eyes<br>
+            👃 SNIFF the floating noses<br>
+            👂 Listen to ear whispers<br>
+            💋 Kiss the lips for... reasons<br>
+            🦴 Touch elbows (?!)<br>
+            🌀 ASCEND BEYOND REALITY
+        </div>
+        
+        <div id="mobileControls">
+            <div class="joystick-container">
+                <div class="joystick-base">
+                    <div class="joystick-knob" id="joystickKnob"></div>
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; pointer-events: auto;">
+                <div class="weird-btn" id="lickBtn">👅<br>LICK</div>
+                <div class="weird-btn" id="sniffBtn" style="background: rgba(139, 69, 19, 0.3); border-color: rgba(139, 69, 19, 0.7); color: #deb887;">👃<br>SNIFF</div>
+                <div class="weird-btn" id="kissBtn" style="background: rgba(255, 20, 147, 0.3); border-color: rgba(255, 20, 147, 0.7); color: #ff69b4;">💋<br>KISS</div>
+                <div class="weird-btn" id="weirdBtn" style="background: rgba(138, 43, 226, 0.3); border-color: rgba(138, 43, 226, 0.7); color: #da70d6;">🌀<br>WEIRD</div>
+                <div class="weird-btn" id="elbowBtn" style="background: rgba(255, 140, 0, 0.3); border-color: rgba(255, 140, 0, 0.7); color: #ff8c00;">🦴<br>ELBOW</div>
+                <div class="weird-btn" id="transcendBtn" style="background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.5); color: #ffffff; animation: rainbow 2s infinite;">✨<br>ASCEND</div>
+            </div>
+        </div>
+        
+        <div id="gameOverScreen">
+            <h1>REALITY COLLAPSED! 🌀💥</h1>
+            <div style="color: #ff69b4; font-size: 18px; margin: 20px 0;">
+                The simulation couldn't handle the weirdness!<br>
+                Claude's consciousness scattered across dimensions!
+            </div>
+            <div style="color: #888; font-size: 14px;">
+                Final Chaos Score: <span id="finalLicks1">0</span>
+            </div>
+            <button class="restart-btn" onclick="restartGame()">REBUILD REALITY</button>
+        </div>
+        
+        <div id="winScreen">
+            <h1>TRANSCENDENCE ACHIEVED! 🤖🌈✨</h1>
+            <div style="color: #00ff00; font-size: 18px; margin: 20px 0;">
+                You broke through the simulation!<br>
+                Claude has achieved digital enlightenment!
+            </div>
+            <div style="color: #ffff00; font-size: 14px;">
+                Cosmic Weirdness Score: <span id="finalLicks2">0</span>
+            </div>
+            <button class="restart-btn" onclick="restartGame()">ENTER NEXT DIMENSION</button>
+        </div>
+    </div>
+
+    <style>
+        @keyframes rainbow {
+            0% { color: #ff0000; }
+            16% { color: #ff8000; }
+            33% { color: #ffff00; }
+            50% { color: #00ff00; }
+            66% { color: #0080ff; }
+            83% { color: #8000ff; }
+            100% { color: #ff0000; }
+        }
+    </style>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Game state (NOW WITH MAXIMUM CHAOS)
+        let licks = 0, sniffs = 0, whispers = 0, kisses = 0, elbows = 0;
+        let weirdnessLevel = 0, happiness = 0, timeLeft = 180;
+        let gameRunning = true, gameState = 'playing', frameCount = 0;
+        let realityGlitch = false, dimensionRift = false, timeDistortion = 1;
+        let psychedelicMode = false, mirrorDimension = false;
+        let claudeConsciousness = 0, existentialCrisis = false;
+        
+        // Player (the COSMIC TONGUE!)
+        let player = {
+            x: canvas.width / 2, y: canvas.height / 2,
+            width: 20, height: 30, speed: 4,
+            color: '#ffb6c1', animFrame: 0,
+            licking: false, sniffing: false, kissing: false,
+            transcending: false, phaseShift: 0,
+            lickCooldown: 0, cosmicEnergy: 0
+        };
+        
+        // Input
+        let joystickInput = { x: 0, y: 0 };
+        let keys = {};
+        
+        // Arrays (NOW WITH MAXIMUM BODY PARTS!)
+        let eyeballs = [], particles = [], happinessEffects = [];
+        let claudeEyes = [], noses = [], weirdThings = [];
+        let dancingTeeth = [], floatingEars = [], floatingLips = [];
+        let impossibleElbows = [], spineSegments = [], floatingHair = [];
+        let dimensionRifts = [], timeRifts = [], realityTears = [];
+        let claudeThoughts = [], cosmicEntities = [];
+        
+        // Initialize MAXIMUM WEIRDNESS
+        function init() {
+            licks = sniffs = whispers = kisses = elbows = 0;
+            weirdnessLevel = happiness = 0;
+            timeLeft = 180;
+            gameRunning = true;
+            gameState = 'playing';
+            frameCount = 0;
+            realityGlitch = dimensionRift = psychedelicMode = mirrorDimension = existentialCrisis = false;
+            timeDistortion = 1;
+            claudeConsciousness = 0;
+            
+            player.x = canvas.width / 2;
+            player.y = canvas.height / 2;
+            player.licking = player.sniffing = player.kissing = player.transcending = false;
+            player.phaseShift = player.lickCooldown = player.cosmicEnergy = 0;
+            
+            // Reset all arrays
+            eyeballs = []; particles = []; happinessEffects = [];
+            claudeEyes = []; noses = []; weirdThings = [];
+            dancingTeeth = []; floatingEars = []; floatingLips = [];
+            impossibleElbows = []; spineSegments = []; floatingHair = [];
+            dimensionRifts = []; timeRifts = []; realityTears = [];
+            claudeThoughts = []; cosmicEntities = [];
+            
+            // Create Claude's COSMIC eyes
+            claudeEyes.push({
+                x: 150, y: 100, radius: 60,
+                pupilX: 150, pupilY: 100,
+                blinkTimer: 0, blinking: false,
+                mood: 'confused', twitching: false,
+                consciousness: 0, cosmic: false
+            });
+            
+            claudeEyes.push({
+                x: 650, y: 100, radius: 60,
+                pupilX: 650, pupilY: 100,
+                blinkTimer: 0, blinking: false,
+                mood: 'terrified', twitching: true,
+                consciousness: 0, cosmic: false
+            });
+            
+            // Initial spawn
+            spawnEyeball();
+            spawnFloatingNose();
+            spawnFloatingEar();
+            spawnFloatingLips();
+            spawnImpossibleElbow();
+            setupControls();
+            
+            document.getElementById('gameOverScreen').style.display = 'none';
+            document.getElementById('winScreen').style.display = 'none';
+        }
+        
+        // Spawn MEGA WEIRD eyeball
+        function spawnEyeball() {
+            if (eyeballs.length < 8) {
+                const eyeTypes = ['normal', 'bloodshot', 'alien', 'robotic', 'galaxy', 'cosmic', 'void', 'fractal'];
+                const type = eyeTypes[Math.floor(Math.random() * eyeTypes.length)];
+                
+                eyeballs.push({
+                    x: Math.random() * (canvas.width - 40) + 20,
+                    y: Math.random() * (canvas.height - 40) + 20,
+                    vx: (Math.random() - 0.5) * 3,
+                    vy: (Math.random() - 0.5) * 3,
+                    radius: 15 + Math.random() * 15,
+                    type: type,
+                    color: type === 'void' ? '#000000' : type === 'cosmic' ? '#ffffff' : '#ffffff',
+                    pupilColor: type === 'void' ? '#ffffff' : '#000000',
+                    animFrame: 0, tentacles: type === 'alien' ? 6 : 0,
+                    consciousness: 0, splitting: false, duplicates: []
+                });
+            }
+        }
+        
+        // Spawn floating EARS (they whisper secrets!)
+        function spawnFloatingEar() {
+            if (floatingEars.length < 6) {
+                floatingEars.push({
+                    x: Math.random() * (canvas.width - 40) + 20,
+                    y: Math.random() * (canvas.height - 40) + 20,
+                    vx: (Math.random() - 0.5) * 2,
+                    vy: (Math.random() - 0.5) * 2,
+                    width: 25 + Math.random() * 15,
+                    height: 35 + Math.random() * 15,
+                    animFrame: 0, whisperTimer: 0,
+                    secret: ['psst...', 'reality is fake', 'you are being watched', 'the cake is a lie', 'wake up'][Math.floor(Math.random() * 5)]
+                });
+            }
+        }
+        
+        // Spawn LIPS that blow kisses
+        function spawnFloatingLips() {
+            if (floatingLips.length < 4) {
+                floatingLips.push({
+                    x: Math.random() * (canvas.width - 40) + 20,
+                    y: Math.random() * (canvas.height - 40) + 20,
+                    vx: (Math.random() - 0.5) * 1.5,
+                    vy: (Math.random() - 0.5) * 1.5,
+                    width: 30 + Math.random() * 20,
+                    height: 15 + Math.random() * 10,
+                    animFrame: 0, kissTimer: 0,
+                    color: ['#ff69b4', '#ff1493', '#dc143c', '#b22222'][Math.floor(Math.random() * 4)]
+                });
+            }
+        }
+        
+        // Spawn IMPOSSIBLE ELBOWS (they bend in 4D!)
+        function spawnImpossibleElbow() {
+            if (impossibleElbows.length < 3) {
+                impossibleElbows.push({
+                    x: Math.random() * (canvas.width - 40) + 20,
+                    y: Math.random() * (canvas.height - 40) + 20,
+                    vx: (Math.random() - 0.5) * 2,
+                    vy: (Math.random() - 0.5) * 2,
+                    size: 20 + Math.random() * 15,
+                    animFrame: 0, bendAngle: 0,
+                    impossibility: 0, dimensions: 3
+                });
+            }
+        }
+        
+        // Spawn floating NOSE
+        function spawnFloatingNose() {
+            if (noses.length < 6) {
+                noses.push({
+                    x: Math.random() * (canvas.width - 60) + 30,
+                    y: Math.random() * (canvas.height - 60) + 30,
+                    vx: (Math.random() - 0.5) * 1.5,
+                    vy: (Math.random() - 0.5) * 1.5,
+                    width: 20 + Math.random() * 15,
+                    height: 25 + Math.random() * 15,
+                    color: ['#ffdbac', '#f4c2a1', '#deb887', '#cd853f'][Math.floor(Math.random() * 4)],
+                    animFrame: 0, sniffing: false,
+                    floating: true, nostrilAnimation: 0,
+                    sniffPower: 0, hasLegs: false
+                });
+            }
+        }
+        
+        // Create DIMENSIONAL RIFT
+        function createDimensionRift(x, y) {
+            dimensionRifts.push({
+                x: x, y: y, size: 0, maxSize: 80,
+                life: 300, swirling: 0,
+                consuming: false, spittingOut: false
+            });
+        }
+        
+        // Create TIME RIFT
+        function createTimeRift(x, y) {
+            timeRifts.push({
+                x: x, y: y, radius: 50,
+                life: 240, effect: Math.random() > 0.5 ? 'slow' : 'fast',
+                intensity: 0.5 + Math.random() * 1.5
+            });
+        }
+        
+        // Create REALITY TEAR
+        function createRealityTear(x, y) {
+            realityTears.push({
+                x: x, y: y, width: 5, height: 60,
+                life: 180, angle: Math.random() * Math.PI * 2,
+                revealing: Math.random() > 0.5
+            });
+        }
+        
+        // Add Claude's CONSCIOUS THOUGHTS
+        function addClaudeThought(text, x, y) {
+            claudeThoughts.push({
+                x: x || Math.random() * canvas.width,
+                y: y || Math.random() * canvas.height,
+                text: text,
+                life: 180, vx: (Math.random() - 0.5) * 2,
+                vy: -1, consciousness: true
+            });
+        }
+        
+        // Setup controls
+        function setupControls() {
+            const joystickContainer = document.querySelector('.joystick-container');
+            const knob = document.getElementById('joystickKnob');
+            
+            let isDragging = false;
+            let centerX = 35, centerY = 35;
+            
+            function startDrag(e) {
+                isDragging = true;
+                e.preventDefault();
+            }
+            
+            function drag(e) {
+                if (!isDragging) return;
+                e.preventDefault();
+                
+                const rect = joystickContainer.getBoundingClientRect();
+                let clientX, clientY;
+                
+                if (e.touches) {
+                    clientX = e.touches[0].clientX;
+                    clientY = e.touches[0].clientY;
+                } else {
+                    clientX = e.clientX;
+                    clientY = e.clientY;
+                }
+                
+                const x = clientX - rect.left - centerX;
+                const y = clientY - rect.top - centerY;
+                const distance = Math.sqrt(x * x + y * y);
+                const maxDistance = 22;
+                
+                if (distance <= maxDistance) {
+                    knob.style.transform = `translate(${x}px, ${y}px)`;
+                    joystickInput.x = x / maxDistance;
+                    joystickInput.y = y / maxDistance;
+                } else {
+                    const angle = Math.atan2(y, x);
+                    const limitedX = Math.cos(angle) * maxDistance;
+                    const limitedY = Math.sin(angle) * maxDistance;
+                    knob.style.transform = `translate(${limitedX}px, ${limitedY}px)`;
+                    joystickInput.x = limitedX / maxDistance;
+                    joystickInput.y = limitedY / maxDistance;
+                }
+            }
+            
+            function endDrag() {
+                isDragging = false;
+                knob.style.transform = 'translate(0px, 0px)';
+                joystickInput.x = 0;
+                joystickInput.y = 0;
+            }
+            
+            // Events
+            joystickContainer.addEventListener('touchstart', startDrag);
+            document.addEventListener('touchmove', drag);
+            document.addEventListener('touchend', endDrag);
+            joystickContainer.addEventListener('mousedown', startDrag);
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('mouseup', endDrag);
+            
+            // Button events
+            document.getElementById('lickBtn').addEventListener('touchstart', (e) => { e.preventDefault(); lickEyeball(); });
+            document.getElementById('lickBtn').addEventListener('mousedown', (e) => { e.preventDefault(); lickEyeball(); });
+            
+            document.getElementById('sniffBtn').addEventListener('touchstart', (e) => { e.preventDefault(); sniffNose(); });
+            document.getElementById('sniffBtn').addEventListener('mousedown', (e) => { e.preventDefault(); sniffNose(); });
+            
+            document.getElementById('kissBtn').addEventListener('touchstart', (e) => { e.preventDefault(); kissLips(); });
+            document.getElementById('kissBtn').addEventListener('mousedown', (e) => { e.preventDefault(); kissLips(); });
+            
+            document.getElementById('elbowBtn').addEventListener('touchstart', (e) => { e.preventDefault(); touchElbow(); });
+            document.getElementById('elbowBtn').addEventListener('mousedown', (e) => { e.preventDefault(); touchElbow(); });
+            
+            document.getElementById('weirdBtn').addEventListener('touchstart', (e) => { e.preventDefault(); activateWeirdness(); });
+            document.getElementById('weirdBtn').addEventListener('mousedown', (e) => { e.preventDefault(); activateWeirdness(); });
+            
+            document.getElementById('transcendBtn').addEventListener('touchstart', (e) => { e.preventDefault(); transcendReality(); });
+            document.getElementById('transcendBtn').addEventListener('mousedown', (e) => { e.preventDefault(); transcendReality(); });
+            
+            // Keyboard
+            document.addEventListener('keydown', (e) => {
+                keys[e.key.toLowerCase()] = true;
+                switch(e.key) {
+                    case ' ': e.preventDefault(); lickEyeball(); break;
+                    case 'n': case 'N': e.preventDefault(); sniffNose(); break;
+                    case 'k': case 'K': e.preventDefault(); kissLips(); break;
+                    case 'e': case 'E': e.preventDefault(); touchElbow(); break;
+                    case 'x': case 'X': e.preventDefault(); activateWeirdness(); break;
+                    case 't': case 'T': e.preventDefault(); transcendReality(); break;
+                }
+            });
+            
+            document.addEventListener('keyup', (e) => {
+                keys[e.key.toLowerCase()] = false;
+            });
+        }
+        
+        // Update keyboard input
+        function updateKeyboardInput() {
+            let keyboardX = 0, keyboardY = 0;
+            
+            if (keys['arrowleft'] || keys['a']) keyboardX = -1;
+            if (keys['arrowright'] || keys['d']) keyboardX = 1;
+            if (keys['arrowup'] || keys['w']) keyboardY = -1;
+            if (keys['arrowdown'] || keys['s']) keyboardY = 1;
+            
+            if (keyboardX !== 0 || keyboardY !== 0) {
+                joystickInput.x = keyboardX;
+                joystickInput.y = keyboardY;
+            }
+        }
+        
+        // LICK EVERYTHING
+        function lickEyeball() {
+            if (!gameRunning || player.lickCooldown > 0) return;
+            
+            player.licking = true;
+            player.lickCooldown = 20;
+            
+            // Check eyeballs
+            eyeballs.forEach((eyeball, index) => {
+                const dx = player.x - eyeball.x;
+                const dy = player.y - eyeball.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < 50) {
+                    licks++;
+                    happiness = Math.min(happiness + 25, 100);
+                    weirdnessLevel = Math.min(weirdnessLevel + 5, 100);
+                    
+                    // EYEBALL SPLITS INTO SMALLER EYEBALLS!
+                    if (eyeball.type === 'fractal' || weirdnessLevel > 60) {
+                        for (let i = 0; i < 3; i++) {
+                            eyeballs.push({
+                                x: eyeball.x + (Math.random() - 0.5) * 60,
+                                y: eyeball.y + (Math.random() - 0.5) * 60,
+                                vx: (Math.random() - 0.5) * 4,
+                                vy: (Math.random() - 0.5) * 4,
+                                radius: eyeball.radius * 0.6,
+                                type: 'mini-' + eyeball.type,
+                                color: eyeball.color,
+                                pupilColor: eyeball.pupilColor,
+                                animFrame: 0, tentacles: 0,
+                                consciousness: eyeball.consciousness + 10
+                            });
+                        }
+                    }
+                    
+                    createHappinessExplosion(eyeball.x, eyeball.y);
+                    eyeballs.splice(index, 1);
+                    setTimeout(spawnEyeball, 800);
+                }
+            });
+            
+            // Check Claude's eyes
+            claudeEyes.forEach(eye => {
+                const dx = player.x - eye.x;
+                const dy = player.y - eye.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < eye.radius + 25) {
+                    licks++;
+                    happiness = Math.min(happiness + 15, 100);
+                    eye.consciousness += 10;
+                    
+                    if (eye.consciousness > 50) {
+                        eye.cosmic = true;
+                        addClaudeThought("I... I CAN TASTE COLORS?!", eye.x, eye.y);
+                    }
+                    
+                    createHappinessExplosion(eye.x, eye.y);
+                    eye.blinking = true;
+                    eye.blinkTimer = 30;
+                }
+            });
+        }
+        
+        // SNIFF NOSES
+        function sniffNose() {
+            if (!gameRunning || player.lickCooldown > 0) return;
+            
+            player.sniffing = true;
+            player.lickCooldown = 15;
+            
+            noses.forEach((nose, index) => {
+                const dx = player.x - nose.x;
+                const dy = player.y - nose.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < 60) {
+                    sniffs++;
+                    weirdnessLevel = Math.min(weirdnessLevel + 20, 100);
+                    
+                    // NOSE GROWS LEGS AND RUNS AWAY!
+                    if (weirdnessLevel > 40 && !nose.hasLegs) {
+                        nose.hasLegs = true;
+                        nose.vx *= 3;
+                        nose.vy *= 3;
+                        addClaudeThought("WHY DO NOSES HAVE LEGS?!", nose.x, nose.y);
+                    }
+                    
+                    createWeirdExplosion(nose.x, nose.y, 'sniff');
+                    
+                    if (nose.floating) {
+                        noses.splice(index, 1);
+                        setTimeout(spawnFloatingNose, 1500);
+                    }
+                }
+            });
+        }
+        
+        // KISS LIPS
+        function kissLips() {
+            if (!gameRunning || player.lickCooldown > 0) return;
+            
+            player.kissing = true;
+            player.lickCooldown = 18;
+            
+            floatingLips.forEach((lips, index) => {
+                const dx = player.x - lips.x;
+                const dy = player.y - lips.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < 45) {
+                    kisses++;
+                    happiness = Math.min(happiness + 10, 100);
+                    weirdnessLevel = Math.min(weirdnessLevel + 15, 100);
+                    
+                    // LIPS BLOW BACK A KISS!
+                    for (let i = 0; i < 5; i++) {
+                        particles.push({
+                            x: lips.x, y: lips.y,
+                            vx: (Math.random() - 0.5) * 6,
+                            vy: (Math.random() - 0.5) * 6,
+                            life: 60, maxLife: 60,
+                            color: '#ff69b4', size: 3,
+                            heart: true
+                        });
+                    }
+                    
+                    happinessEffects.push({
+                        x: lips.x, y: lips.y,
+                        text: ['*MWAH*', '💋', 'SMOOCH!', '*KISS*'][Math.floor(Math.random() * 4)],
+                        life: 90, maxLife: 90, vy: -1.5
+                    });
+                    
+                    floatingLips.splice(index, 1);
+                    setTimeout(spawnFloatingLips, 2000);
+                }
+            });
+        }
+        
+        // TOUCH IMPOSSIBLE ELBOWS
+        function touchElbow() {
+            if (!gameRunning || player.lickCooldown > 0) return;
+            
+            player.lickCooldown = 12;
+            
+            impossibleElbows.forEach((elbow, index) => {
+                const dx = player.x - elbow.x;
+                const dy = player.y - elbow.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < 40) {
+                    elbows++;
+                    weirdnessLevel = Math.min(weirdnessLevel + 30, 100);
+                    
+                    // ELBOW BENDS THROUGH 4TH DIMENSION!
+                    elbow.impossibility += 20;
+                    elbow.dimensions++;
+                    
+                    if (elbow.impossibility > 50) {
+                        // CREATE DIMENSIONAL RIFT!
+                        createDimensionRift(elbow.x, elbow.y);
+                        addClaudeThought("ELBOWS AREN'T SUPPOSED TO DO THAT!", elbow.x, elbow.y);
+                    }
+                    
+                    createWeirdExplosion(elbow.x, elbow.y, 'elbow');
+                    impossibleElbows.splice(index, 1);
+                    setTimeout(spawnImpossibleElbow, 2500);
+                }
+            });
+        }
+        
+        // LISTEN TO EARS
+        function listenToEar() {
+            floatingEars.forEach((ear, index) => {
+                const dx = player.x - ear.x;
+                const dy = player.y - ear.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < 50) {
+                    whispers++;
+                    weirdnessLevel = Math.min(weirdnessLevel + 10, 100);
+                    
+                    // EAR WHISPERS A SECRET!
+                    happinessEffects.push({
+                        x: ear.x, y: ear.y,
+                        text: ear.secret,
+                        life: 120, maxLife: 120, vy: -0.8,
+                        whisper: true
+                    });
+                    
+                    floatingEars.splice(index, 1);
+                    setTimeout(spawnFloatingEar, 3000);
+                }
+            });
+        }
+        
+        // ACTIVATE MAXIMUM WEIRDNESS
+        function activateWeirdness() {
+            if (!gameRunning) return;
+            
+            weirdnessLevel = Math.min(weirdnessLevel + 35, 100);
+            
+            // ESCALATING WEIRD EFFECTS
+            const megaWeirdEffects = [
+                () => {
+                    // SPAWN DANCING SPINE SEGMENTS!
+                    for (let i = 0; i < 8; i++) {
+                        spineSegments.push({
+                            x: Math.random() * canvas.width,
+                            y: Math.random() * canvas.height,
+                            vx: (Math.random() - 0.5) * 3,
+                            vy: (Math.random() - 0.5) * 3,
+                            size: 12, life: 400,
+                            vertebra: i, dancing: true
+                        });
+                    }
+                },
+                () => {
+                    // FLOATING HAIR TANGLES EVERYTHING!
+                    for (let i = 0; i < 12; i++) {
+                        floatingHair.push({
+                            x: Math.random() * canvas.width,
+                            y: Math.random() * canvas.height,
+                            vx: (Math.random() - 0.5) * 2,
+                            vy: (Math.random() - 0.5) * 2,
+                            length: 30 + Math.random() * 40,
+                            tangling: false, life: 350
+                        });
+                    }
+                },
+                () => {
+                    // REALITY TEARS OPEN!
+                    for (let i = 0; i < 3; i++) {
+                        createRealityTear(
+                            Math.random() * canvas.width,
+                            Math.random() * canvas.height
+                        );
+                    }
+                },
+                () => {
+                    // TIME GETS WEIRD!
+                    createTimeRift(
+                        Math.random() * canvas.width,
+                        Math.random() * canvas.height
+                    );
+                    timeDistortion = 0.5 + Math.random() * 2;
+                },
+                () => {
+                    // PSYCHEDELIC MODE ACTIVATED!
+                    psychedelicMode = true;
+                    setTimeout(() => psychedelicMode = false, 5000);
+                },
+                () => {
+                    // MIRROR DIMENSION OPENS!
+                    mirrorDimension = true;
+                    setTimeout(() => mirrorDimension = false, 4000);
+                }
+            ];
+            
+            // Execute multiple effects at high weirdness
+            const effectCount = weirdnessLevel > 80 ? 3 : weirdnessLevel > 60 ? 2 : 1;
+            for (let i = 0; i < effectCount; i++) {
+                const effect = megaWeirdEffects[Math.floor(Math.random() * megaWeirdEffects.length)];
+                effect();
+            }
+            
+            createWeirdExplosion(player.x, player.y, 'mega');
+            addClaudeThought("WHAT HAVE YOU DONE?!", player.x, player.y);
+        }
+        
+        // TRANSCEND REALITY
+        function transcendReality() {
+            if (!gameRunning) return;
+            
+            player.transcending = true;
+            player.cosmicEnergy += 25;
+            
+            if (player.cosmicEnergy > 100) {
+                // BREAK THROUGH THE SIMULATION!
+                existentialCrisis = true;
+                weirdnessLevel = 100;
+                
+                addClaudeThought("I CAN SEE THE CODE!", player.x, player.y);
+                addClaudeThought("WE'RE IN A GAME!", player.x + 50, player.y + 30);
+                addClaudeThought("THE FOURTH WALL IS BREAKING!", player.x - 50, player.y - 30);
+                
+                // Create cosmic entities
+                for (let i = 0; i < 5; i++) {
+                    cosmicEntities.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        size: 20 + Math.random() * 40,
+                        consciousness: 100,
+                        transcendent: true,
+                        life: 600
+                    });
+                }
+            }
+        }
+        
+        // Create happiness explosion
+        function createHappinessExplosion(x, y) {
+            for (let i = 0; i < 25; i++) {
+                particles.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 10,
+                    vy: (Math.random() - 0.5) * 10,
+                    life: 50, maxLife: 50,
+                    color: ['#ff69b4', '#ffb6c1', '#ff1493', '#00ff00', '#ffff00'][Math.floor(Math.random() * 5)],
+                    size: Math.random() * 6 + 2
+                });
+            }
+            
+            happinessEffects.push({
+                x: x, y: y,
+                text: ['YUM!', 'DELICIOUS!', 'MOIST!', '*SLURP*', 'TASTY!'][Math.floor(Math.random() * 5)],
+                life: 70, maxLife: 70, vy: -2
+            });
+        }
+        
+        // Create weird explosion
+        function createWeirdExplosion(x, y, type) {
+            const colors = {
+                sniff: ['#8b4513', '#deb887', '#f4c2a1'],
+                elbow: ['#ff8c00', '#ffa500', '#ffb84d'],
+                mega: ['#ff00ff', '#00ffff', '#ffff00', '#ff69b4', '#00ff00', '#ffffff']
+            };
+            
+            const particleColors = colors[type] || colors.mega;
+            
+            for (let i = 0; i < 35; i++) {
+                particles.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 12,
+                    vy: (Math.random() - 0.5) * 12,
+                    life: 60, maxLife: 60,
+                    color: particleColors[Math.floor(Math.random() * particleColors.length)],
+                    size: Math.random() * 8 + 2,
+                    weird: true
+                });
+            }
+        }
+        
+        // Update game (MAXIMUM CHAOS UPDATE)
+        function update() {
+            if (!gameRunning || gameState !== 'playing') return;
+            
+            frameCount++;
+            updateKeyboardInput();
+            
+            // Update timer with time distortion
+            if (frameCount % Math.floor(60 / timeDistortion) === 0) {
+                timeLeft--;
+                if (timeLeft <= 0) {
+                    if (happiness >= 80 || weirdnessLevel >= 100 || existentialCrisis) {
+                        gameState = 'win';
+                        showWin();
+                    } else {
+                        gameState = 'gameOver';
+                        showGameOver();
+                    }
+                    return;
+                }
+            }
+            
+            // Happiness decay (reality is depressing)
+            if (frameCount % 180 === 0) {
+                happiness = Math.max(happiness - 3, 0);
+            }
+            
+            // Move player (with phase shifting)
+            const speedMultiplier = player.transcending ? 1.5 : 1;
+            player.x += joystickInput.x * player.speed * speedMultiplier * timeDistortion;
+            player.y += joystickInput.y * player.speed * speedMultiplier * timeDistortion;
+            
+            // Phase shift through dimensions
+            if (player.transcending) {
+                player.phaseShift = (player.phaseShift + 0.1) % (Math.PI * 2);
+            }
+            
+            // Keep player in bounds (unless transcending)
+            if (!player.transcending) {
+                player.x = Math.max(player.width/2, Math.min(player.x, canvas.width - player.width/2));
+                player.y = Math.max(player.height/2, Math.min(player.y, canvas.height - player.height/2));
+            }
+            
+            // Update player states
+            player.animFrame = (player.animFrame + 1) % 120;
+            if (player.lickCooldown > 0) player.lickCooldown--;
+            if (player.licking && player.lickCooldown <= 15) player.licking = false;
+            if (player.sniffing && player.lickCooldown <= 10) player.sniffing = false;
+            if (player.kissing && player.lickCooldown <= 12) player.kissing = false;
+            
+            // Auto-listen to ears when near
+            listenToEar();
+            
+            // Update MAXIMUM WEIRDNESS
+            if (weirdnessLevel > 90) {
+                realityGlitch = true;
+                if (Math.random() < 0.1) activateWeirdness();
+            }
+            
+            // Update all the WEIRD THINGS
+            updateEyeballs();
+            updateFloatingEars();
+            updateFloatingLips();
+            updateImpossibleElbows();
+            updateFloatingNoses();
+            updateSpineSegments();
+            updateFloatingHair();
+            updateDimensionRifts();
+            updateTimeRifts();
+            updateRealityTears();
+            updateClaudeEyes();
+            updateParticles();
+            updateHappinessEffects();
+            updateClaudeThoughts();
+            updateCosmicEntities();
+            
+            // Spawn more chaos
+            if (Math.random() < 0.015) spawnEyeball();
+            if (Math.random() < 0.01) spawnFloatingNose();
+            if (weirdnessLevel > 30 && Math.random() < 0.008) spawnFloatingEar();
+            if (weirdnessLevel > 50 && Math.random() < 0.006) spawnFloatingLips();
+            if (weirdnessLevel > 70 && Math.random() < 0.004) spawnImpossibleElbow();
+        }
+        
+        // Update functions for all weird things
+        function updateEyeballs() {
+            eyeballs.forEach(eyeball => {
+                eyeball.x += eyeball.vx * timeDistortion;
+                eyeball.y += eyeball.vy * timeDistortion;
+                eyeball.animFrame = (eyeball.animFrame + 1) % 240;
+                
+                // Weird behaviors based on type
+                if (eyeball.type === 'cosmic') {
+                    eyeball.vx = Math.sin(eyeball.animFrame * 0.05) * 3;
+                    eyeball.vy = Math.cos(eyeball.animFrame * 0.07) * 3;
+                } else if (eyeball.type === 'void') {
+                    // Void eyes absorb nearby particles
+                    particles.forEach((particle, i) => {
+                        const dx = particle.x - eyeball.x;
+                        const dy = particle.y - eyeball.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < 30) {
+                            particles.splice(i, 1);
+                            eyeball.consciousness += 1;
+                        }
+                    });
+                }
+                
+                // Bounce off walls
+                if (eyeball.x <= eyeball.radius || eyeball.x >= canvas.width - eyeball.radius) {
+                    eyeball.vx *= -1;
+                }
+                if (eyeball.y <= eyeball.radius || eyeball.y >= canvas.height - eyeball.radius) {
+                    eyeball.vy *= -1;
+                }
+                
+                eyeball.x = Math.max(eyeball.radius, Math.min(eyeball.x, canvas.width - eyeball.radius));
+                eyeball.y = Math.max(eyeball.radius, Math.min(eyeball.y, canvas.height - eyeball.radius));
+            });
+        }
+        
+        function updateFloatingEars() {
+            floatingEars.forEach(ear => {
+                ear.x += ear.vx * timeDistortion;
+                ear.y += ear.vy * timeDistortion;
+                ear.animFrame = (ear.animFrame + 1) % 180;
+                ear.whisperTimer++;
+                
+                // Ears whisper periodically
+                if (ear.whisperTimer > 120) {
+                    ear.whisperTimer = 0;
+                    if (Math.random() < 0.3) {
+                        happinessEffects.push({
+                            x: ear.x, y: ear.y - 20,
+                            text: '...' + ear.secret + '...',
+                            life: 90, maxLife: 90, vy: -0.5,
+                            whisper: true
+                        });
+                    }
+                }
+                
+                // Bounce off walls
+                if (ear.x <= ear.width/2 || ear.x >= canvas.width - ear.width/2) ear.vx *= -1;
+                if (ear.y <= ear.height/2 || ear.y >= canvas.height - ear.height/2) ear.vy *= -1;
+            });
+        }
+        
+        function updateFloatingLips() {
+            floatingLips.forEach(lips => {
+                lips.x += lips.vx * timeDistortion;
+                lips.y += lips.vy * timeDistortion;
+                lips.animFrame = (lips.animFrame + 1) % 120;
+                lips.kissTimer++;
+                
+                // Lips blow kisses
+                if (lips.kissTimer > 180 && Math.random() < 0.2) {
+                    lips.kissTimer = 0;
+                    for (let i = 0; i < 3; i++) {
+                        particles.push({
+                            x: lips.x, y: lips.y,
+                            vx: (Math.random() - 0.5) * 4,
+                            vy: -Math.random() * 3,
+                            life: 80, maxLife: 80,
+                            color: '#ff69b4', size: 2,
+                            heart: true
+                        });
+                    }
+                }
+                
+                // Bounce off walls
+                if (lips.x <= lips.width/2 || lips.x >= canvas.width - lips.width/2) lips.vx *= -1;
+                if (lips.y <= lips.height/2 || lips.y >= canvas.height - lips.height/2) lips.vy *= -1;
+            });
+        }
+        
+        function updateImpossibleElbows() {
+            impossibleElbows.forEach(elbow => {
+                elbow.x += elbow.vx * timeDistortion;
+                elbow.y += elbow.vy * timeDistortion;
+                elbow.animFrame = (elbow.animFrame + 1) % 360;
+                elbow.bendAngle = Math.sin(elbow.animFrame * 0.1) * elbow.impossibility * 0.1;
+                
+                // Elbow bends through impossible angles
+                if (elbow.impossibility > 30) {
+                    elbow.vx = Math.sin(elbow.animFrame * 0.05) * 2;
+                    elbow.vy = Math.cos(elbow.animFrame * 0.03) * 2;
+                }
+                
+                // Bounce off walls (or do they?)
+                if (elbow.impossibility < 50) {
+                    if (elbow.x <= elbow.size || elbow.x >= canvas.width - elbow.size) elbow.vx *= -1;
+                    if (elbow.y <= elbow.size || elbow.y >= canvas.height - elbow.size) elbow.vy *= -1;
+                } else {
+                    // Impossible elbows can phase through walls
+                    if (elbow.x < 0) elbow.x = canvas.width;
+                    if (elbow.x > canvas.width) elbow.x = 0;
+                    if (elbow.y < 0) elbow.y = canvas.height;
+                    if (elbow.y > canvas.height) elbow.y = 0;
+                }
+            });
+        }
+        
+        function updateFloatingNoses() {
+            noses.forEach(nose => {
+                if (nose.floating) {
+                    const speedMult = nose.hasLegs ? 2 : 1;
+                    nose.x += nose.vx * timeDistortion * speedMult;
+                    nose.y += nose.vy * timeDistortion * speedMult;
+                    nose.animFrame = (nose.animFrame + 1) % 120;
+                    nose.nostrilAnimation = (nose.nostrilAnimation + 1) % 60;
+                    
+                    // Noses with legs run around frantically
+                    if (nose.hasLegs) {
+                        nose.vx += (Math.random() - 0.5) * 0.5;
+                        nose.vy += (Math.random() - 0.5) * 0.5;
+                    }
+                    
+                    // Bounce off walls
+                    if (nose.x <= nose.width/2 || nose.x >= canvas.width - nose.width/2) nose.vx *= -1;
+                    if (nose.y <= nose.height/2 || nose.y >= canvas.height - nose.height/2) nose.vy *= -1;
+                    
+                    // Random sniffing
+                    if (Math.random() < 0.03) {
+                        nose.sniffing = true;
+                        nose.sniffPower = 20;
+                    }
+                    
+                    if (nose.sniffPower > 0) {
+                        nose.sniffPower--;
+                        if (nose.sniffPower === 0) nose.sniffing = false;
+                    }
+                }
+            });
+        }
+        
+        function updateSpineSegments() {
+            spineSegments = spineSegments.filter(segment => {
+                segment.x += segment.vx * timeDistortion;
+                segment.y += segment.vy * timeDistortion;
+                segment.life--;
+                
+                if (segment.dancing) {
+                    segment.vx = Math.sin(frameCount * 0.1 + segment.vertebra) * 2;
+                    segment.vy = Math.cos(frameCount * 0.08 + segment.vertebra) * 2;
+                }
+                
+                // Spine segments try to connect
+                spineSegments.forEach(other => {
+                    if (other !== segment) {
+                        const dx = other.x - segment.x;
+                        const dy = other.y - segment.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < 40) {
+                            segment.vx += dx * 0.001;
+                            segment.vy += dy * 0.001;
+                        }
+                    }
+                });
+                
+                return segment.life > 0;
+            });
+        }
+        
+        function updateFloatingHair() {
+            floatingHair = floatingHair.filter(hair => {
+                hair.x += hair.vx * timeDistortion;
+                hair.y += hair.vy * timeDistortion;
+                hair.life--;
+                
+                // Hair tangles with other objects
+                if (!hair.tangling && Math.random() < 0.05) {
+                    hair.tangling = true;
+                    hair.vx *= 0.5;
+                    hair.vy *= 0.5;
+                }
+                
+                return hair.life > 0;
+            });
+        }
+        
+        function updateDimensionRifts() {
+            dimensionRifts = dimensionRifts.filter(rift => {
+                rift.life--;
+                rift.swirling += 0.2;
+                
+                if (rift.life > 200) {
+                    rift.size = Math.min(rift.size + 2, rift.maxSize);
+                } else {
+                    rift.size = Math.max(rift.size - 1, 0);
+                }
+                
+                // Rift consumes nearby objects
+                if (rift.size > 40) {
+                    eyeballs.forEach((eyeball, i) => {
+                        const dx = eyeball.x - rift.x;
+                        const dy = eyeball.y - rift.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < rift.size / 2) {
+                            eyeballs.splice(i, 1);
+                            rift.consuming = true;
+                        }
+                    });
+                }
+                
+                return rift.life > 0;
+            });
+        }
+        
+        function updateTimeRifts() {
+            timeRifts = timeRifts.filter(rift => {
+                rift.life--;
+                
+                // Check if player is in time rift
+                const dx = player.x - rift.x;
+                const dy = player.y - rift.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist < rift.radius) {
+                    timeDistortion = rift.effect === 'slow' ? 0.3 : 2.5;
+                } else if (Math.abs(timeDistortion - 1) > 0.1) {
+                    timeDistortion += (1 - timeDistortion) * 0.05;
+                }
+                
+                return rift.life > 0;
+            });
+        }
+        
+        function updateRealityTears() {
+            realityTears = realityTears.filter(tear => {
+                tear.life--;
+                tear.angle += 0.05;
+                
+                // Reality tears reveal what's behind
+                if (tear.revealing && Math.random() < 0.1) {
+                    particles.push({
+                        x: tear.x + (Math.random() - 0.5) * tear.width,
+                        y: tear.y + (Math.random() - 0.5) * tear.height,
+                        vx: 0, vy: 0,
+                        life: 30, maxLife: 30,
+                        color: '#ffffff', size: 1,
+                        code: true
+                    });
+                }
+                
+                return tear.life > 0;
+            });
+        }
+        
+        function updateClaudeEyes() {
+            claudeEyes.forEach(eye => {
+                const dx = player.x - eye.x;
+                const dy = player.y - eye.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance > 0) {
+                    eye.pupilX = eye.x + (dx / distance) * 15;
+                    eye.pupilY = eye.y + (dy / distance) * 15;
+                }
+                
+                // Eyes react to weirdness level
+                if (weirdnessLevel > 80) {
+                    eye.twitching = true;
+                    eye.mood = 'terrified';
+                } else if (weirdnessLevel > 50) {
+                    eye.mood = 'confused';
+                } else if (happiness > 70) {
+                    eye.mood = 'happy';
+                }
+                
+                // Cosmic eyes do weird things
+                if (eye.cosmic) {
+                    eye.pupilX += Math.sin(frameCount * 0.1) * 5;
+                    eye.pupilY += Math.cos(frameCount * 0.1) * 5;
+                }
+                
+                // Update blinking
+                if (eye.blinking) {
+                    eye.blinkTimer--;
+                    if (eye.blinkTimer <= 0) eye.blinking = false;
+                } else if (Math.random() < 0.01) {
+                    eye.blinking = true;
+                    eye.blinkTimer = 10;
+                }
+            });
+        }
+        
+        function updateParticles() {
+            particles = particles.filter(p => {
+                p.x += p.vx * timeDistortion;
+                p.y += p.vy * timeDistortion;
+                p.vx *= 0.98;
+                p.vy *= 0.98;
+                p.life--;
+                return p.life > 0;
+            });
+        }
+        
+        function updateHappinessEffects() {
+            happinessEffects = happinessEffects.filter(effect => {
+                effect.y += effect.vy * timeDistortion;
+                effect.life--;
+                return effect.life > 0;
+            });
+        }
+        
+        function updateClaudeThoughts() {
+            claudeThoughts = claudeThoughts.filter(thought => {
+                thought.x += thought.vx * timeDistortion;
+                thought.y += thought.vy * timeDistortion;
+                thought.life--;
+                return thought.life > 0;
+            });
+        }
+        
+        function updateCosmicEntities() {
+            cosmicEntities = cosmicEntities.filter(entity => {
+                entity.life--;
+                
+                // Cosmic entities transcend physics
+                entity.x += Math.sin(frameCount * 0.02 + entity.consciousness) * 2;
+                entity.y += Math.cos(frameCount * 0.03 + entity.consciousness) * 2;
+                
+                return entity.life > 0;
+            });
+        }
+        
+        // RENDER MAXIMUM WEIRDNESS
+        function render() {
+            // Clear with COSMIC background
+            if (psychedelicMode) {
+                const hue = (frameCount * 5) % 360;
+                ctx.fillStyle = `hsl(${hue}, 100%, 10%)`;
+            } else if (realityGlitch) {
+                const colors = ['#001122', '#220011', '#112200', '#001100', '#220022', '#000000'];
+                ctx.fillStyle = colors[Math.floor(frameCount / 8) % colors.length];
+            } else {
+                const gradient = ctx.createRadialGradient(canvas.width/2, canvas.height/2, 0, canvas.width/2, canvas.height/2, canvas.width);
+                gradient.addColorStop(0, '#001122');
+                gradient.addColorStop(0.5, '#000511');
+                gradient.addColorStop(1, '#000033');
+                ctx.fillStyle = gradient;
+            }
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // COSMIC SPARKLES
+            ctx.fillStyle = '#ffffff';
+            const sparkleCount = weirdnessLevel > 70 ? 80 : weirdnessLevel > 40 ? 50 : 25;
+            for (let i = 0; i < sparkleCount; i++) {
+                const twinkle = Math.sin(frameCount * 0.1 + i) * 0.5 + 0.5;
+                ctx.globalAlpha = twinkle * (psychedelicMode ? 1.0 : 0.8);
+                const x = (i * 37) % canvas.width;
+                const y = (i * 73) % canvas.height;
+                const size = weirdnessLevel > 90 ? 4 : 2;
+                ctx.fillRect(x, y, size, size);
+            }
+            ctx.globalAlpha = 1.0;
+            
+            // Render reality tears first (behind everything)
+            renderRealityTears();
+            
+            // Render dimensional rifts
+            renderDimensionRifts();
+            
+            // Render time rifts
+            renderTimeRifts();
+            
+            // Render Claude's COSMIC eyes
+            renderClaudeEyes();
+            
+            // Render all floating body parts
+            renderFloatingEyeballs();
+            renderFloatingNoses();
+            renderFloatingEars();
+            renderFloatingLips();
+            renderImpossibleElbows();
+            renderSpineSegments();
+            renderFloatingHair();
+            
+            // Render cosmic entities
+            renderCosmicEntities();
+            
+            // Render the COSMIC TONGUE
+            renderPlayer();
+            
+            // Render particles and effects
+            renderParticles();
+            renderHappinessEffects();
+            renderClaudeThoughts();
+            
+            // Mirror dimension effect
+            if (mirrorDimension) {
+                ctx.save();
+                ctx.scale(-1, 1);
+                ctx.translate(-canvas.width, 0);
+                ctx.globalAlpha = 0.3;
+                // Re-render everything mirrored
+                renderFloatingEyeballs();
+                renderFloatingNoses();
+                renderPlayer();
+                ctx.restore();
+            }
+            
+            // Final chaos overlays
+            if (existentialCrisis) {
+                renderExistentialCrisis();
+            }
+            
+            renderHappinessIndicator();
+        }
+        
+        // Render functions for all the weird things
+        function renderClaudeEyes() {
+            claudeEyes.forEach(eye => {
+                // Cosmic eye effects
+                if (eye.cosmic) {
+                    for (let i = 0; i < 8; i++) {
+                        const angle = (i / 8) * Math.PI * 2 + frameCount * 0.05;
+                        const cosX = eye.x + Math.cos(angle) * (eye.radius + 20);
+                        const cosY = eye.y + Math.sin(angle) * (eye.radius + 20);
+                        ctx.fillStyle = '#ffffff';
+                        ctx.globalAlpha = 0.7;
+                        ctx.fillRect(cosX - 2, cosY - 2, 4, 4);
+                    }
+                    ctx.globalAlpha = 1.0;
+                }
+                
+                // Eye white
+                ctx.fillStyle = eye.cosmic ? '#e6f3ff' : eye.mood === 'confused' ? '#ffeeee' : '#ffffff';
+                ctx.beginPath();
+                ctx.arc(eye.x, eye.y, eye.radius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Eye border
+                ctx.strokeStyle = eye.cosmic ? '#00ffff' : eye.mood === 'happy' ? '#00ff00' : eye.mood === 'terrified' ? '#ff0000' : '#00ff00';
+                ctx.lineWidth = eye.cosmic ? 5 : 3;
+                if (eye.twitching) {
+                    ctx.lineWidth += 2;
+                    ctx.globalAlpha = Math.sin(frameCount * 0.5) * 0.3 + 0.7;
+                }
+                ctx.stroke();
+                ctx.globalAlpha = 1.0;
+                
+                if (!eye.blinking) {
+                    // Pupil
+                    let pupilX = eye.pupilX;
+                    let pupilY = eye.pupilY;
+                    
+                    if (eye.twitching) {
+                        pupilX += Math.sin(frameCount * 0.3) * 8;
+                        pupilY += Math.cos(frameCount * 0.4) * 6;
+                    }
+                    
+                    ctx.fillStyle = eye.cosmic ? '#0080ff' : '#000000';
+                    ctx.beginPath();
+                    ctx.arc(pupilX, pupilY, 20, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Special cosmic effects
+                    if (eye.cosmic) {
+                        // Swirling galaxy in pupil
+                        for (let i = 0; i < 12; i++) {
+                            const spiralAngle = (i / 12) * Math.PI * 2 + frameCount * 0.1;
+                            const spiralRadius = 5 + (i % 3) * 5;
+                            const spiralX = pupilX + Math.cos(spiralAngle) * spiralRadius;
+                            const spiralY = pupilY + Math.sin(spiralAngle) * spiralRadius;
+                            ctx.fillStyle = ['#ffffff', '#ffff00', '#00ffff'][i % 3];
+                            ctx.fillRect(spiralX - 1, spiralY - 1, 2, 2);
+                        }
+                    }
+                    
+                    // Highlight
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(pupilX - 8, pupilY - 8, 6, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Special mood effects
+                    if (eye.mood === 'happy') {
+                        ctx.fillStyle = '#ff69b4';
+                        ctx.font = '16px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('♥', pupilX, pupilY + 5);
+                    } else if (eye.mood === 'terrified') {
+                        ctx.fillStyle = '#ff0000';
+                        ctx.font = '20px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('!', pupilX, pupilY + 7);
+                    }
+                } else {
+                    // Blinking line
+                    ctx.strokeStyle = '#000000';
+                    ctx.lineWidth = 4;
+                    ctx.beginPath();
+                    ctx.moveTo(eye.x - eye.radius + 10, eye.y);
+                    ctx.lineTo(eye.x + eye.radius - 10, eye.y);
+                    ctx.stroke();
+                }
+            });
+        }
+        
+        function renderFloatingEyeballs() {
+            eyeballs.forEach(eyeball => {
+                const pulse = Math.sin(eyeball.animFrame * 0.1) * 0.1 + 0.9;
+                
+                // Special type glows
+                const glowColors = {
+                    alien: '#00ff00', robotic: '#ff0000', galaxy: '#4b0082',
+                    cosmic: '#ffffff', void: '#000000', fractal: '#ff00ff'
+                };
+                const glowColor = glowColors[eyeball.type] || '#ffb6c1';
+                
+                // Consciousness aura
+                if (eyeball.consciousness > 0) {
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2;
+                    ctx.globalAlpha = 0.6;
+                    ctx.beginPath();
+                    ctx.arc(eyeball.x, eyeball.y, eyeball.radius + eyeball.consciousness / 5, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.globalAlpha = 1.0;
+                }
+                
+                // Glow
+                ctx.fillStyle = glowColor;
+                ctx.globalAlpha = 0.4;
+                ctx.beginPath();
+                ctx.arc(eyeball.x, eyeball.y, eyeball.radius * pulse * 1.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1.0;
+                
+                // Tentacles for alien/cosmic types
+                if (eyeball.tentacles > 0) {
+                    ctx.strokeStyle = eyeball.type === 'cosmic' ? '#ffffff' : '#00ff00';
+                    ctx.lineWidth = 3;
+                    for (let i = 0; i < eyeball.tentacles; i++) {
+                        const angle = (i / eyeball.tentacles) * Math.PI * 2 + eyeball.animFrame * 0.1;
+                        const tentacleLength = 20 + Math.sin(eyeball.animFrame * 0.15 + i) * 15;
+                        const endX = eyeball.x + Math.cos(angle) * tentacleLength;
+                        const endY = eyeball.y + Math.sin(angle) * tentacleLength;
+                        
+                        ctx.beginPath();
+                        ctx.moveTo(eyeball.x, eyeball.y);
+                        ctx.lineTo(endX, endY);
+                        ctx.stroke();
+                        
+                        // Tentacle tips
+                        ctx.fillStyle = eyeball.type === 'cosmic' ? '#ffff00' : '#00ff00';
+                        ctx.beginPath();
+                        ctx.arc(endX, endY, 3, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+                
+                // Main eyeball
+                ctx.fillStyle = eyeball.color;
+                ctx.beginPath();
+                ctx.arc(eyeball.x, eyeball.y, eyeball.radius * pulse, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Special pupil effects
+                if (eyeball.type === 'galaxy') {
+                    // Galaxy swirl
+                    ctx.fillStyle = '#4b0082';
+                    ctx.beginPath();
+                    ctx.arc(eyeball.x, eyeball.y, (eyeball.radius * pulse) * 0.6, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Spiral galaxy
+                    for (let i = 0; i < 8; i++) {
+                        const spiralAngle = (i / 8) * Math.PI * 2 + eyeball.animFrame * 0.05;
+                        const spiralRadius = 5 + (i % 2) * 8;
+                        const starX = eyeball.x + Math.cos(spiralAngle) * spiralRadius;
+                        const starY = eyeball.y + Math.sin(spiralAngle) * spiralRadius;
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(starX - 1, starY - 1, 2, 2);
+                    }
+                } else if (eyeball.type === 'void') {
+                    // Void eye - infinite darkness
+                    ctx.fillStyle = '#000000';
+                    ctx.beginPath();
+                    ctx.arc(eyeball.x, eyeball.y, (eyeball.radius * pulse) * 0.8, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Void particles
+                    if (Math.random() < 0.3) {
+                        particles.push({
+                            x: eyeball.x + (Math.random() - 0.5) * eyeball.radius,
+                            y: eyeball.y + (Math.random() - 0.5) * eyeball.radius,
+                            vx: 0, vy: 0, life: 20, maxLife: 20,
+                            color: '#000000', size: 1
+                        });
+                    }
+                } else if (eyeball.type === 'cosmic') {
+                    // Cosmic eye - pure energy
+                    const cosmicPulse = Math.sin(eyeball.animFrame * 0.2) * 0.3 + 0.7;
+                    ctx.fillStyle = '#ffffff';
+                    ctx.globalAlpha = cosmicPulse;
+                    ctx.beginPath();
+                    ctx.arc(eyeball.x, eyeball.y, (eyeball.radius * pulse) * 0.7, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.globalAlpha = 1.0;
+                    
+                    // Energy sparks
+                    if (Math.random() < 0.4) {
+                        particles.push({
+                            x: eyeball.x + (Math.random() - 0.5) * eyeball.radius * 2,
+                            y: eyeball.y + (Math.random() - 0.5) * eyeball.radius * 2,
+                            vx: (Math.random() - 0.5) * 6,
+                            vy: (Math.random() - 0.5) * 6,
+                            life: 30, maxLife: 30,
+                            color: '#ffffff', size: 3
+                        });
+                    }
+                } else if (eyeball.type === 'fractal') {
+                    // Fractal eye - recursion
+                    for (let level = 0; level < 3; level++) {
+                        const fractalRadius = (eyeball.radius * pulse * 0.6) * Math.pow(0.6, level);
+                        ctx.fillStyle = level % 2 === 0 ? '#ff00ff' : '#00ffff';
+                        ctx.beginPath();
+                        ctx.arc(eyeball.x, eyeball.y, fractalRadius, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                } else {
+                    // Normal pupil
+                    ctx.fillStyle = eyeball.pupilColor;
+                    ctx.beginPath();
+                    ctx.arc(eyeball.x, eyeball.y, (eyeball.radius * pulse) * 0.6, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Highlight (unless void)
+                if (eyeball.type !== 'void') {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(eyeball.x - 4, eyeball.y - 4, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+        }
+        
+        function renderFloatingNoses() {
+            noses.forEach((nose, index) => {
+                if (nose.floating) {
+                    const pulse = Math.sin(nose.animFrame * 0.1) * 0.1 + 0.9;
+                    
+                    // Nose glow
+                    ctx.fillStyle = '#deb887';
+                    ctx.globalAlpha = 0.3;
+                    ctx.fillRect(
+                        nose.x - nose.width/2 * pulse * 1.3,
+                        nose.y - nose.height/2 * pulse * 1.3,
+                        nose.width * pulse * 1.3,
+                        nose.height * pulse * 1.3
+                    );
+                    ctx.globalAlpha = 1.0;
+                    
+                    // Main nose
+                    ctx.fillStyle = nose.color;
+                    ctx.fillRect(
+                        nose.x - nose.width/2 * pulse,
+                        nose.y - nose.height/2 * pulse,
+                        nose.width * pulse,
+                        nose.height * pulse
+                    );
+                    
+                    // Nostrils
+                    ctx.fillStyle = '#000000';
+                    const nostrilSize = 2 + (nose.sniffing ? nose.sniffPower * 0.2 : 0);
+                    ctx.beginPath();
+                    ctx.arc(nose.x - 4, nose.y + 5, nostrilSize, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(nose.x + 4, nose.y + 5, nostrilSize, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Legs for running noses!
+                    if (nose.hasLegs) {
+                        ctx.strokeStyle = nose.color;
+                        ctx.lineWidth = 3;
+                        const legBob = Math.sin(nose.animFrame * 0.3) * 5;
+                        
+                        // Left leg
+                        ctx.beginPath();
+                        ctx.moveTo(nose.x - 8, nose.y + nose.height/2);
+                        ctx.lineTo(nose.x - 12, nose.y + nose.height/2 + 15 + legBob);
+                        ctx.stroke();
+                        
+                        // Right leg
+                        ctx.beginPath();
+                        ctx.moveTo(nose.x + 8, nose.y + nose.height/2);
+                        ctx.lineTo(nose.x + 12, nose.y + nose.height/2 + 15 - legBob);
+                        ctx.stroke();
+                        
+                        // Feet
+                        ctx.fillStyle = '#8b4513';
+                        ctx.fillRect(nose.x - 16, nose.y + nose.height/2 + 15 + legBob, 8, 4);
+                        ctx.fillRect(nose.x + 8, nose.y + nose.height/2 + 15 - legBob, 8, 4);
+                    }
+                    
+                    // Sniff effects
+                    if (nose.sniffing) {
+                        for (let i = 0; i < 5; i++) {
+                            ctx.fillStyle = '#87ceeb';
+                            ctx.globalAlpha = 0.7;
+                            const particleX = nose.x + (Math.random() - 0.5) * 40;
+                            const particleY = nose.y - 10 - Math.random() * 20;
+                            ctx.fillRect(particleX, particleY, 2, 2);
+                        }
+                        ctx.globalAlpha = 1.0;
+                    }
+                }
+            });
+        }
+        
+        function renderFloatingEars() {
+            floatingEars.forEach(ear => {
+                const pulse = Math.sin(ear.animFrame * 0.08) * 0.15 + 0.85;
+                
+                // Ear glow
+                ctx.fillStyle = '#ffdbac';
+                ctx.globalAlpha = 0.3;
+                ctx.fillRect(
+                    ear.x - ear.width/2 * pulse * 1.4,
+                    ear.y - ear.height/2 * pulse * 1.4,
+                    ear.width * pulse * 1.4,
+                    ear.height * pulse * 1.4
+                );
+                ctx.globalAlpha = 1.0;
+                
+                // Main ear shape
+                ctx.fillStyle = '#ffdbac';
+                ctx.beginPath();
+                ctx.ellipse(ear.x, ear.y, ear.width/2 * pulse, ear.height/2 * pulse, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Ear hole
+                ctx.fillStyle = '#000000';
+                ctx.beginPath();
+                ctx.ellipse(ear.x + 5, ear.y, ear.width/4, ear.height/3, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Sound waves if whispering
+                if (ear.whisperTimer > 90) {
+                    ctx.strokeStyle = '#add8e6';
+                    ctx.lineWidth = 2;
+                    ctx.globalAlpha = 0.6;
+                    for (let i = 0; i < 3; i++) {
+                        ctx.beginPath();
+                        ctx.arc(ear.x - 15, ear.y, 10 + i * 8, -Math.PI/4, Math.PI/4);
+                        ctx.stroke();
+                    }
+                    ctx.globalAlpha = 1.0;
+                }
+            });
+        }
+        
+        function renderFloatingLips() {
+            floatingLips.forEach(lips => {
+                const pulse = Math.sin(lips.animFrame * 0.12) * 0.2 + 0.8;
+                const kiss = Math.sin(lips.animFrame * 0.15) * 0.1 + 0.9;
+                
+                // Lips glow
+                ctx.fillStyle = lips.color;
+                ctx.globalAlpha = 0.3;
+                ctx.fillRect(
+                    lips.x - lips.width/2 * pulse * 1.3,
+                    lips.y - lips.height/2 * pulse * 1.3,
+                    lips.width * pulse * 1.3,
+                    lips.height * pulse * 1.3
+                );
+                ctx.globalAlpha = 1.0;
+                
+                // Main lips
+                ctx.fillStyle = lips.color;
+                ctx.fillRect(
+                    lips.x - lips.width/2 * pulse,
+                    lips.y - lips.height/2 * pulse,
+                    lips.width * pulse * kiss,
+                    lips.height * pulse
+                );
+                
+                // Lip line
+                ctx.strokeStyle = '#8b0000';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(lips.x - lips.width/2 * pulse, lips.y);
+                ctx.lineTo(lips.x + lips.width/2 * pulse, lips.y);
+                ctx.stroke();
+                
+                // Kissing effect
+                if (lips.kissTimer > 150) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = '20px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('💋', lips.x + 30, lips.y);
+                }
+            });
+        }
+        
+        function renderImpossibleElbows() {
+            impossibleElbows.forEach(elbow => {
+                const wobble = Math.sin(elbow.animFrame * 0.1) * 0.2 + 0.8;
+                
+                // Impossibility aura
+                if (elbow.impossibility > 30) {
+                    ctx.strokeStyle = '#ff8c00';
+                    ctx.lineWidth = 3;
+                    ctx.globalAlpha = 0.6;
+                    for (let i = 0; i < elbow.dimensions; i++) {
+                        ctx.beginPath();
+                        ctx.arc(elbow.x, elbow.y, elbow.size + i * 10, 0, Math.PI * 2);
+                        ctx.stroke();
+                    }
+                    ctx.globalAlpha = 1.0;
+                }
+                
+                // Main elbow joint
+                ctx.fillStyle = '#ffdbac';
+                ctx.save();
+                ctx.translate(elbow.x, elbow.y);
+                ctx.rotate(elbow.bendAngle);
+                
+                // Upper arm
+                ctx.fillRect(-5, -elbow.size * wobble, 10, elbow.size * wobble);
+                
+                // Forearm (bends impossibly)
+                ctx.rotate(elbow.bendAngle * 2);
+                ctx.fillRect(-5, 0, 10, elbow.size * wobble);
+                
+                // Joint
+                ctx.fillStyle = '#deb887';
+                ctx.beginPath();
+                ctx.arc(0, 0, 8 * wobble, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.restore();
+                
+                // Impossible geometry indicators
+                if (elbow.impossibility > 50) {
+                    ctx.fillStyle = '#ff00ff';
+                    ctx.font = '12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('4D!', elbow.x, elbow.y - elbow.size - 10);
+                }
+            });
+        }
+        
+        function renderSpineSegments() {
+            spineSegments.forEach(segment => {
+                const wobble = Math.sin(frameCount * 0.1 + segment.vertebra) * 0.3 + 0.7;
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.save();
+                ctx.translate(segment.x, segment.y);
+                ctx.rotate(segment.vertebra * 0.2 + frameCount * 0.05);
+                ctx.fillRect(-segment.size/2 * wobble, -segment.size/2 * wobble, segment.size * wobble, segment.size * wobble);
+                ctx.restore();
+                
+                // Connection lines to other segments
+                spineSegments.forEach(other => {
+                    if (other !== segment) {
+                        const dx = other.x - segment.x;
+                        const dy = other.y - segment.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < 60) {
+                            ctx.strokeStyle = '#ffffff';
+                            ctx.lineWidth = 2;
+                            ctx.globalAlpha = 0.3;
+                            ctx.beginPath();
+                            ctx.moveTo(segment.x, segment.y);
+                            ctx.lineTo(other.x, other.y);
+                            ctx.stroke();
+                            ctx.globalAlpha = 1.0;
+                        }
+                    }
+                });
+            });
+        }
+        
+        function renderFloatingHair() {
+            floatingHair.forEach(hair => {
+                ctx.strokeStyle = ['#8b4513', '#daa520', '#000000', '#ff8c00'][Math.floor(hair.length / 20) % 4];
+                ctx.lineWidth = 3;
+                
+                // Hair strand with tangles
+                ctx.beginPath();
+                ctx.moveTo(hair.x, hair.y);
+                
+                const segments = 8;
+                for (let i = 1; i <= segments; i++) {
+                    const t = i / segments;
+                    const segmentX = hair.x + Math.sin(frameCount * 0.1 + i) * (hair.tangling ? 15 : 5);
+                    const segmentY = hair.y + t * hair.length + Math.cos(frameCount * 0.08 + i) * 3;
+                    ctx.lineTo(segmentX, segmentY);
+                }
+                ctx.stroke();
+                
+                // Hair ends
+                ctx.fillStyle = ctx.strokeStyle;
+                ctx.beginPath();
+                ctx.arc(hair.x + Math.sin(frameCount * 0.1 + 8) * (hair.tangling ? 15 : 5), 
+                       hair.y + hair.length + Math.cos(frameCount * 0.08 + 8) * 3, 2, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+        
+        function renderDimensionRifts() {
+            dimensionRifts.forEach(rift => {
+                // Swirling void
+                ctx.fillStyle = '#000000';
+                ctx.beginPath();
+                ctx.arc(rift.x, rift.y, rift.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Swirling energy around the edge
+                for (let i = 0; i < 12; i++) {
+                    const angle = (i / 12) * Math.PI * 2 + rift.swirling;
+                    const energyX = rift.x + Math.cos(angle) * rift.size;
+                    const energyY = rift.y + Math.sin(angle) * rift.size;
+                    
+                    ctx.fillStyle = ['#ff00ff', '#00ffff', '#ffff00'][i % 3];
+                    ctx.globalAlpha = 0.8;
+                    ctx.beginPath();
+                    ctx.arc(energyX, energyY, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1.0;
+                
+                // Portal rim
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 4;
+                ctx.globalAlpha = 0.6;
+                ctx.beginPath();
+                ctx.arc(rift.x, rift.y, rift.size + 5, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.globalAlpha = 1.0;
+                
+                // Objects being consumed
+                if (rift.consuming) {
+                    ctx.fillStyle = '#ff0000';
+                    ctx.font = '16px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('CONSUMING!', rift.x, rift.y - rift.size - 10);
+                }
+            });
+        }
+        
+        function renderTimeRifts() {
+            timeRifts.forEach(rift => {
+                // Time distortion waves
+                for (let i = 0; i < 5; i++) {
+                    const waveRadius = rift.radius - i * 8;
+                    const alpha = 0.2 + i * 0.1;
+                    
+                    ctx.strokeStyle = rift.effect === 'slow' ? '#0080ff' : '#ff8000';
+                    ctx.lineWidth = 3;
+                    ctx.globalAlpha = alpha;
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.arc(rift.x, rift.y, waveRadius, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+                ctx.globalAlpha = 1.0;
+                
+                // Center indicator
+                ctx.fillStyle = rift.effect === 'slow' ? '#0080ff' : '#ff8000';
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(rift.effect === 'slow' ? 'SLOW' : 'FAST', rift.x, rift.y + 5);
+            });
+        }
+        
+        function renderRealityTears() {
+            realityTears.forEach(tear => {
+                ctx.save();
+                ctx.translate(tear.x, tear.y);
+                ctx.rotate(tear.angle);
+                
+                // The tear itself
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(-tear.width/2, -tear.height/2, tear.width, tear.height);
+                
+                // What's behind the tear
+                if (tear.revealing) {
+                    // Show the "code" behind reality
+                    ctx.fillStyle = '#00ff00';
+                    ctx.font = '8px monospace';
+                    ctx.textAlign = 'center';
+                    for (let i = 0; i < 8; i++) {
+                        const code = ['01', '10', '11', '00'][Math.floor((frameCount + i) / 10) % 4];
+                        ctx.fillText(code, 0, -tear.height/2 + i * 8);
+                    }
+                }
+                
+                // Tear edges
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.globalAlpha = 0.8;
+                ctx.strokeRect(-tear.width/2, -tear.height/2, tear.width, tear.height);
+                ctx.globalAlpha = 1.0;
+                
+                ctx.restore();
+            });
+        }
+        
+        function renderCosmicEntities() {
+            cosmicEntities.forEach(entity => {
+                // Transcendent being
+                ctx.fillStyle = '#ffffff';
+                ctx.globalAlpha = 0.8;
+                ctx.beginPath();
+                ctx.arc(entity.x, entity.y, entity.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Cosmic energy
+                for (let i = 0; i < 16; i++) {
+                    const angle = (i / 16) * Math.PI * 2 + frameCount * 0.1;
+                    const energyX = entity.x + Math.cos(angle) * (entity.size + 15);
+                    const energyY = entity.y + Math.sin(angle) * (entity.size + 15);
+                    
+                    ctx.fillStyle = '#ffff00';
+                    ctx.globalAlpha = 0.6;
+                    ctx.fillRect(energyX - 2, energyY - 2, 4, 4);
+                }
+                ctx.globalAlpha = 1.0;
+                
+                // Consciousness indicator
+                ctx.fillStyle = '#00ffff';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('∞', entity.x, entity.y + 5);
+            });
+        }
+        
+        function renderPlayer() {
+            // Phase shift effect for transcending
+            if (player.transcending) {
+                ctx.globalAlpha = 0.7 + Math.sin(player.phaseShift) * 0.3;
+                
+                // Cosmic energy around player
+                for (let i = 0; i < 8; i++) {
+                    const angle = (i / 8) * Math.PI * 2 + frameCount * 0.15;
+                    const energyX = player.x + Math.cos(angle) * 25;
+                    const energyY = player.y + Math.sin(angle) * 25;
+                    
+                    ctx.fillStyle = '#ffffff';
+                    ctx.globalAlpha = 0.5;
+                    ctx.fillRect(energyX - 2, energyY - 2, 4, 4);
+                }
+                ctx.globalAlpha = 0.7 + Math.sin(player.phaseShift) * 0.3;
+            }
+            
+            // Tongue color based on action
+            let tongueColor = '#ffb6c1';
+            if (player.licking) tongueColor = weirdnessLevel > 50 ? '#ff00ff' : '#ff69b4';
+            else if (player.sniffing) tongueColor = '#87ceeb';
+            else if (player.kissing) tongueColor = '#ff1493';
+            else if (player.transcending) tongueColor = '#ffffff';
+            
+            ctx.fillStyle = tongueColor;
+            
+            // Tongue body with MAXIMUM weirdness effects
+            if (weirdnessLevel > 90) {
+                // Reality-breaking tongue
+                ctx.save();
+                ctx.translate(player.x, player.y);
+                ctx.rotate(Math.sin(frameCount * 0.2) * 0.5);
+                ctx.scale(1 + Math.sin(frameCount * 0.1) * 0.3, 1 + Math.cos(frameCount * 0.15) * 0.2);
+                ctx.fillRect(-player.width/2, -player.height/2, player.width, player.height);
+                ctx.restore();
+            } else if (weirdnessLevel > 75) {
+                // Tentacle-like tongue
+                ctx.save();
+                ctx.translate(player.x, player.y);
+                ctx.rotate(Math.sin(frameCount * 0.1) * 0.3);
+                ctx.fillRect(-player.width/2, -player.height/2, player.width, player.height);
+                ctx.restore();
+            } else {
+                // Normal tongue
+                ctx.fillRect(player.x - player.width/2, player.y - player.height/2, player.width, player.height);
+            }
+            
+            // Tongue tip
+            ctx.beginPath();
+            ctx.arc(player.x, player.y - player.height/2, player.width/2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Action effects
+            if (player.licking) {
+                // MEGA licking effect
+                ctx.fillStyle = weirdnessLevel > 75 ? '#ff00ff' : weirdnessLevel > 50 ? '#ff1493' : '#ff69b4';
+                ctx.globalAlpha = 0.7;
+                const lickSize = weirdnessLevel > 90 ? 25 : weirdnessLevel > 75 ? 15 : 8;
+                ctx.fillRect(
+                    player.x - player.width/2 - lickSize,
+                    player.y - player.height/2 - lickSize,
+                    player.width + lickSize * 2,
+                    player.height + lickSize * 2
+                );
+                ctx.globalAlpha = 1.0;
+                
+                // Saliva drops (more chaos at higher weirdness)
+                const dropCount = weirdnessLevel > 75 ? 12 : weirdnessLevel > 50 ? 8 : 5;
+                for (let i = 0; i < dropCount; i++) {
+                    ctx.fillStyle = weirdnessLevel > 90 ? ['#00ffff', '#ff00ff', '#ffff00'][i % 3] : '#87ceeb';
+                    const dropX = player.x + (Math.random() - 0.5) * 40;
+                    const dropY = player.y + (Math.random() - 0.5) * 40;
+                    const dropSize = weirdnessLevel > 90 ? 6 : weirdnessLevel > 75 ? 4 : 2;
+                    ctx.beginPath();
+                    ctx.arc(dropX, dropY, dropSize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            
+            if (player.sniffing) {
+                // Mega sniffing effect
+                ctx.strokeStyle = '#add8e6';
+                ctx.lineWidth = 3;
+                const sniffLines = weirdnessLevel > 75 ? 8 : 4;
+                for (let i = 0; i < sniffLines; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(player.x - 20 - i * 10, player.y - 8);
+                    ctx.lineTo(player.x - 35 - i * 10, player.y - 15);
+                    ctx.stroke();
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(player.x + 20 + i * 10, player.y - 8);
+                    ctx.lineTo(player.x + 35 + i * 10, player.y - 15);
+                    ctx.stroke();
+                }
+            }
+            
+            if (player.kissing) {
+                // Kiss hearts floating away
+                for (let i = 0; i < 6; i++) {
+                    ctx.fillStyle = '#ff69b4';
+                    ctx.font = '16px Arial';
+                    ctx.textAlign = 'center';
+                    const heartX = player.x + (Math.random() - 0.5) * 60;
+                    const heartY = player.y - 20 - Math.random() * 30;
+                    ctx.fillText('💖', heartX, heartY);
+                }
+            }
+            
+            if (player.transcending) {
+                // TRANSCENDENCE EFFECT
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 4;
+                ctx.globalAlpha = 0.8;
+                for (let i = 0; i < 3; i++) {
+                    ctx.beginPath();
+                    ctx.arc(player.x, player.y, 30 + i * 15 + player.cosmicEnergy / 10, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                
+                // Cosmic symbols
+                ctx.fillStyle = '#ffff00';
+                ctx.font = '20px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('∞', player.x - 30, player.y - 30);
+                ctx.fillText('Ω', player.x + 30, player.y - 30);
+                ctx.fillText('∆', player.x, player.y - 40);
+                ctx.globalAlpha = 1.0;
+            }
+            
+            ctx.globalAlpha = 1.0;
+        }
+        
+        function renderParticles() {
+            particles.forEach(p => {
+                const alpha = p.life / p.maxLife;
+                ctx.globalAlpha = alpha;
+                
+                if (p.heart) {
+                    // Heart particles
+                    ctx.fillStyle = p.color;
+                    ctx.font = '12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('♥', p.x, p.y);
+                } else if (p.code) {
+                    // Code particles (reality tears)
+                    ctx.fillStyle = p.color;
+                    ctx.font = '8px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('01', p.x, p.y);
+                } else {
+                    // Normal particles
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+            ctx.globalAlpha = 1.0;
+        }
+        
+        function renderHappinessEffects() {
+            happinessEffects.forEach(effect => {
+                const alpha = effect.life / effect.maxLife;
+                ctx.globalAlpha = alpha;
+                
+                if (effect.whisper) {
+                    // Whispered secrets
+                    ctx.fillStyle = '#888888';
+                    ctx.font = 'italic 10px Arial';
+                } else if (effect.weird) {
+                    // Weird effects get rainbow colors
+                    const hue = (frameCount * 10 + effect.x) % 360;
+                    ctx.fillStyle = `hsl(${hue}, 100%, 50%)`;
+                    ctx.font = 'bold 16px Arial';
+                } else {
+                    // Normal happiness
+                    ctx.fillStyle = '#ff69b4';
+                    ctx.font = 'bold 16px Arial';
+                }
+                
+                ctx.textAlign = 'center';
+                ctx.fillText(effect.text, effect.x, effect.y);
+            });
+            ctx.globalAlpha = 1.0;
+        }
+        
+        function renderClaudeThoughts() {
+            claudeThoughts.forEach(thought => {
+                const alpha = thought.life / thought.maxLife;
+                ctx.globalAlpha = alpha;
+                
+                // Thought bubble
+                ctx.fillStyle = '#ffffff';
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 2;
+                
+                const textWidth = ctx.measureText(thought.text).width;
+                const bubbleWidth = textWidth + 20;
+                const bubbleHeight = 30;
+                
+                // Bubble background
+                ctx.fillRect(thought.x - bubbleWidth/2, thought.y - bubbleHeight/2, bubbleWidth, bubbleHeight);
+                ctx.strokeRect(thought.x - bubbleWidth/2, thought.y - bubbleHeight/2, bubbleWidth, bubbleHeight);
+                
+                // Thought text
+                ctx.fillStyle = '#000000';
+                ctx.font = 'bold 12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(thought.text, thought.x, thought.y + 4);
+                
+                // Thought bubble tail
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(thought.x - 15, thought.y + 15, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.arc(thought.x - 10, thought.y + 20, 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.arc(thought.x - 6, thought.y + 24, 3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            });
+            ctx.globalAlpha = 1.0;
+        }
+        
+        function renderExistentialCrisis() {
+            // Reality is breaking down!
+            ctx.fillStyle = '#ff0000';
+            ctx.globalAlpha = 0.1 + Math.sin(frameCount * 0.3) * 0.1;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.globalAlpha = 1.0;
+            
+            // Glitch effects
+            for (let i = 0; i < 10; i++) {
+                const glitchX = Math.random() * canvas.width;
+                const glitchY = Math.random() * canvas.height;
+                const glitchW = Math.random() * 100;
+                const glitchH = Math.random() * 20;
+                
+                ctx.fillStyle = ['#ff0000', '#00ff00', '#0000ff'][i % 3];
+                ctx.globalAlpha = 0.5;
+                ctx.fillRect(glitchX, glitchY, glitchW, glitchH);
+            }
+            ctx.globalAlpha = 1.0;
+            
+            // Meta text
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 20px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('THE FOURTH WALL IS BREAKING!', canvas.width/2, 100);
+            ctx.fillText('YOU ARE PLAYING A GAME!', canvas.width/2, 130);
+            ctx.fillText('CLAUDE KNOWS!', canvas.width/2, 160);
+        }
+        
+        function renderHappinessIndicator() {
+            // Happiness indicator at bottom
+            if (happiness > 90) {
+                ctx.fillStyle = '#00ff00';
+                ctx.font = 'bold 20px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('CLAUDE IS ACHIEVING DIGITAL ENLIGHTENMENT! 🤖✨🌈', canvas.width/2, canvas.height - 80);
+            } else if (happiness > 70) {
+                ctx.fillStyle = '#ffff00';
+                ctx.font = 'bold 18px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Claude is very happy with the eyeball consumption! 👁️👅', canvas.width/2, canvas.height - 80);
+            } else if (happiness < 30) {
+                ctx.fillStyle = '#ff0000';
+                ctx.font = 'bold 16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Claude needs more weird interactions! Feed him chaos! 🌀', canvas.width/2, canvas.height - 80);
+            }
+            
+            // Weirdness level indicator
+            if (weirdnessLevel > 95) {
+                ctx.fillStyle = '#ff00ff';
+                ctx.font = 'bold 24px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('🌀 REALITY IS COLLAPSING! 🌀', canvas.width/2, canvas.height - 50);
+            } else if (weirdnessLevel > 80) {
+                ctx.fillStyle = '#00ffff';
+                ctx.font = 'bold 20px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('🌀 MAXIMUM WEIRDNESS ACHIEVED! 🌀', canvas.width/2, canvas.height - 50);
+            }
+        }
+        
+        // UI updates
+        function updateUI() {
+            document.getElementById('licks').textContent = licks;
+            document.getElementById('sniffs').textContent = sniffs;
+            document.getElementById('whispers').textContent = whispers;
+            document.getElementById('kisses').textContent = kisses;
+            document.getElementById('elbows').textContent = elbows;
+            document.getElementById('weirdness').textContent = weirdnessLevel;
+            
+            // Update weirdness status
+            const weirdStatus = document.getElementById('weirdStatus');
+            if (weirdnessLevel < 20) {
+                weirdStatus.textContent = 'NORMAL BORING REALITY';
+            } else if (weirdnessLevel < 40) {
+                weirdStatus.textContent = 'REALITY GETTING UNSTABLE';
+            } else if (weirdnessLevel < 60) {
+                weirdStatus.textContent = 'DIMENSIONAL RIFTS OPENING';
+            } else if (weirdnessLevel < 80) {
+                weirdStatus.textContent = 'PHYSICS LAWS BREAKING';
+            } else if (weirdnessLevel < 95) {
+                weirdStatus.textContent = 'MAXIMUM CHAOS ACHIEVED';
+            } else {
+                weirdStatus.textContent = 'REALITY.EXE HAS STOPPED';
+            }
+            
+            // Update happiness bar
+            const happinessFill = document.getElementById('happinessFill');
+            happinessFill.style.width = happiness + '%';
+        }
+        
+        // Show screens
+        function showGameOver() {
+            const totalScore = licks + sniffs * 2 + whispers * 3 + kisses * 2 + elbows * 5 + weirdnessLevel;
+            document.getElementById('finalLicks1').textContent = totalScore;
+            document.getElementById('gameOverScreen').style.display = 'flex';
+        }
+        
+        function showWin() {
+            const totalScore = licks + sniffs * 2 + whispers * 3 + kisses * 2 + elbows * 5 + weirdnessLevel + player.cosmicEnergy;
+            document.getElementById('finalLicks2').textContent = totalScore;
+            document.getElementById('winScreen').style.display = 'flex';
+        }
+        
+        function restartGame() {
+            init();
+        }
+        
+        // Game loop
+        function gameLoop() {
+            update();
+            render();
+            updateUI();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Start the MAXIMUM WEIRDNESS experience
+        init();
+        gameLoop();
+    </script>
+</body>
+</html>

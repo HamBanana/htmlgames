@@ -1,0 +1,182 @@
+ 
+{
+  "sprites": {
+    "directory": "../Sprites/Aseprite/",
+    "player": {
+      "json": "karateguy.json",
+      "sheet": "karateguy.png"
+    },
+    "boss": {
+      "json": "ninjamand.json", 
+      "sheet": "ninjamand.png"
+    },
+    "enemies": {
+      "walker": {
+        "json": "walker.json",
+        "sheet": "walker.png"
+      },
+      "flyer": {
+        "json": "flyer.json",
+        "sheet": "flyer.png"
+      }
+    }
+  },
+  
+  "game": {
+    "width": 800,
+    "height": 600,
+    "gravity": 0.8,
+    "friction": 0.85,
+    "maxProjectiles": 50,
+    "particleLimit": 200
+  },
+  
+  "player": {
+    "width": 32,
+    "height": 64,
+    "health": 100,
+    "maxHealth": 100,
+    "speed": 5,
+    "jumpPower": -15,
+    "slideSpeed": 8,
+    "slideHeight": 32,
+    "invulnerabilityTime": 60,
+    "weapon": {
+      "damage": 10,
+      "speed": 10,
+      "cooldown": 200,
+      "size": {
+        "width": 8,
+        "height": 4
+      }
+    }
+  },
+  
+  "boss": {
+    "width": 32,
+    "height": 64,
+    "health": 200,
+    "maxHealth": 200,
+    "phases": [
+      {
+        "healthThreshold": 1.0,
+        "speed": 2,
+        "attackInterval": 2000,
+        "jumpChance": 0.02,
+        "patterns": ["single", "triple"]
+      },
+      {
+        "healthThreshold": 0.6,
+        "speed": 3,
+        "attackInterval": 1500,
+        "jumpChance": 0.04,
+        "patterns": ["triple", "spread"]
+      },
+      {
+        "healthThreshold": 0.3,
+        "speed": 4,
+        "attackInterval": 1000,
+        "jumpChance": 0.06,
+        "patterns": ["spread", "barrage"]
+      }
+    ],
+    "projectile": {
+      "damage": 15,
+      "baseSpeed": 5,
+      "size": {
+        "width": 8,
+        "height": 8
+      }
+    }
+  },
+  
+  "enemies": {
+    "walker": {
+      "width": 30,
+      "height": 35,
+      "health": 20,
+      "speed": 1.5,
+      "damage": 10,
+      "detectionRange": 200,
+      "scoreValue": 100
+    },
+    "flyer": {
+      "width": 25,
+      "height": 25,
+      "health": 15,
+      "speed": 2,
+      "damage": 8,
+      "flyHeight": 100,
+      "scoreValue": 150
+    }
+  },
+  
+  "levels": [
+    {
+      "name": "Factory Stage",
+      "background": "#001122",
+      "groundColor": "#444444",
+      "playerStart": {
+        "x": 100,
+        "y": 400
+      },
+      "bossSpawn": {
+        "x": 600,
+        "y": 300
+      }
+    }
+  ],
+  
+  "ui": {
+    "colors": {
+      "primary": "#00ff00",
+      "danger": "#ff0000",
+      "warning": "#ffff00",
+      "boss": "#ff00ff",
+      "background": "#000000"
+    },
+    "healthBar": {
+      "width": 200,
+      "height": 20,
+      "borderWidth": 2
+    }
+  },
+  
+  "particles": {
+    "damage": {
+      "count": 10,
+      "speed": 8,
+      "lifetime": 30,
+      "sizeRange": [2, 6]
+    },
+    "explosion": {
+      "count": 50,
+      "speed": 12,
+      "lifetime": 40,
+      "sizeRange": [3, 8]
+    }
+  },
+  
+  "audio": {
+    "enabled": true,
+    "volumes": {
+      "master": 0.8,
+      "sfx": 0.7,
+      "music": 0.5
+    },
+    "sounds": {
+      "shoot": "shoot.wav",
+      "hit": "hit.wav",
+      "explosion": "explosion.wav",
+      "jump": "jump.wav",
+      "powerup": "powerup.wav"
+    }
+  },
+  
+  "debug": {
+    "showHitboxes": false,
+    "showFPS": false,
+    "godMode": false,
+    "skipToPhase": 0
+  }
+}

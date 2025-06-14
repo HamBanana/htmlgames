@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Room Assassins</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(180deg, #000 0%, #001122 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            position: relative;
+            background: #000;
+            border: 3px solid #00ff00;
+            border-radius: 10px;
+            box-shadow: 0 0 20px #00ff0050;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: #000;
+            border-radius: 8px;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #00ff00;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 0 0 5px #00ff00;
+        }
+        
+        #powerupInfo {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: #ffff00;
+            font-size: 16px;
+            font-weight: bold;
+            text-shadow: 0 0 5px #ffff00;
+            display: none;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            background: rgba(0, 255, 0, 0.2);
+            border: 2px solid rgba(0, 255, 0, 0.5);
+            border-radius: 50%;
+            color: #00ff00;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.1s;
+            text-shadow: 0 0 5px #00ff00;
+        }
+        
+        .control-btn:active {
+            background: rgba(0, 255, 0, 0.4);
+            transform: scale(0.95);
+            box-shadow: 0 0 10px #00ff00;
+        }
+        
+        .fire-btn {
+            background: rgba(255, 0, 0, 0.3);
+            border-color: rgba(255, 0, 0, 0.6);
+            color: #ff0000;
+            text-shadow: 0 0 5px #ff0000;
+        }
+        
+        #instructions {
+            position: absolute;
+            top: 50px;
+            left: 10px;
+            color: #888;
+            font-size: 12px;
+            max-width: 200px;
+        }
+        
+        #gameOverScreen, #winScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #00ff00;
+            text-align: center;
+            border-radius: 8px;
+        }
+        
+        #gameOverScreen h1 {
+            color: #ff0000;
+            font-size: 48px;
+            margin: 20px 0;
+            text-shadow: 0 0 10px #ff0000;
+        }
+        
+        #winScreen h1 {
+            color: #00ff00;
+            font-size: 48px;
+            margin: 20px 0;
+            text-shadow: 0 0 10px #00ff00;
+        }
+        
+        .final-score {
+            font-size: 24px;
+            margin: 20px 0;
+            text-shadow: 0 0 5px currentColor;
+        }
+        
+        .restart-btn {
+            padding: 15px 30px;
+            font-size: 20px;
+            background: #00ff00;
+            color: #000;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+        
+        .restart-btn:hover {
+            background: #00cc00;
+            box-shadow: 0 0 15px #00ff00;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="ui">
+            <div>SCORE: <span id="score">0</span></div>
+            <div>LIVES: <span id="lives">3</span></div>
+            <div>WAVE: <span id="wave">1</span></div>
+        </div>
+        <div id="powerupInfo">
+            <div id="powerupName"></div>
+            <div id="powerupTimer"></div>
+        </div>
+        <div id="instructions">
+            Use A/D or arrows to move<br>
+            SPACE to fire<br>
+            Destroy all invaders!
+        </div>
+        <div id="controls">
+            <div class="control-btn" data-key="a">←</div>
+            <div class="control-btn" data-key="d">→</div>
+            <div class="control-btn fire-btn" data-key=" ">FIRE</div>
+        </div>
+        
+        <div id="gameOverScreen">
+            <h1>GAME OVER</h1>
+            <div class="final-score">FINAL SCORE: <span id="finalScore1">0</span></div>
+            <button class="restart-btn" onclick="restartGame()">PLAY AGAIN</button>
+        </div>
+        
+        <div id="winScreen">
+            <h1>WAVE CLEARED!</h1>
+            <div class="final-score">SCORE: <span id="finalScore2">0</span></div>
+            <button class="restart-btn" onclick="nextWave()">NEXT WAVE</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Game state
+        let score = 0;
+        let lives = 3;
+        let wave = 1;
+        let gameRunning = true;
+        let gameState = 'playing';
+        
+        // Player
+        let player = {
+            x: canvas.width / 2 - 20,
+            y: canvas.height - 50,
+            width: 40,
+            height: 20,
+            speed: 5,
+            color: '#00ff00',
+            shielded: false,
+            shieldTimer: 0
+        };
+        
+        // Clone system
+        let clones = [];
+        let clonesActive = false;
+        let cloneTimer = 0;
+        
+        // Arrays
+        let invaders = [];
+        let bullets = [];
+        let invaderBullets = [];
+        let barriers = [];
+        let particles = [];
+        let powerups = [];
+        
+        // Powerup system
+        let activePowerup = null;
+        let powerupTimer = 0;
+        
+        // Input
+        const keys = {};
+        
+        // Invader movement
+        let invaderDirection = 1;
+        let invaderDropTime = 0;
+        let invaderSpeed = 1;
+        
+        // Initialize game
+        function init() {
+            score = 0;
+            lives = 3;
+            gameRunning = true;
+            gameState = 'playing';
+            bullets = [];
+            invaderBullets = [];
+            particles = [];
+            powerups = [];
+            activePowerup = null;
+            powerupTimer = 0;
+            
+            // Reset clone system
+            clones = [];
+            clonesActive = false;
+            cloneTimer = 0;
+            
+            player.x = canvas.width / 2 - 20;
+            player.shielded = false;
+            player.shieldTimer = 0;
+            
+            createInvaders();
+            createBarriers();
+            
+            document.getElementById('gameOverScreen').style.display = 'none';
+            document.getElementById('winScreen').style.display = 'none';
+            document.getElementById('powerupInfo').style.display = 'none';
+        }
+        
+        // Create clones
+        function createClones() {
+            clones = [
+                {
+                    x: player.x - 60,
+                    y: player.y,
+                    width: player.width,
+                    height: player.height,
+                    color: '#00ff0080', // Semi-transparent
+                    side: 'left'
+                },
+                {
+                    x: player.x + 60,
+                    y: player.y,
+                    width: player.width,
+                    height: player.height,
+                    color: '#00ff0080', // Semi-transparent
+                    side: 'right'
+                }
+            ];
+            clonesActive = true;
+            cloneTimer = 450; // 7.5 seconds at 60fps
+        }
+        
+        // Update clones
+        function updateClones() {
+            if (!clonesActive) return;
+            
+            // Move clones with player
+            clones[0].x = player.x - 60; // Left clone
+            clones[0].y = player.y;
+            clones[1].x = player.x + 60; // Right clone
+            clones[1].y = player.y;
+            
+            // Keep clones within screen bounds
+            if (clones[0].x < 0) {
+                clones[0].x = 0;
+            }
+            if (clones[1].x > canvas.width - clones[1].width) {
+                clones[1].x = canvas.width - clones[1].width;
+            }
+            
+            // Update clone timer
+            cloneTimer--;
+            if (cloneTimer <= 0) {
+                clonesActive = false;
+                clones = [];
+            }
+        }
+        
+        // Create invader formation
+        function createInvaders() {
+            invaders = [];
+            invaderDirection = 1;
+            invaderSpeed = 1 + (wave - 1) * 0.3;
+            
+            const rows = 5;
+            const cols = 10;
+            const startX = 100;
+            const startY = 80;
+            const spacing = 60;
+            
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    const type = row < 1 ? 'ufo' : row < 3 ? 'medium' : 'small';
+                    const points = type === 'ufo' ? 30 : type === 'medium' ? 20 : 10;
+                    
+                    invaders.push({
+                        x: startX + col * spacing,
+                        y: startY + row * 40,
+                        width: 30,
+                        height: 20,
+                        type: type,
+                        points: points,
+                        alive: true,
+                        animFrame: 0
+                    });
+                }
+            }
+        }
+        
+        // Create barriers
+        function createBarriers() {
+            barriers = [];
+            const barrierCount = 4;
+            const barrierWidth = 80;
+            const spacing = (canvas.width - barrierCount * barrierWidth) / (barrierCount + 1);
+            
+            for (let i = 0; i < barrierCount; i++) {
+                const x = spacing + i * (barrierWidth + spacing);
+                const y = canvas.height - 180;
+                
+                // Create barrier blocks
+                for (let by = 0; by < 3; by++) {
+                    for (let bx = 0; bx < 8; bx++) {
+                        // Skip corners for classic barrier shape
+                        if ((by === 0 && (bx < 2 || bx > 5)) || 
+                            (by === 2 && bx >= 3 && bx <= 4)) continue;
+                        
+                        barriers.push({
+                            x: x + bx * 10,
+                            y: y + by * 10,
+                            width: 10,
+                            height: 10,
+                            alive: true
+                        });
+                    }
+                }
+            }
+        }
+        
+        // Create explosion particles
+        function createExplosion(x, y, color) {
+            for (let i = 0; i < 15; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8,
+                    life: 30,
+                    maxLife: 30,
+                    color: color
+                });
+            }
+        }
+        
+        // Create powerup
+        function createPowerup(x, y) {
+            if (Math.random() < 0.15) { // 15% chance
+                const types = ['laser', 'bomb', 'life', 'shield', 'clone'];
+                const type = types[Math.floor(Math.random() * types.length)];
+                const colors = {
+                    laser: '#00ffff',
+                    bomb: '#ff8800',
+                    life: '#ff00ff',
+                    shield: '#0088ff',
+                    clone: '#00ff88'
+                };
+                
+                powerups.push({
+                    x: x,
+                    y: y,
+                    width: 20,
+                    height: 20,
+                    type: type,
+                    color: colors[type],
+                    speed: 2
+                });
+            }
+        }
+        
+        // Update game
+        function update() {
+            if (!gameRunning || gameState !== 'playing') return;
+            
+            // Move player
+            if ((keys['ArrowLeft'] || keys['a'] || keys['A']) && player.x > 0) {
+                player.x -= player.speed;
+            }
+            if ((keys['ArrowRight'] || keys['d'] || keys['D']) && player.x < canvas.width - player.width) {
+                player.x += player.speed;
+            }
+            
+            // Update clones
+            updateClones();
+            
+            // Player shooting
+            if (keys[' '] && bullets.length < 6) { // Increased bullet limit for clones
+                // Player bullet
+                if (activePowerup === 'laser') {
+                    bullets.push({
+                        x: player.x + player.width / 2 - 2,
+                        y: player.y,
+                        width: 4,
+                        height: 10,
+                        speed: 12,
+                        color: '#00ffff',
+                        type: 'laser'
+                    });
+                } else if (activePowerup === 'bomb') {
+                    bullets.push({
+                        x: player.x + player.width / 2 - 4,
+                        y: player.y,
+                        width: 8,
+                        height: 8,
+                        speed: 6,
+                        color: '#ff8800',
+                        type: 'bomb'
+                    });
+                } else {
+                    bullets.push({
+                        x: player.x + player.width / 2 - 2,
+                        y: player.y,
+                        width: 4,
+                        height: 10,
+                        speed: 8,
+                        color: '#ffff00',
+                        type: 'normal'
+                    });
+                }
+                
+                // Clone bullets
+                if (clonesActive) {
+                    clones.forEach(clone => {
+                        bullets.push({
+                            x: clone.x + clone.width / 2 - 2,
+                            y: clone.y,
+                            width: 4,
+                            height: 10,
+                            speed: 8,
+                            color: '#00ff88',
+                            type: 'clone'
+                        });
+                    });
+                }
+                
+                keys[' '] = false; // Prevent rapid fire
+            }
+            
+            // Update bullets
+            bullets = bullets.filter(bullet => {
+                bullet.y -= bullet.speed;
+                return bullet.y > -bullet.height;
+            });
+            
+            // Update powerups
+            powerups = powerups.filter(powerup => {
+                powerup.y += powerup.speed;
+                return powerup.y < canvas.height;
+            });
+            
+            // Update powerup timer
+            if (activePowerup && powerupTimer > 0) {
+                powerupTimer--;
+                if (powerupTimer <= 0) {
+                    activePowerup = null;
+                    document.getElementById('powerupInfo').style.display = 'none';
+                }
+            }
+            
+            // Update shield timer
+            if (player.shielded && player.shieldTimer > 0) {
+                player.shieldTimer--;
+                if (player.shieldTimer <= 0) {
+                    player.shielded = false;
+                }
+            }
+            
+            // Update invader bullets
+            invaderBullets = invaderBullets.filter(bullet => {
+                bullet.y += bullet.speed;
+                return bullet.y < canvas.height;
+            });
+            
+            // Move invaders
+            updateInvaders();
+            
+            // Invader shooting
+            if (Math.random() < 0.02 * wave) {
+                const aliveInvaders = invaders.filter(inv => inv.alive);
+                if (aliveInvaders.length > 0) {
+                    const shooter = aliveInvaders[Math.floor(Math.random() * aliveInvaders.length)];
+                    invaderBullets.push({
+                        x: shooter.x + shooter.width / 2 - 2,
+                        y: shooter.y + shooter.height,
+                        width: 4,
+                        height: 10,
+                        speed: 3 + wave * 0.5,
+                        color: '#ff0000'
+                    });
+                }
+            }
+            
+            // Check collisions
+            checkCollisions();
+            
+            // Update particles
+            particles = particles.filter(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life--;
+                return p.life > 0;
+            });
+            
+            // Check win condition
+            const aliveInvaders = invaders.filter(inv => inv.alive);
+            if (aliveInvaders.length === 0) {
+                gameState = 'win';
+                showWin();
+            }
+            
+            // Check game over
+            if (lives <= 0) {
+                gameState = 'gameOver';
+                showGameOver();
+            }
+        }
+        
+        // Update invaders
+        function updateInvaders() {
+            let hitEdge = false;
+            
+            invaders.forEach(invader => {
+                if (!invader.alive) return;
+                
+                invader.x += invaderDirection * invaderSpeed;
+                invader.animFrame = (invader.animFrame + 1) % 60;
+                
+                if (invader.x <= 0 || invader.x >= canvas.width - invader.width) {
+                    hitEdge = true;
+                }
+                
+                // Check if invaders reached player
+                if (invader.y + invader.height >= player.y) {
+                    lives = 0;
+                }
+            });
+            
+            if (hitEdge) {
+                invaderDirection *= -1;
+                invaders.forEach(invader => {
+                    if (invader.alive) {
+                        invader.y += 20;
+                    }
+                });
+            }
+        }
+        
+        // Check collisions
+        function checkCollisions() {
+            // Player bullets vs invaders
+            bullets.forEach((bullet, bi) => {
+                let hitEnemies = [];
+                
+                invaders.forEach((invader, ii) => {
+                    if (!invader.alive) return;
+                    
+                    if (bullet.x < invader.x + invader.width &&
+                        bullet.x + bullet.width > invader.x &&
+                        bullet.y < invader.y + invader.height &&
+                        bullet.y + bullet.height > invader.y) {
+                        
+                        invader.alive = false;
+                        score += invader.points;
+                        createExplosion(invader.x + invader.width/2, invader.y + invader.height/2, '#ffff00');
+                        createPowerup(invader.x + invader.width/2, invader.y + invader.height/2);
+                        hitEnemies.push(invader);
+                        
+                        if (bullet.type === 'bomb') {
+                            // Bomb explosion affects nearby enemies
+                            invaders.forEach(nearInvader => {
+                                if (!nearInvader.alive) return;
+                                const dist = Math.sqrt(Math.pow(nearInvader.x - invader.x, 2) + Math.pow(nearInvader.y - invader.y, 2));
+                                if (dist < 80) {
+                                    nearInvader.alive = false;
+                                    score += nearInvader.points;
+                                    createExplosion(nearInvader.x + nearInvader.width/2, nearInvader.y + nearInvader.height/2, '#ff8800');
+                                }
+                            });
+                        }
+                    }
+                });
+                
+                // Remove bullet only if it's not a laser or if it hit something and isn't a laser
+                if (bullet.type !== 'laser' && hitEnemies.length > 0) {
+                    bullets.splice(bi, 1);
+                }
+            });
+            
+            // Player vs powerups
+            powerups.forEach((powerup, pi) => {
+                if (powerup.x < player.x + player.width &&
+                    powerup.x + powerup.width > player.x &&
+                    powerup.y < player.y + player.height &&
+                    powerup.y + powerup.height > player.y) {
+                    
+                    if (powerup.type === 'life') {
+                        lives++;
+                    } else if (powerup.type === 'shield') {
+                        player.shielded = true;
+                        player.shieldTimer = 300; // 5 seconds at 60fps
+                    } else if (powerup.type === 'clone') {
+                        createClones();
+                        activePowerup = 'clone';
+                        powerupTimer = cloneTimer;
+                        document.getElementById('powerupInfo').style.display = 'block';
+                        document.getElementById('powerupName').textContent = 'CLONE';
+                    } else {
+                        activePowerup = powerup.type;
+                        powerupTimer = 300; // 5 seconds at 60fps
+                        document.getElementById('powerupInfo').style.display = 'block';
+                        document.getElementById('powerupName').textContent = powerup.type.toUpperCase();
+                    }
+                    
+                    powerups.splice(pi, 1);
+                    createExplosion(powerup.x + powerup.width/2, powerup.y + powerup.height/2, powerup.color);
+                }
+            });
+            
+            // Player bullets vs barriers
+            bullets.forEach((bullet, bi) => {
+                barriers.forEach((barrier, bai) => {
+                    if (!barrier.alive) return;
+                    
+                    if (bullet.x < barrier.x + barrier.width &&
+                        bullet.x + bullet.width > barrier.x &&
+                        bullet.y < barrier.y + barrier.height &&
+                        bullet.y + bullet.height > barrier.y) {
+                        
+                        barrier.alive = false;
+                        bullets.splice(bi, 1);
+                    }
+                });
+            });
+            
+            // Invader bullets vs player
+            invaderBullets.forEach((bullet, bi) => {
+                if (bullet.x < player.x + player.width &&
+                    bullet.x + bullet.width > player.x &&
+                    bullet.y < player.y + player.height &&
+                    bullet.y + bullet.height > player.y) {
+                    
+                    invaderBullets.splice(bi, 1);
+                    
+                    if (player.shielded) {
+                        // Shield blocks the bullet - create shield spark effect
+                        createExplosion(bullet.x, bullet.y, '#0088ff');
+                    } else {
+                        lives--;
+                        createExplosion(player.x + player.width/2, player.y + player.height/2, '#ff0000');
+                    }
+                }
+            });
+            
+            // Invader bullets vs clones (they can be destroyed)
+            if (clonesActive) {
+                invaderBullets.forEach((bullet, bi) => {
+                    clones.forEach((clone, ci) => {
+                        if (bullet.x < clone.x + clone.width &&
+                            bullet.x + bullet.width > clone.x &&
+                            bullet.y < clone.y + clone.height &&
+                            bullet.y + bullet.height > clone.y) {
+                            
+                            invaderBullets.splice(bi, 1);
+                            createExplosion(clone.x + clone.width/2, clone.y + clone.height/2, '#00ff88');
+                            // Don't remove the clone, just create explosion effect
+                        }
+                    });
+                });
+            }
+            
+            // Invader bullets vs barriers
+            invaderBullets.forEach((bullet, bi) => {
+                barriers.forEach((barrier, bai) => {
+                    if (!barrier.alive) return;
+                    
+                    if (bullet.x < barrier.x + barrier.width &&
+                        bullet.x + bullet.width > barrier.x &&
+                        bullet.y < barrier.y + barrier.height &&
+                        bullet.y + bullet.height > barrier.y) {
+                        
+                        barrier.alive = false;
+                        invaderBullets.splice(bi, 1);
+                    }
+                });
+            });
+        }
+        
+        // Render game
+        function render() {
+            // Clear canvas
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw stars
+            ctx.fillStyle = '#ffffff';
+            for (let i = 0; i < 50; i++) {
+                const x = (i * 123) % canvas.width;
+                const y = (i * 456) % canvas.height;
+                ctx.fillRect(x, y, 1, 1);
+            }
+            
+            // Draw player
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            // Player cannon
+            ctx.fillRect(player.x + player.width/2 - 2, player.y - 10, 4, 10);
+            
+            // Draw clones
+            if (clonesActive) {
+                clones.forEach(clone => {
+                    ctx.fillStyle = clone.color;
+                    ctx.fillRect(clone.x, clone.y, clone.width, clone.height);
+                    // Clone cannon
+                    ctx.fillRect(clone.x + clone.width/2 - 2, clone.y - 10, 4, 10);
+                    
+                    // Add clone effect (slight glow)
+                    ctx.strokeStyle = '#00ff88';
+                    ctx.lineWidth = 1;
+                    ctx.globalAlpha = 0.5;
+                    ctx.strokeRect(clone.x - 2, clone.y - 2, clone.width + 4, clone.height + 4);
+                    ctx.globalAlpha = 1.0;
+                });
+            }
+            
+            // Draw shield if active
+            if (player.shielded) {
+                ctx.strokeStyle = '#0088ff';
+                ctx.lineWidth = 3;
+                ctx.globalAlpha = 0.7;
+                ctx.beginPath();
+                ctx.arc(player.x + player.width/2, player.y + player.height/2, 35, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                // Add shield sparkle effect
+                const sparkles = 8;
+                for (let i = 0; i < sparkles; i++) {
+                    const angle = (Date.now() * 0.01 + i * Math.PI * 2 / sparkles) % (Math.PI * 2);
+                    const sparkleX = player.x + player.width/2 + Math.cos(angle) * 30;
+                    const sparkleY = player.y + player.height/2 + Math.sin(angle) * 30;
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(sparkleX - 1, sparkleY - 1, 2, 2);
+                }
+                
+                ctx.globalAlpha = 1.0;
+            }
+            
+            // Draw invaders
+            invaders.forEach(invader => {
+                if (!invader.alive) return;
+                
+                const colors = {
+                    ufo: '#ff00ff',
+                    medium: '#00ffff',
+                    small: '#ffff00'
+                };
+                
+                ctx.fillStyle = colors[invader.type];
+                
+                // Simple animated sprite
+                const frame = Math.floor(invader.animFrame / 30);
+                if (frame === 0) {
+                    ctx.fillRect(invader.x, invader.y, invader.width, invader.height);
+                } else {
+                    ctx.fillRect(invader.x + 2, invader.y, invader.width - 4, invader.height);
+                    ctx.fillRect(invader.x, invader.y + 5, invader.width, invader.height - 10);
+                }
+            });
+            
+            // Draw barriers
+            ctx.fillStyle = '#00ff00';
+            barriers.forEach(barrier => {
+                if (barrier.alive) {
+                    ctx.fillRect(barrier.x, barrier.y, barrier.width, barrier.height);
+                }
+            });
+            
+            // Draw bullets
+            bullets.forEach(bullet => {
+                if (bullet.type === 'laser') {
+                    // Draw bright laser bullet with trail effect
+                    ctx.fillStyle = bullet.color;
+                    ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+                    // Add glow effect
+                    ctx.fillStyle = bullet.color + '60';
+                    ctx.fillRect(bullet.x - 2, bullet.y, bullet.width + 4, bullet.height + 20);
+                } else if (bullet.type === 'bomb') {
+                    // Draw bomb
+                    ctx.fillStyle = bullet.color;
+                    ctx.beginPath();
+                    ctx.arc(bullet.x + bullet.width/2, bullet.y + bullet.height/2, bullet.width/2, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (bullet.type === 'clone') {
+                    // Draw clone bullet with special effect
+                    ctx.fillStyle = bullet.color;
+                    ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+                    // Add glow effect for clone bullets
+                    ctx.fillStyle = bullet.color + '40';
+                    ctx.fillRect(bullet.x - 1, bullet.y, bullet.width + 2, bullet.height + 10);
+                } else {
+                    // Normal bullet
+                    ctx.fillStyle = bullet.color;
+                    ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+                }
+            });
+            
+            // Draw powerups
+            powerups.forEach(powerup => {
+                ctx.fillStyle = powerup.color;
+                ctx.fillRect(powerup.x, powerup.y, powerup.width, powerup.height);
+                
+                // Add powerup symbol
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                const symbols = {
+                    laser: 'L',
+                    bomb: 'B',
+                    life: '+',
+                    shield: 'S',
+                    clone: 'C'
+                };
+                ctx.fillText(symbols[powerup.type], powerup.x + powerup.width/2, powerup.y + powerup.height/2 + 4);
+            });
+            
+            invaderBullets.forEach(bullet => {
+                ctx.fillStyle = bullet.color;
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+            });
+            
+            // Draw particles
+            particles.forEach(p => {
+                const alpha = p.life / p.maxLife;
+                ctx.fillStyle = p.color + Math.floor(alpha * 255).toString(16).padStart(2, '0');
+                ctx.fillRect(p.x, p.y, 2, 2);
+            });
+        }
+        
+        // Update UI
+        function updateUI() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('lives').textContent = lives;
+            document.getElementById('wave').textContent = wave;
+            
+            if (activePowerup && powerupTimer > 0) {
+                if (activePowerup === 'clone') {
+                    document.getElementById('powerupTimer').textContent = Math.ceil(cloneTimer / 60) + 's';
+                } else {
+                    document.getElementById('powerupTimer').textContent = Math.ceil(powerupTimer / 60) + 's';
+                }
+            }
+            
+            // Show shield status
+            if (player.shielded && player.shieldTimer > 0) {
+                if (!activePowerup) {
+                    document.getElementById('powerupInfo').style.display = 'block';
+                    document.getElementById('powerupName').textContent = 'SHIELD';
+                }
+                document.getElementById('powerupTimer').textContent = Math.ceil(player.shieldTimer / 60) + 's';
+            } else if (!activePowerup && !clonesActive) {
+                document.getElementById('powerupInfo').style.display = 'none';
+            }
+        }
+        
+        // Show game over
+        function showGameOver() {
+            document.getElementById('finalScore1').textContent = score;
+            document.getElementById('gameOverScreen').style.display = 'flex';
+        }
+        
+        // Show win
+        function showWin() {
+            document.getElementById('finalScore2').textContent = score;
+            document.getElementById('winScreen').style.display = 'flex';
+        }
+        
+        // Restart game
+        function restartGame() {
+            wave = 1;
+            init();
+        }
+        
+        // Next wave
+        function nextWave() {
+            wave++;
+            createInvaders();
+            createBarriers();
+            powerups = [];
+            activePowerup = null;
+            powerupTimer = 0;
+            player.shielded = false;
+            player.shieldTimer = 0;
+            clones = [];
+            clonesActive = false;
+            cloneTimer = 0;
+            gameState = 'playing';
+            document.getElementById('winScreen').style.display = 'none';
+            document.getElementById('powerupInfo').style.display = 'none';
+        }
+        
+        // Game loop
+        function gameLoop() {
+            update();
+            render();
+            updateUI();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Event listeners
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            e.preventDefault();
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+        
+        // Touch controls
+        document.querySelectorAll('.control-btn').forEach(btn => {
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const key = btn.getAttribute('data-key');
+                keys[key] = true;
+            });
+            
+            btn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                const key = btn.getAttribute('data-key');
+                keys[key] = false;
+            });
+            
+            btn.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                const key = btn.getAttribute('data-key');
+                keys[key] = true;
+            });
+            
+            btn.addEventListener('mouseup', (e) => {
+                e.preventDefault();
+                const key = btn.getAttribute('data-key');
+                keys[key] = false;
+            });
+        });
+        
+        // Prevent context menu on long press
+        document.addEventListener('contextmenu', e => e.preventDefault());
+        
+        // Start game
+        init();
+        gameLoop();
+    </script>
+</body>
+</html>

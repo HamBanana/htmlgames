@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Rock Paper Scissors</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+        
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            pointer-events: all;
+        }
+        
+        .control-btn {
+            padding: 15px 25px;
+            font-size: 18px;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .control-btn:hover {
+            background: white;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .control-btn:active {
+            transform: translateY(0);
+        }
+        
+        #score {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px 30px;
+            border-radius: 15px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            pointer-events: all;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        #result {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px 40px;
+            border-radius: 15px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            pointer-events: all;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        
+        #instructions {
+            position: absolute;
+            top: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px 20px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 14px;
+            color: #333;
+            pointer-events: all;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="ui">
+            <div id="score">
+                Player: <span id="playerScore">0</span> | Computer: <span id="computerScore">0</span>
+            </div>
+            <div id="instructions">
+                Use R, P, S keys or buttons below
+            </div>
+            <div id="result"></div>
+            <div id="controls">
+                <button class="control-btn" onclick="playGame('rock')" data-key="r">🪨 Rock (R)</button>
+                <button class="control-btn" onclick="playGame('paper')" data-key="p">📄 Paper (P)</button>
+                <button class="control-btn" onclick="playGame('scissors')" data-key="s">✂️ Scissors (S)</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game variables
+        let scene, camera, renderer, playerHand, computerHand;
+        let playerScore = 0, computerScore = 0;
+        let animating = false;
+
+        // Initialize Three.js
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('gameContainer').appendChild(renderer.domElement);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(10, 10, 5);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+
+            // Create hands
+            createHands();
+            
+            // Position camera
+            camera.position.set(0, 0, 8);
+            camera.lookAt(0, 0, 0);
+
+            animate();
+        }
+
+        function createHands() {
+            // Player hand (left side)
+            playerHand = createHand();
+            playerHand.position.set(-3, 0, 0);
+            playerHand.rotation.y = Math.PI / 6;
+            scene.add(playerHand);
+
+            // Computer hand (right side)
+            computerHand = createHand();
+            computerHand.position.set(3, 0, 0);
+            computerHand.rotation.y = -Math.PI / 6;
+            scene.add(computerHand);
+
+            // Set initial poses
+            setHandPose(playerHand, 'rock');
+            setHandPose(computerHand, 'rock');
+        }
+
+        function createHand() {
+            const hand = new THREE.Group();
+            
+            // Palm
+            const palmGeometry = new THREE.BoxGeometry(1.2, 1.5, 0.3);
+            const handMaterial = new THREE.MeshLambertMaterial({ color: 0xffdbac });
+            const palm = new THREE.Mesh(palmGeometry, handMaterial);
+            hand.add(palm);
+
+            // Fingers
+            for (let i = 0; i < 4; i++) {
+                const finger = new THREE.Group();
+                
+                // Finger segments
+                for (let j = 0; j < 3; j++) {
+                    const segmentGeometry = new THREE.CylinderGeometry(0.08, 0.08, 0.4);
+                    const segment = new THREE.Mesh(segmentGeometry, handMaterial);
+                    segment.position.y = j * 0.35;
+                    finger.add(segment);
+                }
+                
+                finger.position.set(-0.45 + i * 0.3, 0.75, 0);
+                finger.name = `finger${i}`;
+                hand.add(finger);
+            }
+
+            // Thumb
+            const thumb = new THREE.Group();
+            for (let j = 0; j < 2; j++) {
+                const segmentGeometry = new THREE.CylinderGeometry(0.1, 0.1, 0.35);
+                const segment = new THREE.Mesh(segmentGeometry, handMaterial);
+                segment.position.y = j * 0.3;
+                thumb.add(segment);
+            }
+            thumb.position.set(-0.8, 0.2, 0);
+            thumb.rotation.z = Math.PI / 4;
+            thumb.name = 'thumb';
+            hand.add(thumb);
+
+            return hand;
+        }
+
+        function setHandPose(hand, pose) {
+            const fingers = [];
+            const thumb = hand.getObjectByName('thumb');
+            
+            for (let i = 0; i < 4; i++) {
+                fingers.push(hand.getObjectByName(`finger${i}`));
+            }
+
+            switch (pose) {
+                case 'rock':
+                    fingers.forEach(finger => {
+                        finger.rotation.x = -Math.PI / 2;
+                    });
+                    thumb.rotation.x = -Math.PI / 3;
+                    break;
+                    
+                case 'paper':
+                    fingers.forEach(finger => {
+                        finger.rotation.x = 0;
+                    });
+                    thumb.rotation.x = 0;
+                    break;
+                    
+                case 'scissors':
+                    fingers.forEach((finger, i) => {
+                        if (i === 0 || i === 1) {
+                            finger.rotation.x = 0; // Index and middle up
+                        } else {
+                            finger.rotation.x = -Math.PI / 2; // Ring and pinky down
+                        }
+                    });
+                    thumb.rotation.x = -Math.PI / 3;
+                    break;
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Subtle floating animation
+            const time = Date.now() * 0.001;
+            playerHand.position.y = Math.sin(time) * 0.1;
+            computerHand.position.y = Math.sin(time + Math.PI) * 0.1;
+            
+            renderer.render(scene, camera);
+        }
+
+        function playGame(playerChoice) {
+            if (animating) return;
+            
+            animating = true;
+            const choices = ['rock', 'paper', 'scissors'];
+            const computerChoice = choices[Math.floor(Math.random() * 3)];
+            
+            // Animate hands
+            setTimeout(() => {
+                setHandPose(playerHand, playerChoice);
+                setHandPose(computerHand, computerChoice);
+            }, 300);
+            
+            // Show result
+            setTimeout(() => {
+                const result = getResult(playerChoice, computerChoice);
+                showResult(result, playerChoice, computerChoice);
+                updateScore(result);
+                animating = false;
+            }, 800);
+        }
+
+        function getResult(player, computer) {
+            if (player === computer) return 'tie';
+            
+            const winConditions = {
+                rock: 'scissors',
+                paper: 'rock',
+                scissors: 'paper'
+            };
+            
+            return winConditions[player] === computer ? 'win' : 'lose';
+        }
+
+        function showResult(result, playerChoice, computerChoice) {
+            const resultDiv = document.getElementById('result');
+            const messages = {
+                win: '🎉 You Win!',
+                lose: '😞 You Lose!',
+                tie: '🤝 It\'s a Tie!'
+            };
+            
+            const choiceEmojis = {
+                rock: '🪨',
+                paper: '📄',
+                scissors: '✂️'
+            };
+            
+            resultDiv.innerHTML = `
+                <div>${messages[result]}</div>
+                <div style="font-size: 16px; margin-top: 10px;">
+                    You: ${choiceEmojis[playerChoice]} vs Computer: ${choiceEmojis[computerChoice]}
+                </div>
+            `;
+            
+            resultDiv.style.opacity = '1';
+            
+            setTimeout(() => {
+                resultDiv.style.opacity = '0';
+            }, 2000);
+        }
+
+        function updateScore(result) {
+            if (result === 'win') {
+                playerScore++;
+                document.getElementById('playerScore').textContent = playerScore;
+            } else if (result === 'lose') {
+                computerScore++;
+                document.getElementById('computerScore').textContent = computerScore;
+            }
+        }
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            if (animating) return;
+            
+            const key = e.key.toLowerCase();
+            if (key === 'r') playGame('rock');
+            else if (key === 'p') playGame('paper');
+            else if (key === 's') playGame('scissors');
+        });
+
+        // Touch controls for buttons (already handled by onclick)
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Start game
+        init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,145 @@
+/* mobile.css - Mobile specific styles and controls */
+
+.mobile-controls {
+    position: absolute;
+    bottom: 20px;
+    width: 100%;
+    display: none;
+    pointer-events: none;
+}
+
+/* Joystick Controls */
+.joystick-area {
+    position: absolute;
+    left: 20px;
+    bottom: 0;
+    width: 120px;
+    height: 120px;
+    pointer-events: auto;
+}
+
+.joystick-base {
+    width: 100px;
+    height: 100px;
+    background: rgba(0, 255, 0, 0.2);
+    border: 3px solid rgba(0, 255, 0, 0.5);
+    border-radius: 50%;
+    position: relative;
+}
+
+.joystick-knob {
+    width: 40px;
+    height: 40px;
+    background: #00ff00;
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 10px #00ff00;
+}
+
+/* Action Buttons */
+.action-buttons {
+    position: absolute;
+    right: 20px;
+    bottom: 0;
+    display: flex;
+    gap: 10px;
+    pointer-events: auto;
+}
+
+.btn {
+    width: 60px;
+    height: 60px;
+    background: rgba(0, 255, 0, 0.2);
+    border: 2px solid rgba(0, 255, 0, 0.5);
+    border-radius: 50%;
+    color: #00ff00;
+    font-size: 14px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    text-shadow: 0 0 5px #00ff00;
+}
+
+.btn:active {
+    background: rgba(0, 255, 0, 0.4);
+    transform: scale(0.95);
+}
+
+.shoot-btn {
+    background: rgba(255, 0, 0, 0.3);
+    border-color: rgba(255, 0, 0, 0.6);
+    color: #ff0000;
+    text-shadow: 0 0 5px #ff0000;
+}
+
+/* Media Queries for Mobile Detection */
+@media (max-width: 768px), (pointer: coarse) {
+    .mobile-controls {
+        display: block;
+    }
+    
+    #gameContainer {
+        max-height: calc(100vh - 140px);
+    }
+    
+    #ui {
+        font-size: 14px;
+    }
+    
+    #debugMenu {
+        max-width: 90vw;
+        max-height: 70vh;
+        font-size: 10px;
+    }
+    
+    .debug-btn {
+        font-size: 10px;
+        padding: 4px 8px;
+    }
+    
+    .start-btn {
+        font-size: 18px;
+        padding: 12px 25px;
+    }
+    
+    #startScreen h1 {
+        font-size: 36px;
+    }
+}
+
+/* Landscape Mode Adjustments */
+@media (orientation: landscape) and (max-height: 500px) {
+    .mobile-controls {
+        bottom: 10px;
+    }
+    
+    .joystick-area {
+        width: 100px;
+        height: 100px;
+    }
+    
+    .joystick-base {
+        width: 80px;
+        height: 80px;
+    }
+    
+    .joystick-knob {
+        width: 30px;
+        height: 30px;
+    }
+    
+    .btn {
+        width: 50px;
+        height: 50px;
+        font-size: 12px;
+    }
+    
+    #gameContainer {
+        max-height: calc(100vh - 110px);
+    }
+}

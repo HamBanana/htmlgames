@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>John The Pumpman</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(180deg, #000 0%, #001122 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            position: relative;
+            background: #000;
+            border: 3px solid #00ff88;
+            border-radius: 10px;
+            box-shadow: 0 0 20px #00ff8850;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: #000;
+            border-radius: 8px;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #00ff88;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 0 0 5px #00ff88;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            background: rgba(0, 255, 136, 0.2);
+            border: 2px solid rgba(0, 255, 136, 0.5);
+            border-radius: 50%;
+            color: #00ff88;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.1s;
+            text-shadow: 0 0 5px #00ff88;
+        }
+        
+        .control-btn:active {
+            background: rgba(0, 255, 136, 0.4);
+            transform: scale(0.95);
+            box-shadow: 0 0 10px #00ff88;
+        }
+        
+        .pump-btn {
+            background: rgba(0, 255, 255, 0.3);
+            border-color: rgba(0, 255, 255, 0.6);
+            color: #00ffff;
+            text-shadow: 0 0 5px #00ffff;
+        }
+        
+        #instructions {
+            position: absolute;
+            top: 50px;
+            left: 10px;
+            color: #888;
+            font-size: 12px;
+            max-width: 200px;
+        }
+        
+        #gameOverScreen, #winScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #00ff88;
+            text-align: center;
+            border-radius: 8px;
+        }
+        
+        #gameOverScreen h1 {
+            color: #ff0000;
+            font-size: 48px;
+            margin: 20px 0;
+            text-shadow: 0 0 10px #ff0000;
+        }
+        
+        #winScreen h1 {
+            color: #00ff88;
+            font-size: 48px;
+            margin: 20px 0;
+            text-shadow: 0 0 10px #00ff88;
+        }
+        
+        .final-score {
+            font-size: 24px;
+            margin: 20px 0;
+            text-shadow: 0 0 5px currentColor;
+        }
+        
+        .restart-btn {
+            padding: 15px 30px;
+            font-size: 20px;
+            background: #00ff88;
+            color: #000;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+        
+        .restart-btn:hover {
+            background: #00cc66;
+            box-shadow: 0 0 15px #00ff88;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="ui">
+            <div>SCORE: <span id="score">0</span></div>
+            <div>LIVES: <span id="lives">3</span></div>
+            <div>DEPTH: <span id="depth">0</span></div>
+        </div>
+        <div id="instructions">
+            Use WASD/arrows to move<br>
+            SPACE to pump enemies<br>
+            Keep pumping to inflate!<br>
+            Collect gems, avoid enemies!
+        </div>
+        <div id="controls">
+            <div class="control-btn" data-key="w">↑</div>
+            <div class="control-btn" data-key="s">↓</div>
+            <div class="control-btn" data-key="a">←</div>
+            <div class="control-btn" data-key="d">→</div>
+            <div class="control-btn pump-btn" data-key=" ">PUMP</div>
+        </div>
+        
+        <div id="gameOverScreen">
+            <h1>GAME OVER</h1>
+            <div class="final-score">FINAL SCORE: <span id="finalScore1">0</span></div>
+            <button class="restart-btn" onclick="restartGame()">PLAY AGAIN</button>
+        </div>
+        
+        <div id="winScreen">
+            <h1>VICTORY!</h1>
+            <div class="final-score">FINAL SCORE: <span id="finalScore2">0</span></div>
+            <button class="restart-btn" onclick="restartGame()">PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Game state
+        let score = 0;
+        let lives = 3;
+        let gameRunning = true;
+        let gameState = 'playing';
+        let frameCount = 0;
+        let depth = 0;
+        
+        // Grid system
+        const TILE_SIZE = 20;
+        const GRID_WIDTH = Math.floor(canvas.width / TILE_SIZE);
+        const GRID_HEIGHT = Math.floor(canvas.height / TILE_SIZE);
+        
+        // Create dirt grid (1 = dirt, 0 = tunnel)
+        let dirtGrid = [];
+        
+        // Player object
+        let player = {
+            x: 1,
+            y: 1,
+            smoothX: 1 * TILE_SIZE,
+            smoothY: 1 * TILE_SIZE,
+            velocityX: 0,
+            velocityY: 0,
+            width: TILE_SIZE - 2,
+            height: TILE_SIZE - 2,
+            color: '#00ff88',
+            facingX: 1, // Direction player is facing
+            facingY: 0,
+            animFrame: 0,
+            speed: 4,
+            acceleration: 0.8,
+            friction: 0.85
+        };
+        
+        // Arrays
+        let enemies = [];
+        let gems = [];
+        let pumpProjectiles = [];
+        let particles = [];
+        
+        // Input handling
+        const keys = {};
+        
+        // Initialize game
+        function init() {
+            score = 0;
+            lives = 3;
+            gameRunning = true;
+            gameState = 'playing';
+            frameCount = 0;
+            depth = 0;
+            enemies = [];
+            gems = [];
+            pumpProjectiles = [];
+            particles = [];
+            
+            player.x = 1;
+            player.y = 1;
+            player.smoothX = 1 * TILE_SIZE;
+            player.smoothY = 1 * TILE_SIZE;
+            player.velocityX = 0;
+            player.velocityY = 0;
+            player.facingX = 1;
+            player.facingY = 0;
+            player.animFrame = 0;
+            
+            // Create dirt grid
+            dirtGrid = [];
+            for (let y = 0; y < GRID_HEIGHT; y++) {
+                dirtGrid[y] = [];
+                for (let x = 0; x < GRID_WIDTH; x++) {
+                    dirtGrid[y][x] = y > 2 ? 1 : 0;
+                }
+            }
+            
+            // Create enemies with pump attachment system
+            for (let i = 0; i < 8; i++) {
+                const gridX = Math.floor(Math.random() * (GRID_WIDTH - 10)) + 5;
+                const gridY = Math.floor(Math.random() * (GRID_HEIGHT - 10)) + 8;
+                
+                enemies.push({
+                    x: gridX,
+                    y: gridY,
+                    smoothX: gridX * TILE_SIZE,
+                    smoothY: gridY * TILE_SIZE,
+                    velocityX: 0,
+                    velocityY: 0,
+                    width: TILE_SIZE - 2,
+                    height: TILE_SIZE - 2,
+                    color: '#ff4444',
+                    glowColor: '#ff8888',
+                    inflated: 0,
+                    maxInflation: 4,
+                    alive: true,
+                    animFrame: 0,
+                    speed: 2.5,
+                    // Pump attachment system
+                    pumpAttached: false,
+                    pumpTimer: 0,
+                    lastPumpTime: 0,
+                    deflateDelay: 30 // 0.5 seconds at 60fps
+                });
+            }
+            
+            // Create corridors for enemies
+            enemies.forEach((enemy, index) => {
+                const isHorizontal = Math.random() > 0.5;
+                
+                if (isHorizontal) {
+                    const corridorY = enemy.y;
+                    const corridorStartX = Math.max(0, enemy.x - 2);
+                    const corridorEndX = Math.min(GRID_WIDTH - 1, corridorStartX + 4);
+                    
+                    for (let x = corridorStartX; x <= corridorEndX; x++) {
+                        if (x >= 0 && x < GRID_WIDTH && corridorY >= 0 && corridorY < GRID_HEIGHT) {
+                            dirtGrid[corridorY][x] = 0;
+                        }
+                    }
+                } else {
+                    const corridorX = enemy.x;
+                    const corridorStartY = Math.max(3, enemy.y - 2);
+                    const corridorEndY = Math.min(GRID_HEIGHT - 1, corridorStartY + 4);
+                    
+                    for (let y = corridorStartY; y <= corridorEndY; y++) {
+                        if (y >= 0 && y < GRID_HEIGHT && corridorX >= 0 && corridorX < GRID_WIDTH) {
+                            dirtGrid[y][corridorX] = 0;
+                        }
+                    }
+                }
+            });
+            
+            // Create gems with different types
+            for (let i = 0; i < 15; i++) {
+                let x, y;
+                do {
+                    x = Math.floor(Math.random() * GRID_WIDTH);
+                    y = Math.floor(Math.random() * (GRID_HEIGHT - 5)) + 5;
+                } while (dirtGrid[y][x] === 0);
+                
+                const gemTypes = [
+                    { color: '#ffff00', glowColor: '#ffff88', points: 100 },
+                    { color: '#ff00ff', glowColor: '#ff88ff', points: 200 },
+                    { color: '#00ffff', glowColor: '#88ffff', points: 300 }
+                ];
+                const gemType = gemTypes[Math.floor(Math.random() * gemTypes.length)];
+                
+                gems.push({
+                    x: x,
+                    y: y,
+                    width: TILE_SIZE - 6,
+                    height: TILE_SIZE - 6,
+                    color: gemType.color,
+                    glowColor: gemType.glowColor,
+                    points: gemType.points,
+                    collected: false,
+                    animFrame: 0
+                });
+            }
+            
+            document.getElementById('gameOverScreen').style.display = 'none';
+            document.getElementById('winScreen').style.display = 'none';
+        }
+        
+        // Create particles for effects
+        function createParticles(x, y, color, count = 10) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x * TILE_SIZE + TILE_SIZE/2,
+                    y: y * TILE_SIZE + TILE_SIZE/2,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8,
+                    life: 30,
+                    maxLife: 30,
+                    color: color,
+                    size: Math.random() * 3 + 1
+                });
+            }
+        }
+        
+        // Create particles at smooth position
+        function createParticlesSmooth(x, y, color, count = 10) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x + TILE_SIZE/2,
+                    y: y + TILE_SIZE/2,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8,
+                    life: 30,
+                    maxLife: 30,
+                    color: color,
+                    size: Math.random() * 3 + 1
+                });
+            }
+        }
+        
+        // Move player with smooth, fluid movement
+        function movePlayer(dx, dy) {
+            if (!gameRunning || gameState !== 'playing') return;
+            
+            // Update facing direction when moving
+            if (dx !== 0 || dy !== 0) {
+                player.facingX = dx;
+                player.facingY = dy;
+            }
+            
+            // Apply acceleration based on input
+            player.velocityX += dx * player.acceleration;
+            player.velocityY += dy * player.acceleration;
+            
+            // Apply friction when no input
+            if (dx === 0) player.velocityX *= player.friction;
+            if (dy === 0) player.velocityY *= player.friction;
+            
+            // Limit maximum speed
+            const currentSpeed = Math.sqrt(player.velocityX * player.velocityX + player.velocityY * player.velocityY);
+            if (currentSpeed > player.speed) {
+                player.velocityX = (player.velocityX / currentSpeed) * player.speed;
+                player.velocityY = (player.velocityY / currentSpeed) * player.speed;
+            }
+            
+            // Calculate intended new position
+            const newX = player.smoothX + player.velocityX;
+            const newY = player.smoothY + player.velocityY;
+            
+            // Check for collision in X direction
+            let canMoveX = true;
+            const testGridX = Math.floor((newX + TILE_SIZE/2) / TILE_SIZE);
+            const testGridY = Math.floor((player.smoothY + TILE_SIZE/2) / TILE_SIZE);
+            
+            if (testGridX < 0 || testGridX >= GRID_WIDTH) {
+                canMoveX = false;
+                player.velocityX = 0;
+            }
+            
+            // Check for collision in Y direction
+            let canMoveY = true;
+            const testGridX2 = Math.floor((player.smoothX + TILE_SIZE/2) / TILE_SIZE);
+            const testGridY2 = Math.floor((newY + TILE_SIZE/2) / TILE_SIZE);
+            
+            if (testGridY2 < 0 || testGridY2 >= GRID_HEIGHT) {
+                canMoveY = false;
+                player.velocityY = 0;
+            }
+            
+            // Apply movement
+            if (canMoveX) {
+                player.smoothX = newX;
+            }
+            if (canMoveY) {
+                player.smoothY = newY;
+            }
+            
+            // Keep within bounds
+            player.smoothX = Math.max(0, Math.min(player.smoothX, (GRID_WIDTH - 1) * TILE_SIZE));
+            player.smoothY = Math.max(0, Math.min(player.smoothY, (GRID_HEIGHT - 1) * TILE_SIZE));
+            
+            // Update grid position for game logic
+            const currentGridX = Math.floor((player.smoothX + TILE_SIZE/2) / TILE_SIZE);
+            const currentGridY = Math.floor((player.smoothY + TILE_SIZE/2) / TILE_SIZE);
+            
+            // Check if we've moved to a new grid cell
+            if (currentGridX !== player.x || currentGridY !== player.y) {
+                player.x = currentGridX;
+                player.y = currentGridY;
+                
+                // Update depth indicator
+                depth = Math.max(depth, player.y - 2);
+                
+                // Dig tunnel with particle effects
+                if (dirtGrid[player.y] && dirtGrid[player.y][player.x] === 1) {
+                    dirtGrid[player.y][player.x] = 0;
+                    score += 10;
+                    createParticles(player.x, player.y, '#8B4513', 5);
+                }
+                
+                // Check gem collection
+                gems.forEach(gem => {
+                    if (!gem.collected && gem.x === player.x && gem.y === player.y) {
+                        gem.collected = true;
+                        score += gem.points;
+                        createParticles(gem.x, gem.y, gem.color, 15);
+                    }
+                });
+            }
+        }
+        
+        // Pump attack - shoots projectile in facing direction
+        function pumpAttack() {
+            if (!gameRunning || gameState !== 'playing') return;
+            
+            // Check if we already have a pump projectile active
+            if (pumpProjectiles.length > 0) {
+                // If pump is attached to an enemy, inflate it
+                const activeProjectile = pumpProjectiles[0];
+                if (activeProjectile.attachedEnemy) {
+                    const enemy = activeProjectile.attachedEnemy;
+                    if (enemy.alive && enemy.pumpAttached) {
+                        enemy.inflated = Math.min(enemy.inflated + 1, enemy.maxInflation);
+                        enemy.lastPumpTime = frameCount;
+                        createParticlesSmooth(enemy.smoothX, enemy.smoothY, '#00ffff', 8);
+                        
+                        if (enemy.inflated >= enemy.maxInflation) {
+                            // Enemy explodes
+                            enemy.alive = false;
+                            enemy.pumpAttached = false;
+                            score += 200;
+                            createParticlesSmooth(enemy.smoothX, enemy.smoothY, '#ffff00', 20);
+                            
+                            // Remove pump projectile
+                            pumpProjectiles = [];
+                        }
+                    }
+                }
+                return;
+            }
+            
+            // Create new pump projectile
+            pumpProjectiles.push({
+                x: player.smoothX + TILE_SIZE/2,
+                y: player.smoothY + TILE_SIZE/2,
+                dirX: player.facingX,
+                dirY: player.facingY,
+                speed: 8,
+                width: 4,
+                height: 4,
+                life: 60, // How long it travels
+                attachedEnemy: null,
+                segments: [] // For the jagged line effect
+            });
+        }
+        
+        // Update pump projectiles
+        function updatePumpProjectiles() {
+            pumpProjectiles.forEach((projectile, pIndex) => {
+                if (projectile.attachedEnemy) {
+                    // Pump is attached, handle deflation timing
+                    const enemy = projectile.attachedEnemy;
+                    if (enemy.alive && enemy.pumpAttached) {
+                        // Check if we should deflate
+                        if (frameCount - enemy.lastPumpTime > enemy.deflateDelay) {
+                            enemy.inflated = Math.max(enemy.inflated - 1, 0);
+                            enemy.lastPumpTime = frameCount;
+                            
+                            // If deflated to 0, detach pump
+                            if (enemy.inflated <= 0) {
+                                enemy.pumpAttached = false;
+                                projectile.attachedEnemy = null;
+                                pumpProjectiles.splice(pIndex, 1);
+                            }
+                        }
+                        
+                        // Update projectile position to follow enemy
+                        projectile.x = enemy.smoothX + TILE_SIZE/2;
+                        projectile.y = enemy.smoothY + TILE_SIZE/2;
+                    } else {
+                        // Enemy died or lost attachment
+                        pumpProjectiles.splice(pIndex, 1);
+                    }
+                } else {
+                    // Projectile is flying
+                    projectile.x += projectile.dirX * projectile.speed;
+                    projectile.y += projectile.dirY * projectile.speed;
+                    projectile.life--;
+                    
+                    // Add segment for trail effect
+                    projectile.segments.push({
+                        x: projectile.x,
+                        y: projectile.y,
+                        life: 10
+                    });
+                    
+                    // Update segments
+                    projectile.segments = projectile.segments.filter(segment => {
+                        segment.life--;
+                        return segment.life > 0;
+                    });
+                    
+                    // Check collision with dirt
+                    const gridX = Math.floor(projectile.x / TILE_SIZE);
+                    const gridY = Math.floor(projectile.y / TILE_SIZE);
+                    
+                    if (gridX < 0 || gridX >= GRID_WIDTH || gridY < 0 || gridY >= GRID_HEIGHT ||
+                        (dirtGrid[gridY] && dirtGrid[gridY][gridX] === 1)) {
+                        // Hit dirt, remove projectile
+                        pumpProjectiles.splice(pIndex, 1);
+                        return;
+                    }
+                    
+                    // Check collision with enemies
+                    enemies.forEach(enemy => {
+                        if (!enemy.alive || enemy.pumpAttached) return;
+                        
+                        const dx = Math.abs(projectile.x - (enemy.smoothX + TILE_SIZE/2));
+                        const dy = Math.abs(projectile.y - (enemy.smoothY + TILE_SIZE/2));
+                        
+                        if (dx < TILE_SIZE/2 && dy < TILE_SIZE/2) {
+                            // Hit enemy, attach pump
+                            enemy.pumpAttached = true;
+                            enemy.lastPumpTime = frameCount;
+                            enemy.inflated = Math.min(enemy.inflated + 1, enemy.maxInflation);
+                            projectile.attachedEnemy = enemy;
+                            createParticlesSmooth(enemy.smoothX, enemy.smoothY, '#00ffff', 12);
+                        }
+                    });
+                    
+                    // Remove if life expired
+                    if (projectile.life <= 0) {
+                        pumpProjectiles.splice(pIndex, 1);
+                    }
+                }
+            });
+        }
+        
+        // Update enemies with pump attachment system
+        function updateEnemies() {
+            enemies.forEach(enemy => {
+                if (!enemy.alive) return;
+                
+                enemy.animFrame = (enemy.animFrame + 1) % 120;
+                
+                // Enemies with attached pumps can't move or move very slowly
+                if (enemy.pumpAttached) {
+                    // Attached enemies don't chase player
+                    enemy.velocityX *= 0.1;
+                    enemy.velocityY *= 0.1;
+                    return;
+                }
+                
+                // Reduce movement when inflated (even without pump attached)
+                const speedMultiplier = enemy.inflated > 0 ? Math.max(0.3, 1 - enemy.inflated * 0.2) : 1.0;
+                
+                // Current position in pixels
+                const currentPixelX = enemy.smoothX + TILE_SIZE/2;
+                const currentPixelY = enemy.smoothY + TILE_SIZE/2;
+                
+                // Target position (player) in pixels
+                const targetPixelX = player.smoothX + TILE_SIZE/2;
+                const targetPixelY = player.smoothY + TILE_SIZE/2;
+                
+                // Calculate direction vector to player
+                const dx = targetPixelX - currentPixelX;
+                const dy = targetPixelY - currentPixelY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance > 0) {
+                    // Normalize direction vector
+                    const dirX = dx / distance;
+                    const dirY = dy / distance;
+                    
+                    // Apply acceleration toward target (fluid physics)
+                    const acceleration = 0.3 * speedMultiplier;
+                    const maxSpeed = enemy.speed * speedMultiplier;
+                    
+                    // Add to velocity with acceleration
+                    enemy.velocityX += dirX * acceleration;
+                    enemy.velocityY += dirY * acceleration;
+                    
+                    // Apply friction/drag
+                    enemy.velocityX *= 0.95;
+                    enemy.velocityY *= 0.95;
+                    
+                    // Limit maximum speed
+                    const currentVelMagnitude = Math.sqrt(enemy.velocityX * enemy.velocityX + enemy.velocityY * enemy.velocityY);
+                    if (currentVelMagnitude > maxSpeed) {
+                        enemy.velocityX = (enemy.velocityX / currentVelMagnitude) * maxSpeed;
+                        enemy.velocityY = (enemy.velocityY / currentVelMagnitude) * maxSpeed;
+                    }
+                    
+                    // Calculate intended new position
+                    const newX = enemy.smoothX + enemy.velocityX;
+                    const newY = enemy.smoothY + enemy.velocityY;
+                    
+                    // Check for collision in X direction
+                    let canMoveX = true;
+                    const testGridX = Math.floor((newX + TILE_SIZE/2) / TILE_SIZE);
+                    const testGridY = Math.floor((enemy.smoothY + TILE_SIZE/2) / TILE_SIZE);
+                    
+                    if (testGridX < 0 || testGridX >= GRID_WIDTH || 
+                        (dirtGrid[testGridY] && dirtGrid[testGridY][testGridX] === 1)) {
+                        canMoveX = false;
+                        enemy.velocityX *= -0.5; // Bounce back with reduced speed
+                    }
+                    
+                    // Check for collision in Y direction
+                    let canMoveY = true;
+                    const testGridX2 = Math.floor((enemy.smoothX + TILE_SIZE/2) / TILE_SIZE);
+                    const testGridY2 = Math.floor((newY + TILE_SIZE/2) / TILE_SIZE);
+                    
+                    if (testGridY2 < 0 || testGridY2 >= GRID_HEIGHT || 
+                        (dirtGrid[testGridY2] && dirtGrid[testGridY2][testGridX2] === 1)) {
+                        canMoveY = false;
+                        enemy.velocityY *= -0.5; // Bounce back with reduced speed
+                    }
+                    
+                    // Apply movement
+                    if (canMoveX) {
+                        enemy.smoothX = newX;
+                    }
+                    if (canMoveY) {
+                        enemy.smoothY = newY;
+                    }
+                }
+                
+                // Keep within bounds
+                enemy.smoothX = Math.max(0, Math.min(enemy.smoothX, (GRID_WIDTH - 1) * TILE_SIZE));
+                enemy.smoothY = Math.max(0, Math.min(enemy.smoothY, (GRID_HEIGHT - 1) * TILE_SIZE));
+                
+                // Stop velocity if hitting bounds
+                if (enemy.smoothX <= 0 || enemy.smoothX >= (GRID_WIDTH - 1) * TILE_SIZE) {
+                    enemy.velocityX = 0;
+                }
+                if (enemy.smoothY <= 0 || enemy.smoothY >= (GRID_HEIGHT - 1) * TILE_SIZE) {
+                    enemy.velocityY = 0;
+                }
+                
+                // Update grid position for collision detection
+                enemy.x = Math.floor((enemy.smoothX + TILE_SIZE/2) / TILE_SIZE);
+                enemy.y = Math.floor((enemy.smoothY + TILE_SIZE/2) / TILE_SIZE);
+            });
+        }
+        
+        // Update particles
+        function updateParticles() {
+            particles = particles.filter(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vx *= 0.95;
+                p.vy *= 0.95;
+                p.life--;
+                return p.life > 0;
+            });
+        }
+        
+        // Check collisions using smooth positions
+        function checkCollisions() {
+            enemies.forEach(enemy => {
+                if (!enemy.alive) return;
+                
+                // Don't check collision if enemy has pump attached (they're being inflated)
+                if (enemy.pumpAttached) return;
+                
+                // Check collision using smooth positions with tolerance
+                const dx = Math.abs(enemy.smoothX - player.smoothX);
+                const dy = Math.abs(enemy.smoothY - player.smoothY);
+                const collisionDistance = TILE_SIZE * 0.8;
+                
+                if (dx < collisionDistance && dy < collisionDistance) {
+                    lives--;
+                    createParticlesSmooth(player.smoothX, player.smoothY, '#ff0000', 15);
+                    
+                    if (lives <= 0) {
+                        gameState = 'gameOver';
+                        gameRunning = false;
+                        showGameOver();
+                    } else {
+                        // Reset player position
+                        player.x = 1;
+                        player.y = 1;
+                        player.smoothX = 1 * TILE_SIZE;
+                        player.smoothY = 1 * TILE_SIZE;
+                        player.velocityX = 0;
+                        player.velocityY = 0;
+                    }
+                }
+            });
+        }
+        
+        // Show screens
+        function showGameOver() {
+            document.getElementById('finalScore1').textContent = score;
+            document.getElementById('gameOverScreen').style.display = 'flex';
+        }
+        
+        function showWin() {
+            document.getElementById('finalScore2').textContent = score;
+            document.getElementById('winScreen').style.display = 'flex';
+        }
+        
+        function restartGame() {
+            init();
+        }
+        
+        // Render game
+        function render() {
+            // Clear canvas with space background
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw stars
+            ctx.fillStyle = '#ffffff';
+            for (let i = 0; i < 50; i++) {
+                const x = (i * 123) % canvas.width;
+                const y = (i * 456) % canvas.height;
+                const twinkle = Math.sin(frameCount * 0.1 + i) * 0.5 + 0.5;
+                ctx.globalAlpha = twinkle * 0.8 + 0.2;
+                ctx.fillRect(x, y, 1, 1);
+            }
+            ctx.globalAlpha = 1.0;
+            
+            // Draw dirt with enhanced texture
+            for (let y = 0; y < GRID_HEIGHT; y++) {
+                for (let x = 0; x < GRID_WIDTH; x++) {
+                    if (dirtGrid[y][x] === 1) {
+                        // Base dirt color with depth shading
+                        const depthShade = Math.min(255, 100 + y * 8);
+                        ctx.fillStyle = `rgb(${Math.floor(depthShade * 0.5)}, ${Math.floor(depthShade * 0.3)}, ${Math.floor(depthShade * 0.1)})`;
+                        ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                        
+                        // Add texture dots
+                        ctx.fillStyle = `rgb(${Math.floor(depthShade * 0.3)}, ${Math.floor(depthShade * 0.2)}, ${Math.floor(depthShade * 0.05)})`;
+                        ctx.fillRect(x * TILE_SIZE + 5, y * TILE_SIZE + 5, 2, 2);
+                        ctx.fillRect(x * TILE_SIZE + 12, y * TILE_SIZE + 8, 2, 2);
+                        ctx.fillRect(x * TILE_SIZE + 8, y * TILE_SIZE + 15, 2, 2);
+                    }
+                }
+            }
+            
+            // Draw pump projectiles as arrows with jagged lines
+            pumpProjectiles.forEach(projectile => {
+                if (projectile.attachedEnemy) {
+                    // Draw pump line attached to enemy
+                    const enemy = projectile.attachedEnemy;
+                    ctx.strokeStyle = '#00ffff';
+                    ctx.lineWidth = 3;
+                    ctx.globalAlpha = 0.8;
+                    ctx.beginPath();
+                    ctx.moveTo(player.smoothX + TILE_SIZE/2, player.smoothY + TILE_SIZE/2);
+                    
+                    // Create jagged line to enemy
+                    const steps = 8;
+                    for (let i = 1; i <= steps; i++) {
+                        const t = i / steps;
+                        const x = player.smoothX + TILE_SIZE/2 + (enemy.smoothX + TILE_SIZE/2 - player.smoothX - TILE_SIZE/2) * t;
+                        const y = player.smoothY + TILE_SIZE/2 + (enemy.smoothY + TILE_SIZE/2 - player.smoothY - TILE_SIZE/2) * t;
+                        
+                        // Add jagged offset
+                        const jagX = x + Math.sin(i * 1.5) * 5;
+                        const jagY = y + Math.cos(i * 1.2) * 5;
+                        
+                        ctx.lineTo(jagX, jagY);
+                    }
+                    ctx.stroke();
+                    ctx.globalAlpha = 1.0;
+                    
+                    // Draw pump connector at enemy
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(enemy.smoothX + TILE_SIZE/2 - 2, enemy.smoothY + TILE_SIZE/2 - 2, 4, 4);
+                } else {
+                    // Draw flying projectile as arrow
+                    ctx.fillStyle = '#00ffff';
+                    ctx.globalAlpha = 0.9;
+                    
+                    // Arrow head
+                    ctx.fillRect(projectile.x - 2, projectile.y - 2, 4, 4);
+                    
+                    // Arrow shaft (trailing segments)
+                    projectile.segments.forEach((segment, index) => {
+                        const alpha = segment.life / 10;
+                        ctx.globalAlpha = alpha * 0.7;
+                        const size = Math.max(1, 3 - index * 0.3);
+                        ctx.fillRect(segment.x - size/2, segment.y - size/2, size, size);
+                    });
+                    
+                    ctx.globalAlpha = 1.0;
+                }
+            });
+            
+            // Draw gems with glow and animation
+            gems.forEach(gem => {
+                if (!gem.collected) {
+                    gem.animFrame = (gem.animFrame + 1) % 120;
+                    const pulse = Math.sin(gem.animFrame * 0.1) * 0.3 + 0.7;
+                    const glow = Math.sin(gem.animFrame * 0.15) * 0.5 + 0.5;
+                    
+                    // Glow effect
+                    ctx.fillStyle = gem.glowColor;
+                    ctx.globalAlpha = glow * 0.4;
+                    ctx.fillRect(
+                        gem.x * TILE_SIZE + 1, 
+                        gem.y * TILE_SIZE + 1, 
+                        gem.width + 2, 
+                        gem.height + 2
+                    );
+                    
+                    // Main gem
+                    ctx.globalAlpha = 1.0;
+                    ctx.fillStyle = gem.color;
+                    ctx.fillRect(
+                        gem.x * TILE_SIZE + 3, 
+                        gem.y * TILE_SIZE + 3, 
+                        gem.width * pulse, 
+                        gem.height * pulse
+                    );
+                    
+                    // Shine effect
+                    ctx.fillStyle = '#ffffff';
+                    ctx.globalAlpha = pulse;
+                    ctx.fillRect(gem.x * TILE_SIZE + 5, gem.y * TILE_SIZE + 5, 3, 3);
+                    ctx.globalAlpha = 1.0;
+                }
+            });
+            
+            // Draw player with enhanced effects
+            player.animFrame = (player.animFrame + 1) % 60;
+            const playerPulse = Math.sin(player.animFrame * 0.2) * 0.1 + 0.9;
+            
+            // Player glow
+            ctx.fillStyle = '#88ffcc';
+            ctx.globalAlpha = 0.3;
+            ctx.fillRect(
+                player.smoothX - 2, 
+                player.smoothY - 2, 
+                player.width + 4, 
+                player.height + 4
+            );
+            
+            // Main player
+            ctx.globalAlpha = 1.0;
+            ctx.fillStyle = player.color;
+            ctx.fillRect(
+                player.smoothX + 1, 
+                player.smoothY + 1, 
+                player.width * playerPulse, 
+                player.height * playerPulse
+            );
+            
+            // Player details
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(player.smoothX + 4, player.smoothY + 4, 3, 3);
+            ctx.fillRect(player.smoothX + 11, player.smoothY + 4, 3, 3);
+            
+            // Draw facing direction indicator
+            ctx.fillStyle = '#ffff00';
+            const faceX = player.smoothX + TILE_SIZE/2 + player.facingX * 8;
+            const faceY = player.smoothY + TILE_SIZE/2 + player.facingY * 8;
+            ctx.fillRect(faceX - 1, faceY - 1, 2, 2);
+            
+            // Draw enemies with enhanced effects
+            enemies.forEach(enemy => {
+                if (!enemy.alive) return;
+                
+                enemy.animFrame = (enemy.animFrame + 1) % 120;
+                const pulse = Math.sin(enemy.animFrame * 0.1) * 0.2 + 0.8;
+                const baseSize = TILE_SIZE - 2;
+                const size = baseSize + (enemy.inflated * 3); // Grow when inflated
+                const offset = (TILE_SIZE - size) / 2;
+                
+                // Calculate movement intensity for visual effects
+                const velocity = Math.sqrt(enemy.velocityX * enemy.velocityX + enemy.velocityY * enemy.velocityY);
+                const isMovingFast = velocity > 1.5 && !enemy.pumpAttached;
+                
+                // Enemy glow (different color when pump attached)
+                if (enemy.pumpAttached) {
+                    ctx.fillStyle = '#00ffff';
+                    ctx.globalAlpha = 0.6;
+                } else {
+                    ctx.fillStyle = isMovingFast ? '#ff6666' : enemy.glowColor;
+                    ctx.globalAlpha = isMovingFast ? 0.6 : 0.4;
+                }
+                ctx.fillRect(
+                    enemy.smoothX + offset - 2, 
+                    enemy.smoothY + offset - 2, 
+                    size + 4, 
+                    size + 4
+                );
+                
+                // Main enemy
+                ctx.globalAlpha = 1.0;
+                if (enemy.pumpAttached) {
+                    // Pulsing color when pump attached
+                    const pumpPulse = Math.sin(frameCount * 0.3) * 0.3 + 0.7;
+                    ctx.fillStyle = `rgb(255, ${Math.floor(255 * pumpPulse)}, ${Math.floor(255 * pumpPulse)})`;
+                } else if (enemy.inflated > 0) {
+                    const inflateIntensity = enemy.inflated / enemy.maxInflation;
+                    ctx.fillStyle = `rgb(255, ${255 - enemy.inflated * 50}, ${255 - enemy.inflated * 50})`;
+                } else {
+                    ctx.fillStyle = isMovingFast ? '#ff2222' : enemy.color;
+                }
+                
+                ctx.fillRect(
+                    enemy.smoothX + offset, 
+                    enemy.smoothY + offset, 
+                    size * pulse, 
+                    size * pulse
+                );
+                
+                // Enemy eyes
+                ctx.fillStyle = isMovingFast ? '#ffff00' : '#ffffff';
+                const eyeSize = Math.max(2, 3 - enemy.inflated);
+                ctx.fillRect(enemy.smoothX + 4, enemy.smoothY + 4, eyeSize, eyeSize);
+                ctx.fillRect(enemy.smoothX + 12, enemy.smoothY + 4, eyeSize, eyeSize);
+                
+                // Pump attached indicator
+                if (enemy.pumpAttached) {
+                    ctx.strokeStyle = '#00ffff';
+                    ctx.lineWidth = 2;
+                    ctx.globalAlpha = 0.8;
+                    ctx.strokeRect(
+                        enemy.smoothX + offset - 1, 
+                        enemy.smoothY + offset - 1, 
+                        size + 2, 
+                        size + 2
+                    );
+                    ctx.globalAlpha = 1.0;
+                }
+            });
+            
+            // Draw particles
+            particles.forEach(p => {
+                const alpha = p.life / p.maxLife;
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = alpha;
+                ctx.fillRect(p.x - p.size/2, p.y - p.size/2, p.size, p.size);
+            });
+            ctx.globalAlpha = 1.0;
+        }
+        
+        // Update UI
+        function updateUI() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('lives').textContent = lives;
+            document.getElementById('depth').textContent = depth;
+        }
+        
+        // Game loop
+        function gameLoop() {
+            frameCount++;
+            
+            if (gameRunning && gameState === 'playing') {
+                // Handle continuous input for smooth movement
+                let dx = 0, dy = 0;
+                if (keys['ArrowLeft'] || keys['a'] || keys['A']) dx = -1;
+                if (keys['ArrowRight'] || keys['d'] || keys['D']) dx = 1;
+                if (keys['ArrowUp'] || keys['w'] || keys['W']) dy = -1;
+                if (keys['ArrowDown'] || keys['s'] || keys['S']) dy = 1;
+                
+                if (dx !== 0 || dy !== 0) {
+                    movePlayer(dx, dy);
+                }
+                
+                updateEnemies();
+                updatePumpProjectiles();
+                updateParticles();
+                checkCollisions();
+                
+                // Check win condition
+                const remainingGems = gems.filter(gem => !gem.collected).length;
+                if (remainingGems === 0) {
+                    gameState = 'win';
+                    gameRunning = false;
+                    showWin();
+                }
+            }
+            
+            render();
+            updateUI();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Event listeners
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            
+            // Handle pump attack on key press (not continuous)
+            if (e.key === ' ') {
+                pumpAttack();
+                e.preventDefault();
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+        
+        // Touch controls
+        document.querySelectorAll('.control-btn').forEach(btn => {
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const key = btn.getAttribute('data-key');
+                keys[key] = true;
+                
+                // Handle pump attack
+                if (key === ' ') {
+                    pumpAttack();
+                }
+            });
+            
+            btn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                const key = btn.getAttribute('data-key');
+                keys[key] = false;
+            });
+            
+            btn.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                const key = btn.getAttribute('data-key');
+                keys[key] = true;
+                
+                // Handle pump attack
+                if (key === ' ') {
+                    pumpAttack();
+                }
+            });
+            
+            btn.addEventListener('mouseup', (e) => {
+                e.preventDefault();
+                const key = btn.getAttribute('data-key');
+                keys[key] = false;
+            });
+        });
+        
+        // Prevent context menu on long press
+        document.addEventListener('contextmenu', e => e.preventDefault());
+        
+        // Start game
+        init();
+        gameLoop();
+    </script>
+</body>
+</html>

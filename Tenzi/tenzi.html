@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="">
+  <head>
+    <meta charset="utf-8">
+    <title></title>
+  </head>
+  <body>
+    <header></header>
+    <main></main><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tenzi</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .game-container {
+            max-width: 800px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 3em;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .game-info {
+            margin-bottom: 30px;
+            font-size: 1.2em;
+        }
+
+        .dice-container {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
+            margin: 30px 0;
+            justify-items: center;
+        }
+
+        .die {
+            width: 80px;
+            height: 80px;
+            background: white;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #333;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            user-select: none;
+        }
+
+        .die:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+        }
+
+        .die.selected {
+            background: #4CAF50;
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .die.rolling {
+            animation: roll 0.5s ease-in-out;
+        }
+
+        @keyframes roll {
+            0%, 100% { transform: rotate(0deg) scale(1); }
+            25% { transform: rotate(90deg) scale(1.1); }
+            50% { transform: rotate(180deg) scale(1.2); }
+            75% { transform: rotate(270deg) scale(1.1); }
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin: 30px 0;
+        }
+
+        button {
+            padding: 15px 30px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 8px;
+            background: #FF6B6B;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        button:hover {
+            background: #FF5252;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .target-display {
+            font-size: 1.5em;
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+        }
+
+        .win-message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            color: white;
+            padding: 40px;
+            border-radius: 15px;
+            font-size: 2em;
+            z-index: 1000;
+            display: none;
+            text-align: center;
+        }
+
+        .instructions {
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+
+        @media (max-width: 600px) {
+            .dice-container {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 10px;
+            }
+            
+            .die {
+                width: 60px;
+                height: 60px;
+                font-size: 2em;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            button {
+                width: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🎲 TENZI 🎲</h1>
+        
+        <div class="game-info">
+            <div class="target-display" id="targetDisplay">
+                Click "Roll All Dice" to start!
+            </div>
+        </div>
+
+        <div class="dice-container" id="diceContainer">
+            <!-- Dice will be generated here -->
+        </div>
+
+        <div class="controls">
+            <button id="rollAllBtn">Roll All Dice</button>
+            <button id="rollSelectedBtn" disabled>Roll Selected</button>
+            <button id="newGameBtn">New Game</button>
+        </div>
+
+        <div class="instructions">
+            <h3>How to Play Tenzi:</h3>
+            <p><strong>Goal:</strong> Get all 10 dice to show the same number</p>
+            <p><strong>Controls:</strong></p>
+            <p>• Click/tap dice to select them (green = selected)</p>
+            <p>• Keyboard: Use numbers 1-10 to select dice, SPACE to roll selected, R to roll all</p>
+            <p>• Roll all dice, then choose your target number</p>
+            <p>• Keep dice showing your target, roll the rest</p>
+            <p>• First to get all 10 dice matching wins!</p>
+        </div>
+    </div>
+
+    <div class="win-message" id="winMessage">
+        🎉 TENZI! 🎉<br>
+        You Win!
+        <br><br>
+        <button onclick="newGame()">Play Again</button>
+    </div>
+
+    <script>
+        let dice = [];
+        let selectedDice = [];
+        let targetNumber = null;
+        let gameStarted = false;
+
+        function initGame() {
+            dice = Array(10).fill().map(() => Math.floor(Math.random() * 6) + 1);
+            selectedDice = [];
+            targetNumber = null;
+            gameStarted = false;
+            renderDice();
+            updateUI();
+        }
+
+        function renderDice() {
+            const container = document.getElementById('diceContainer');
+            container.innerHTML = '';
+            
+            dice.forEach((value, index) => {
+                const die = document.createElement('div');
+                die.className = 'die';
+                die.textContent = value;
+                die.dataset.index = index;
+                
+                if (selectedDice.includes(index)) {
+                    die.classList.add('selected');
+                }
+                
+                die.addEventListener('click', () => toggleDie(index));
+                container.appendChild(die);
+            });
+        }
+
+        function toggleDie(index) {
+            if (!gameStarted) return;
+            
+            const dieIndex = selectedDice.indexOf(index);
+            if (dieIndex > -1) {
+                selectedDice.splice(dieIndex, 1);
+            } else {
+                selectedDice.push(index);
+            }
+            renderDice();
+            updateUI();
+        }
+
+        function rollAllDice() {
+            if (!gameStarted) {
+                // First roll - start the game
+                gameStarted = true;
+                document.getElementById('rollAllBtn').textContent = 'Roll All';
+            }
+            
+            animateRoll(() => {
+                dice = dice.map(() => Math.floor(Math.random() * 6) + 1);
+                selectedDice = [];
+                renderDice();
+                updateUI();
+                
+                if (!targetNumber) {
+                    document.getElementById('targetDisplay').innerHTML = 
+                        'Choose your target number by selecting dice that match!';
+                }
+                
+                checkWin();
+            });
+        }
+
+        function rollSelectedDice() {
+            if (selectedDice.length === 0) return;
+            
+            animateRoll(() => {
+                selectedDice.forEach(index => {
+                    dice[index] = Math.floor(Math.random() * 6) + 1;
+                });
+                
+                selectedDice = [];
+                renderDice();
+                updateUI();
+                checkWin();
+            });
+        }
+
+        function animateRoll(callback) {
+            const diceElements = document.querySelectorAll('.die');
+            diceElements.forEach(die => die.classList.add('rolling'));
+            
+            setTimeout(() => {
+                diceElements.forEach(die => die.classList.remove('rolling'));
+                callback();
+            }, 500);
+        }
+
+        function setTargetNumber() {
+            if (selectedDice.length === 0) return;
+            
+            const firstSelectedValue = dice[selectedDice[0]];
+            const allSelectedMatch = selectedDice.every(index => dice[index] === firstSelectedValue);
+            
+            if (allSelectedMatch) {
+                targetNumber = firstSelectedValue;
+                document.getElementById('targetDisplay').innerHTML = 
+                    `Target Number: <strong>${targetNumber}</strong> - Get all dice to show ${targetNumber}!`;
+                
+                // Auto-select all dice that match target
+                selectedDice = [];
+                dice.forEach((value, index) => {
+                    if (value !== targetNumber) {
+                        selectedDice.push(index);
+                    }
+                });
+                renderDice();
+                updateUI();
+            }
+        }
+
+        function updateUI() {
+            const rollSelectedBtn = document.getElementById('rollSelectedBtn');
+            rollSelectedBtn.disabled = selectedDice.length === 0 || !gameStarted;
+            
+            if (gameStarted && targetNumber === null && selectedDice.length > 0) {
+                setTargetNumber();
+            }
+        }
+
+        function checkWin() {
+            if (targetNumber && dice.every(die => die === targetNumber)) {
+                setTimeout(() => {
+                    document.getElementById('winMessage').style.display = 'block';
+                }, 500);
+            }
+        }
+
+        function newGame() {
+            document.getElementById('winMessage').style.display = 'none';
+            document.getElementById('rollAllBtn').textContent = 'Roll All Dice';
+            document.getElementById('targetDisplay').textContent = 'Click "Roll All Dice" to start!';
+            initGame();
+        }
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (selectedDice.length > 0) {
+                    rollSelectedDice();
+                }
+            } else if (e.key === 'r' || e.key === 'R') {
+                rollAllDice();
+            } else if (e.key >= '1' && e.key <= '9') {
+                const index = parseInt(e.key) - 1;
+                if (index < dice.length) {
+                    toggleDie(index);
+                }
+            } else if (e.key === '0') {
+                toggleDie(9); // 10th die
+            }
+        });
+
+        // Event listeners
+        document.getElementById('rollAllBtn').addEventListener('click', rollAllDice);
+        document.getElementById('rollSelectedBtn').addEventListener('click', rollSelectedDice);
+        document.getElementById('newGameBtn').addEventListener('click', newGame);
+
+        // Initialize game
+        initGame();
+    </script>
+</body>
+</html>
+    <footer></footer>
+  </body>
+</html>

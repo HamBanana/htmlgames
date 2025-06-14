@@ -1,0 +1,84 @@
+/* game-ui.css - Game UI specific styles */
+
+#ui {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    color: #00ff00;
+    font-size: 16px;
+    text-shadow: 0 0 5px #00ff00;
+}
+
+#ui div {
+    margin: 5px 0;
+}
+
+#chargeIndicator {
+    color: #00ffff;
+    text-shadow: 0 0 10px currentColor;
+    font-weight: bold;
+}
+
+#weaponIndicator {
+    position: absolute;
+    top: 10px;
+    left: 200px;
+    color: #ff00ff;
+    text-shadow: 0 0 10px currentColor;
+    font-weight: bold;
+}
+
+/* Health Bars */
+.health-bar {
+    display: inline-block;
+    width: 100px;
+    height: 10px;
+    background: #333;
+    border: 1px solid #00ff00;
+    margin-left: 10px;
+}
+
+.health-fill {
+    height: 100%;
+    background: #00ff00;
+    transition: width 0.3s;
+}
+
+/* Boss Health Bar */
+.boss-health {
+    position: absolute;
+    top: 50px;
+    right: 10px;
+    color: #ff0000;
+    display: none;
+}
+
+.boss-bar {
+    width: 200px;
+    background: #333;
+    border: 2px solid #ff0000;
+}
+
+.boss-fill {
+    background: #ff0000;
+}
+
+/* Debug Stats Display */
+#debugStats {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    color: #ff00ff;
+    font-size: 10px;
+    display: none;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 5px;
+    border: 1px solid #ff00ff;
+}
+
+/* Collision Debug Visualization */
+.collision-box {
+    position: absolute;
+    border: 1px solid #ff0000;
+    pointer-events: none;
+}

@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sprite Sheet to Aseprite JSON Converter</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        h1 {
+            color: #fff;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #999;
+            margin-bottom: 30px;
+        }
+        
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .panel {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        
+        .panel h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #fff;
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        input[type="file"],
+        input[type="number"],
+        input[type="text"],
+        select,
+        button {
+            width: 100%;
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid #444;
+            background: #333;
+            color: #e0e0e0;
+            font-size: 14px;
+        }
+        
+        input[type="number"] {
+            width: 100px;
+        }
+        
+        button {
+            background: #4a90e2;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-weight: 500;
+        }
+        
+        button:hover {
+            background: #357abd;
+        }
+        
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .button-group button {
+            flex: 1;
+        }
+        
+        .canvas-container {
+            position: relative;
+            display: inline-block;
+            background: #1a1a1a;
+            border-radius: 4px;
+            padding: 10px;
+        }
+        
+        canvas {
+            display: block;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+            cursor: crosshair;
+            border: 1px solid #444;
+        }
+        
+        .grid-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            pointer-events: none;
+        }
+        
+        .frame-info {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .frame-info input[type="number"] {
+            width: 80px;
+        }
+        
+        .animations-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 10px;
+            background: #1a1a1a;
+        }
+        
+        .animation-item {
+            padding: 10px;
+            margin-bottom: 10px;
+            background: #333;
+            border-radius: 4px;
+            border: 1px solid #444;
+        }
+        
+        .animation-item.active {
+            border-color: #4a90e2;
+            background: #3a3a3a;
+        }
+        
+        .animation-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .animation-name {
+            font-weight: 600;
+            color: #4a90e2;
+        }
+        
+        .animation-frames {
+            font-size: 12px;
+            color: #999;
+        }
+        
+        .delete-btn {
+            background: #e24a4a;
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+        
+        .delete-btn:hover {
+            background: #bd3535;
+        }
+        
+        .sprite-type-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .sprite-type-btn {
+            flex: 1;
+            padding: 10px;
+            background: #333;
+            border: 2px solid #444;
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        
+        .sprite-type-btn.active {
+            background: #4a90e2;
+            border-color: #4a90e2;
+        }
+        
+        .sprite-type-btn:hover {
+            background: #444;
+        }
+        
+        .sprite-type-btn.active:hover {
+            background: #357abd;
+        }
+        
+        .preview-section {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .preview-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .preview-canvas {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        .export-section {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        
+        .json-output {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+        
+        .selected-frames {
+            background: #1a1a1a;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        
+        .frame-tag {
+            display: inline-block;
+            background: #4a90e2;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin: 2px;
+            font-size: 12px;
+        }
+        
+        .scale-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        input[type="range"] {
+            width: 150px;
+        }
+        
+        .error-message {
+            background: #e24a4a;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            display: none;
+        }
+        
+        .success-message {
+            background: #4ae24a;
+            color: #1a1a1a;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Sprite Sheet to Aseprite JSON Converter</h1>
+        <p class="subtitle">Upload a sprite sheet, define frames and animations, then export as Aseprite JSON with embedded base64 image</p>
+        
+        <div class="error-message" id="errorMessage"></div>
+        <div class="success-message" id="successMessage"></div>
+        
+        <div class="main-grid">
+            <!-- Left Panel - Sprite Sheet -->
+            <div class="panel">
+                <h3>Sprite Sheet</h3>
+                
+                <div class="control-group">
+                    <label>Upload Sprite Sheet:</label>
+                    <input type="file" id="fileInput" accept="image/*">
+                </div>
+                
+                <div class="frame-info">
+                    <div class="control-group">
+                        <label>Frame Width:</label>
+                        <input type="number" id="frameWidth" value="64" min="1">
+                    </div>
+                    <div class="control-group">
+                        <label>Frame Height:</label>
+                        <input type="number" id="frameHeight" value="32" min="1">
+                    </div>
+                    <button id="updateGrid">Update Grid</button>
+                </div>
+                
+                <div class="scale-control">
+                    <label>Zoom:</label>
+                    <input type="range" id="zoomSlider" min="1" max="8" value="2" step="0.5">
+                    <span id="zoomValue">2x</span>
+                </div>
+                
+                <div class="canvas-container">
+                    <canvas id="spriteCanvas"></canvas>
+                    <canvas id="gridCanvas" class="grid-overlay"></canvas>
+                </div>
+                
+                <div class="selected-frames">
+                    <strong>Selected Frames:</strong>
+                    <div id="selectedFramesList">Click frames to select</div>
+                </div>
+            </div>
+            
+            <!-- Right Panel - Animations -->
+            <div class="panel">
+                <h3>Animation Configuration</h3>
+                
+                <div class="sprite-type-selector">
+                    <div class="sprite-type-btn active" data-type="character">
+                        Character
+                    </div>
+                    <div class="sprite-type-btn" data-type="interactable">
+                        Interactable
+                    </div>
+                    <div class="sprite-type-btn" data-type="pickup">
+                        Pickup
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label>Animation Name:</label>
+                    <input type="text" id="animationName" placeholder="e.g., idle, walk, attack">
+                </div>
+                
+                <div class="control-group">
+                    <label>Frame Duration (ms):</label>
+                    <input type="number" id="frameDuration" value="150" min="1">
+                </div>
+                
+                <div class="button-group">
+                    <button id="addAnimation">Add Animation</button>
+                    <button id="clearSelection">Clear Selection</button>
+                </div>
+                
+                <h4>Animations</h4>
+                <div class="animations-list" id="animationsList">
+                    <p style="text-align: center; color: #666;">No animations defined yet</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Preview Section -->
+        <div class="preview-section">
+            <h3>Animation Preview</h3>
+            <div class="preview-controls">
+                <select id="previewSelect">
+                    <option value="">Select animation to preview</option>
+                </select>
+                <button id="playPreview">Play</button>
+                <span style="margin-left: 20px;">Scale:</span>
+                <input type="range" id="previewScale" min="1" max="8" value="4" step="1">
+                <span id="previewScaleValue">4x</span>
+            </div>
+            <div class="preview-canvas">
+                <canvas id="previewCanvas"></canvas>
+            </div>
+        </div>
+        
+        <!-- Export Section -->
+        <div class="export-section">
+            <h3>Export</h3>
+            <div class="button-group">
+                <button id="generateJSON">Generate Aseprite JSON</button>
+                <button id="downloadJSON">Download JSON File</button>
+                <button id="copyJSON">Copy JSON to Clipboard</button>
+            </div>
+            <div class="json-output" id="jsonOutput" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        class SpriteSheetConverter {
+            constructor() {
+                this.spriteImage = null;
+                this.frameWidth = 64;
+                this.frameHeight = 32;
+                this.selectedFrames = [];
+                this.animations = [];
+                this.zoom = 2;
+                this.spriteType = 'character';
+                this.isSelecting = false;
+                this.selectionStart = null;
+                
+                this.canvas = document.getElementById('spriteCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.gridCanvas = document.getElementById('gridCanvas');
+                this.gridCtx = this.gridCanvas.getContext('2d');
+                
+                this.previewCanvas = document.getElementById('previewCanvas');
+                this.previewCtx = this.previewCanvas.getContext('2d');
+                this.previewAnimation = null;
+                this.previewFrame = 0;
+                this.previewScale = 4;
+                this.isPlaying = false;
+                this.lastFrameTime = 0;
+                
+                this.setupEventListeners();
+            }
+            
+            setupEventListeners() {
+                document.getElementById('fileInput').addEventListener('change', (e) => this.loadImage(e));
+                document.getElementById('updateGrid').addEventListener('click', () => this.updateGrid());
+                document.getElementById('zoomSlider').addEventListener('input', (e) => this.setZoom(e.target.value));
+                document.getElementById('addAnimation').addEventListener('click', () => this.addAnimation());
+                document.getElementById('clearSelection').addEventListener('click', () => this.clearSelection());
+                document.getElementById('generateJSON').addEventListener('click', () => this.generateJSON());
+                document.getElementById('downloadJSON').addEventListener('click', () => this.downloadJSON());
+                document.getElementById('copyJSON').addEventListener('click', () => this.copyJSON());
+                
+                // Sprite type selector
+                document.querySelectorAll('.sprite-type-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        document.querySelectorAll('.sprite-type-btn').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        this.spriteType = btn.dataset.type;
+                    });
+                });
+                
+                // Canvas interactions
+                this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+                this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+                this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+                this.canvas.addEventListener('click', (e) => this.handleClick(e));
+                
+                // Preview controls
+                document.getElementById('previewSelect').addEventListener('change', (e) => this.selectPreviewAnimation(e.target.value));
+                document.getElementById('playPreview').addEventListener('click', () => this.togglePreview());
+                document.getElementById('previewScale').addEventListener('input', (e) => this.setPreviewScale(e.target.value));
+            }
+            
+            async loadImage(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        this.spriteImage = img;
+                        this.updateGrid();
+                        this.showSuccess('Sprite sheet loaded successfully!');
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+            
+            updateGrid() {
+                this.frameWidth = parseInt(document.getElementById('frameWidth').value);
+                this.frameHeight = parseInt(document.getElementById('frameHeight').value);
+                
+                if (!this.spriteImage) {
+                    this.showError('Please load a sprite sheet first');
+                    return;
+                }
+                
+                this.render();
+            }
+            
+            setZoom(value) {
+                this.zoom = parseFloat(value);
+                document.getElementById('zoomValue').textContent = `${this.zoom}x`;
+                this.render();
+            }
+            
+            render() {
+                if (!this.spriteImage) return;
+                
+                const width = this.spriteImage.width * this.zoom;
+                const height = this.spriteImage.height * this.zoom;
+                
+                this.canvas.width = width;
+                this.canvas.height = height;
+                this.gridCanvas.width = width;
+                this.gridCanvas.height = height;
+                
+                // Clear canvases
+                this.ctx.clearRect(0, 0, width, height);
+                this.gridCtx.clearRect(0, 0, width, height);
+                
+                // Draw sprite sheet
+                this.ctx.imageSmoothingEnabled = false;
+                this.ctx.drawImage(this.spriteImage, 0, 0, width, height);
+                
+                // Draw grid
+                this.gridCtx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                this.gridCtx.lineWidth = 1;
+                
+                const cols = Math.floor(this.spriteImage.width / this.frameWidth);
+                const rows = Math.floor(this.spriteImage.height / this.frameHeight);
+                
+                for (let x = 0; x <= cols; x++) {
+                    this.gridCtx.beginPath();
+                    this.gridCtx.moveTo(x * this.frameWidth * this.zoom, 0);
+                    this.gridCtx.lineTo(x * this.frameWidth * this.zoom, height);
+                    this.gridCtx.stroke();
+                }
+                
+                for (let y = 0; y <= rows; y++) {
+                    this.gridCtx.beginPath();
+                    this.gridCtx.moveTo(0, y * this.frameHeight * this.zoom);
+                    this.gridCtx.lineTo(width, y * this.frameHeight * this.zoom);
+                    this.gridCtx.stroke();
+                }
+                
+                // Highlight selected frames
+                this.gridCtx.fillStyle = 'rgba(74, 144, 226, 0.3)';
+                this.selectedFrames.forEach(frame => {
+                    const x = frame % cols;
+                    const y = Math.floor(frame / cols);
+                    this.gridCtx.fillRect(
+                        x * this.frameWidth * this.zoom,
+                        y * this.frameHeight * this.zoom,
+                        this.frameWidth * this.zoom,
+                        this.frameHeight * this.zoom
+                    );
+                });
+                
+                // Draw frame numbers
+                this.gridCtx.fillStyle = 'white';
+                this.gridCtx.font = `${12 * this.zoom}px Arial`;
+                this.gridCtx.textAlign = 'center';
+                this.gridCtx.textBaseline = 'middle';
+                
+                for (let i = 0; i < cols * rows; i++) {
+                    const x = i % cols;
+                    const y = Math.floor(i / cols);
+                    this.gridCtx.fillText(
+                        i.toString(),
+                        (x + 0.5) * this.frameWidth * this.zoom,
+                        (y + 0.5) * this.frameHeight * this.zoom
+                    );
+                }
+            }
+            
+            handleClick(event) {
+                if (!this.spriteImage) return;
+                
+                const rect = this.canvas.getBoundingClientRect();
+                const x = (event.clientX - rect.left) / this.zoom;
+                const y = (event.clientY - rect.top) / this.zoom;
+                
+                const cols = Math.floor(this.spriteImage.width / this.frameWidth);
+                const frameX = Math.floor(x / this.frameWidth);
+                const frameY = Math.floor(y / this.frameHeight);
+                const frameIndex = frameY * cols + frameX;
+                
+                if (event.shiftKey && this.selectedFrames.length > 0) {
+                    // Range selection
+                    const lastFrame = this.selectedFrames[this.selectedFrames.length - 1];
+                    const start = Math.min(lastFrame, frameIndex);
+                    const end = Math.max(lastFrame, frameIndex);
+                    
+                    for (let i = start; i <= end; i++) {
+                        if (!this.selectedFrames.includes(i)) {
+                            this.selectedFrames.push(i);
+                        }
+                    }
+                } else if (event.ctrlKey || event.metaKey) {
+                    // Toggle selection
+                    const index = this.selectedFrames.indexOf(frameIndex);
+                    if (index > -1) {
+                        this.selectedFrames.splice(index, 1);
+                    } else {
+                        this.selectedFrames.push(frameIndex);
+                    }
+                } else {
+                    // Single selection
+                    this.selectedFrames = [frameIndex];
+                }
+                
+                this.selectedFrames.sort((a, b) => a - b);
+                this.updateSelectedFramesList();
+                this.render();
+            }
+            
+            handleMouseDown(event) {
+                // For future drag selection implementation
+            }
+            
+            handleMouseMove(event) {
+                // For future drag selection implementation
+            }
+            
+            handleMouseUp(event) {
+                // For future drag selection implementation
+            }
+            
+            updateSelectedFramesList() {
+                const list = document.getElementById('selectedFramesList');
+                if (this.selectedFrames.length === 0) {
+                    list.innerHTML = 'Click frames to select';
+                } else {
+                    list.innerHTML = this.selectedFrames.map(f => `<span class="frame-tag">${f}</span>`).join('');
+                }
+            }
+            
+            clearSelection() {
+                this.selectedFrames = [];
+                this.updateSelectedFramesList();
+                this.render();
+            }
+            
+            addAnimation() {
+                const name = document.getElementById('animationName').value.trim();
+                const duration = parseInt(document.getElementById('frameDuration').value);
+                
+                if (!name) {
+                    this.showError('Please enter an animation name');
+                    return;
+                }
+                
+                if (this.selectedFrames.length === 0) {
+                    this.showError('Please select at least one frame');
+                    return;
+                }
+                
+                // Check for duplicate names
+                if (this.animations.some(anim => anim.name === name)) {
+                    this.showError('Animation name already exists');
+                    return;
+                }
+                
+                const animation = {
+                    name: name,
+                    frames: [...this.selectedFrames],
+                    duration: duration,
+                    type: this.spriteType
+                };
+                
+                this.animations.push(animation);
+                this.updateAnimationsList();
+                this.updatePreviewSelect();
+                
+                // Clear inputs
+                document.getElementById('animationName').value = '';
+                this.clearSelection();
+                
+                this.showSuccess(`Animation "${name}" added successfully!`);
+            }
+            
+            updateAnimationsList() {
+                const list = document.getElementById('animationsList');
+                
+                if (this.animations.length === 0) {
+                    list.innerHTML = '<p style="text-align: center; color: #666;">No animations defined yet</p>';
+                    return;
+                }
+                
+                list.innerHTML = this.animations.map((anim, index) => `
+                    <div class="animation-item">
+                        <div class="animation-header">
+                            <div>
+                                <div class="animation-name">${anim.name}</div>
+                                <div class="animation-frames">Frames: ${anim.frames.join(', ')} (${anim.frames.length} total)</div>
+                                <div class="animation-frames">Duration: ${anim.duration}ms | Type: ${anim.type}</div>
+                            </div>
+                            <button class="delete-btn" onclick="converter.deleteAnimation(${index})">Delete</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            
+            deleteAnimation(index) {
+                this.animations.splice(index, 1);
+                this.updateAnimationsList();
+                this.updatePreviewSelect();
+            }
+            
+            updatePreviewSelect() {
+                const select = document.getElementById('previewSelect');
+                select.innerHTML = '<option value="">Select animation to preview</option>';
+                
+                this.animations.forEach(anim => {
+                    const option = document.createElement('option');
+                    option.value = anim.name;
+                    option.textContent = `${anim.name} (${anim.frames.length} frames)`;
+                    select.appendChild(option);
+                });
+            }
+            
+            selectPreviewAnimation(name) {
+                if (!name) {
+                    this.previewAnimation = null;
+                    return;
+                }
+                
+                this.previewAnimation = this.animations.find(a => a.name === name);
+                this.previewFrame = 0;
+                this.renderPreview();
+            }
+            
+            togglePreview() {
+                this.isPlaying = !this.isPlaying;
+                document.getElementById('playPreview').textContent = this.isPlaying ? 'Pause' : 'Play';
+                
+                if (this.isPlaying && this.previewAnimation) {
+                    this.lastFrameTime = performance.now();
+                    this.animatePreview();
+                }
+            }
+            
+            animatePreview() {
+                if (!this.isPlaying || !this.previewAnimation) return;
+                
+                const now = performance.now();
+                if (now - this.lastFrameTime >= this.previewAnimation.duration) {
+                    this.previewFrame = (this.previewFrame + 1) % this.previewAnimation.frames.length;
+                    this.lastFrameTime = now;
+                    this.renderPreview();
+                }
+                
+                requestAnimationFrame(() => this.animatePreview());
+            }
+            
+            setPreviewScale(value) {
+                this.previewScale = parseInt(value);
+                document.getElementById('previewScaleValue').textContent = `${this.previewScale}x`;
+                this.renderPreview();
+            }
+            
+            renderPreview() {
+                if (!this.spriteImage || !this.previewAnimation) return;
+                
+                const frameIndex = this.previewAnimation.frames[this.previewFrame];
+                const cols = Math.floor(this.spriteImage.width / this.frameWidth);
+                const x = (frameIndex % cols) * this.frameWidth;
+                const y = Math.floor(frameIndex / cols) * this.frameHeight;
+                
+                this.previewCanvas.width = this.frameWidth * this.previewScale;
+                this.previewCanvas.height = this.frameHeight * this.previewScale;
+                
+                this.previewCtx.imageSmoothingEnabled = false;
+                this.previewCtx.clearRect(0, 0, this.previewCanvas.width, this.previewCanvas.height);
+                this.previewCtx.drawImage(
+                    this.spriteImage,
+                    x, y, this.frameWidth, this.frameHeight,
+                    0, 0, this.frameWidth * this.previewScale, this.frameHeight * this.previewScale
+                );
+            }
+            
+            generateJSON() {
+                if (!this.spriteImage) {
+                    this.showError('Please load a sprite sheet first');
+                    return;
+                }
+                
+                if (this.animations.length === 0) {
+                    this.showError('Please define at least one animation');
+                    return;
+                }
+                
+                // Create a canvas to get base64
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = this.spriteImage.width;
+                tempCanvas.height = this.spriteImage.height;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.drawImage(this.spriteImage, 0, 0);
+                const base64 = tempCanvas.toDataURL('image/png');
+                
+                // Build frames object
+                const frames = {};
+                const cols = Math.floor(this.spriteImage.width / this.frameWidth);
+                
+                // Get all unique frames from animations
+                const allFrames = new Set();
+                this.animations.forEach(anim => {
+                    anim.frames.forEach(frame => allFrames.add(frame));
+                });
+                
+                Array.from(allFrames).sort((a, b) => a - b).forEach(frameIndex => {
+                    const x = (frameIndex % cols) * this.frameWidth;
+                    const y = Math.floor(frameIndex / cols) * this.frameHeight;
+                    
+                    frames[`sprite_${frameIndex}.aseprite`] = {
+                        frame: { x, y, w: this.frameWidth, h: this.frameHeight },
+                        rotated: false,
+                        trimmed: false,
+                        spriteSourceSize: { x: 0, y: 0, w: this.frameWidth, h: this.frameHeight },
+                        sourceSize: { w: this.frameWidth, h: this.frameHeight },
+                        duration: 100 // Default, will be overridden by animation
+                    };
+                });
+                
+                // Build frame tags
+                const frameTags = this.animations.map(anim => ({
+                    name: anim.name,
+                    from: 0,
+                    to: anim.frames.length - 1,
+                    direction: "forward",
+                    type: anim.type,
+                    frames: anim.frames,
+                    duration: anim.duration
+                }));
+                
+                // Update frame durations based on animations
+                this.animations.forEach(anim => {
+                    anim.frames.forEach(frameIndex => {
+                        frames[`sprite_${frameIndex}.aseprite`].duration = anim.duration;
+                    });
+                });
+                
+                const asepriteJSON = {
+                    frames: frames,
+                    meta: {
+                        app: "Sprite Sheet to Aseprite Converter",
+                        version: "1.0",
+                        image: base64,
+                        format: "RGBA8888",
+                        size: { w: this.spriteImage.width, h: this.spriteImage.height },
+                        scale: "1",
+                        frameTags: frameTags
+                    }
+                };
+                
+                const output = document.getElementById('jsonOutput');
+                output.style.display = 'block';
+                output.textContent = JSON.stringify(asepriteJSON, null, 2);
+                
+                this.currentJSON = asepriteJSON;
+                this.showSuccess('Aseprite JSON generated successfully!');
+            }
+            
+            downloadJSON() {
+                if (!this.currentJSON) {
+                    this.showError('Please generate JSON first');
+                    return;
+                }
+                
+                const blob = new Blob([JSON.stringify(this.currentJSON, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'sprite.json';
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                this.showSuccess('JSON file downloaded!');
+            }
+            
+            copyJSON() {
+                if (!this.currentJSON) {
+                    this.showError('Please generate JSON first');
+                    return;
+                }
+                
+                const json = JSON.stringify(this.currentJSON, null, 2);
+                navigator.clipboard.writeText(json).then(() => {
+                    this.showSuccess('JSON copied to clipboard!');
+                }).catch(err => {
+                    this.showError('Failed to copy: ' + err);
+                });
+            }
+            
+            showError(message) {
+                const errorEl = document.getElementById('errorMessage');
+                errorEl.textContent = message;
+                errorEl.style.display = 'block';
+                setTimeout(() => {
+                    errorEl.style.display = 'none';
+                }, 5000);
+            }
+            
+            showSuccess(message) {
+                const successEl = document.getElementById('successMessage');
+                successEl.textContent = message;
+                successEl.style.display = 'block';
+                setTimeout(() => {
+                    successEl.style.display = 'none';
+                }, 5000);
+            }
+        }
+        
+        // Initialize the converter
+        const converter = new SpriteSheetConverter();
+    </script>
+</body>
+</html>
