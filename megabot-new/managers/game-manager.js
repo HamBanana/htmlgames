@@ -113,6 +113,49 @@ class GameManager {
         }
     }
     
+    async loadMap(mapFile) {
+        const mapData = await this.levelManager.loadMap(mapFile);
+        
+        // Clear existing entities
+        this.enemies = [];
+        this.projectiles = [];
+        this.particles = [];
+        this.pickups = [];
+        this.boss = null;
+        
+        // Create enemies from map data
+        if (mapData.enemies) {
+            console.log(`Loading ${mapData.enemies.length} enemies`);
+            mapData.enemies.forEach(enemyData => {
+                const enemy = this.enemySystem.createEnemy(enemyData);
+                if (enemy) {
+                    this.enemies.push(enemy);
+                }
+            });
+        }
+        
+        // Create pickups from map data
+        if (mapData.pickups) {
+            console.log(`Loading ${mapData.pickups.length} pickups`);
+            mapData.pickups.forEach(pickupData => {
+                const pickup = new Pickup({
+                    ...pickupData,
+                    width: pickupData.width || 20,
+                    height: pickupData.height || 20
+                });
+                this.pickups.push(pickup);
+            });
+        }
+        
+        // Create boss if defined
+        if (mapData.boss) {
+            console.log('Loading boss');
+            this.boss = new Boss(mapData.boss, this.config.boss);
+        }
+        
+        console.log(`Map loaded: ${this.enemies.length} enemies, ${this.pickups.length} pickups`);
+    }
+    
     updateMapButtons(maps) {
         const mapButtons = document.getElementById('mapButtons');
         mapButtons.innerHTML = '';
