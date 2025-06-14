@@ -1,6 +1,6 @@
 {
   "sprites": {
-    "directory": "../Sprites/Aseprite/",
+    "directory": "./Sprites/Aseprite/",
     "player": {
       "json": "karateguy.json",
       "sheet": "karateguy.png"
