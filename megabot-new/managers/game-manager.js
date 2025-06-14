@@ -98,8 +98,16 @@ class GameManager {
     }
     
     async loadAvailableMaps() {
-        const maps = await this.levelManager.loadAvailableMaps();
-        this.updateMapButtons(maps);
+        try {
+            console.log('GameManager: Loading available maps...');
+            const maps = await this.levelManager.loadAvailableMaps();
+            console.log('GameManager: Loaded maps:', maps);
+            this.updateMapButtons(maps);
+        } catch (error) {
+            console.error('GameManager: Error loading maps:', error);
+            // Fallback to built-in maps
+            this.updateMapButtons(['builtin-1', 'builtin-2', 'builtin-3']);
+        }
     }
     
     updateMapButtons(maps) {

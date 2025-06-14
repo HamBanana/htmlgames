@@ -4,7 +4,7 @@ class LevelManager {
     constructor() {
         this.currentLevel = null;
         this.platforms = [];
-        this.mapDirectory = 'maps/';
+        this.mapDirectory = './maps/';
         this.builtInMaps = this.createBuiltInMaps();
     }
     

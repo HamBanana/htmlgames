@@ -48,28 +48,28 @@ class CollisionSystem {
     }
     
     // Resolve collision by separating objects
-    resolveCollision(movable, static) {
-        const overlap = this.getOverlap(movable, static);
-        const side = this.getCollisionSide(movable, static);
+    resolveCollision(movable, staticObject) {
+        const overlap = this.getOverlap(movable, staticObject);
+        const side = this.getCollisionSide(movable, staticObject);
         
         switch (side) {
             case 'left':
-                movable.x = static.x - movable.width;
+                movable.x = staticObject.x - movable.width;
                 if (movable.vx > 0) movable.vx = 0;
                 break;
             case 'right':
-                movable.x = static.x + static.width;
+                movable.x = staticObject.x + staticObject.width;
                 if (movable.vx < 0) movable.vx = 0;
                 break;
             case 'top':
-                movable.y = static.y - movable.height;
+                movable.y = staticObject.y - movable.height;
                 if (movable.vy > 0) {
                     movable.vy = 0;
                     movable.grounded = true;
                 }
                 break;
             case 'bottom':
-                movable.y = static.y + static.height;
+                movable.y = staticObject.y + staticObject.height;
                 if (movable.vy < 0) movable.vy = 0;
                 break;
         }
