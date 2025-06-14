@@ -1,4 +1,4 @@
-// game-manager.js - Main game orchestrator with slower speed
+// managers/game-manager.js - Enhanced game manager with proper boss integration
 
 class GameManager {
     constructor(config) {
@@ -10,9 +10,10 @@ class GameManager {
         this.gameRunning = false;
         this.gameLoopId = null;
         this.currentMapFile = null;
+        this.gameWon = false;
         
         // Apply game speed modifier from config
-        this.gameSpeed = config.game?.gameSpeed || 0.7; // Slower overall game speed
+        this.gameSpeed = config.game?.gameSpeed || 0.7;
         
         // Core systems
         this.engine = null;
@@ -43,6 +44,7 @@ class GameManager {
         this.particles = [];
         this.pickups = [];
         this.boss = null;
+        this.bossActivated = false;
         
         // Game variables
         this.score = 0;
@@ -134,6 +136,8 @@ class GameManager {
         this.particles = [];
         this.pickups = [];
         this.boss = null;
+        this.bossActivated = false;
+        this.gameWon = false;
         
         // Create enemies from map data
         if (mapData.enemies) {
@@ -159,13 +163,18 @@ class GameManager {
             });
         }
         
-        // Create boss if defined
-        if (mapData.boss) {
-            console.log('Loading boss');
-            this.boss = new Boss(mapData.boss, this.config.boss);
-        }
+        // Create boss - ALWAYS create boss for every map
+        console.log('Creating boss...');
+        const bossData = mapData.boss || {
+            x: this.config.game.levelWidth - 300,  // Place boss near end of level
+            y: 300,
+            triggerX: this.config.game.levelWidth - 400  // Trigger boss when player is close to end
+        };
         
-        console.log(`Map loaded: ${this.enemies.length} enemies, ${this.pickups.length} pickups`);
+        this.boss = new Boss(bossData, this.config.boss);
+        console.log(`Boss created at x:${this.boss.x}, triggerX:${this.boss.triggerX}`);
+        
+        console.log(`Map loaded: ${this.enemies.length} enemies, ${this.pickups.length} pickups, boss: ${this.boss ? 'YES' : 'NO'}`);
     }
     
     updateMapButtons(maps) {
@@ -254,6 +263,8 @@ class GameManager {
         this.gameRunning = false;
         this.score = 0;
         this.lives = 3;
+        this.bossActivated = false;
+        this.gameWon = false;
         
         // Clear all entities
         this.enemies = [];
@@ -268,6 +279,9 @@ class GameManager {
         
         // Clear input state
         this.input.reset();
+        
+        // Hide boss UI
+        this.uiManager.hideBossHealth();
     }
     
     gameLoop() {
@@ -321,8 +335,29 @@ class GameManager {
         );
         
         // Update boss
-        if (this.boss && this.boss.active) {
-            this.boss.update(deltaTime, this.player, this.projectiles);
+        if (this.boss) {
+            // Check if boss should be activated
+            if (!this.boss.active && this.player && this.player.x >= this.boss.triggerX) {
+                this.activateBoss();
+            }
+            
+            // Update boss if active
+            if (this.boss.active) {
+                // Apply physics to boss
+                this.physics.applyGravity(this.boss, deltaTime);
+                this.physics.updatePosition(this.boss, deltaTime);
+                this.physics.checkPlatformCollisions(this.boss, this.levelManager.getPlatforms());
+                
+                // Update boss AI
+                this.boss.update(deltaTime, this.player, this.projectiles);
+                
+                // Handle boss shooting
+                if (this.boss.shouldShoot && this.boss.projectileData) {
+                    this.createBossProjectile(this.boss.projectileData);
+                    this.boss.shouldShoot = false;
+                    this.boss.projectileData = null;
+                }
+            }
         }
         
         // Handle enemy shooting
@@ -360,6 +395,51 @@ class GameManager {
         this.checkGameState();
     }
     
+    activateBoss() {
+        console.log('🔥 BOSS ACTIVATED! 🔥');
+        this.boss.activate();
+        this.bossActivated = true;
+        this.uiManager.showBossHealth();
+        this.uiManager.updateBossHealth(this.boss.health, this.boss.maxHealth);
+        
+        // Create dramatic activation effects
+        for (let i = 0; i < 50; i++) {
+            this.particleSystem.createCustomParticles(
+                this.boss.x + this.boss.width/2 + (Math.random() - 0.5) * 100,
+                this.boss.y + this.boss.height/2 + (Math.random() - 0.5) * 100,
+                1, '#ff0000', 12, 40
+            );
+        }
+        
+        // Boss entrance warning particles
+        for (let i = 0; i < 30; i++) {
+            this.particleSystem.createCustomParticles(
+                this.boss.x + this.boss.width/2,
+                this.boss.y + this.boss.height,
+                1, '#ffff00', 8, 30
+            );
+        }
+        
+        this.cameraSystem.startShake(15, 45);
+    }
+    
+    createBossProjectile(data) {
+        const projectile = {
+            x: data.x - data.width/2,
+            y: data.y - data.height/2,
+            width: data.width,
+            height: data.height,
+            vx: data.vx,
+            vy: data.vy,
+            damage: data.damage,
+            fromPlayer: false,
+            boss: true,
+            type: 'boss'
+        };
+        
+        this.projectiles.push(projectile);
+    }
+    
     updatePickups(pickups, deltaTime) {
         return pickups.filter(pickup => {
             pickup.update(deltaTime);
@@ -386,7 +466,17 @@ class GameManager {
             }
         });
         
-        // Player projectiles vs enemies
+        // Player vs boss
+        if (this.boss && this.boss.active) {
+            if (this.collisionSystem.checkCollision(this.player, this.boss)) {
+                if (!this.player.isInvulnerable()) {
+                    this.player.takeDamage(30); // Boss contact damage
+                    this.uiManager.updateHealth(this.player.health, this.player.maxHealth);
+                }
+            }
+        }
+        
+        // Player projectiles vs enemies and boss
         this.projectiles = this.projectiles.filter(proj => {
             if (!proj.fromPlayer) return true;
             
@@ -400,7 +490,7 @@ class GameManager {
                     
                     if (enemy.health <= 0) {
                         this.score += enemy.scoreValue;
-                        this.particleSystem.createEffect('explosion', enemy.x, enemy.y);
+                        this.particleSystem.createEffect('explosion', enemy.x + enemy.width/2, enemy.y + enemy.height/2);
                         return false;
                     }
                     
@@ -415,13 +505,16 @@ class GameManager {
                 this.particleSystem.createEffect('hit', proj.x, proj.y);
                 this.uiManager.updateBossHealth(this.boss.health, this.boss.maxHealth);
                 
+                // Screen shake on boss hit
+                this.cameraSystem.startShake(3, 5);
+                
                 if (!proj.piercing) hit = true;
             }
             
             return !hit;
         });
         
-        // Enemy projectiles vs player
+        // Enemy and boss projectiles vs player
         this.projectiles = this.projectiles.filter(proj => {
             if (proj.fromPlayer) return true;
             
@@ -429,6 +522,7 @@ class GameManager {
                 if (!this.player.isInvulnerable()) {
                     this.player.takeDamage(proj.damage);
                     this.uiManager.updateHealth(this.player.health, this.player.maxHealth);
+                    this.particleSystem.createEffect('hit', this.player.x + this.player.width/2, this.player.y + this.player.height/2);
                 }
                 return false;
             }
@@ -452,14 +546,8 @@ class GameManager {
         }
         
         // Check if boss defeated
-        if (this.boss && this.boss.health <= 0) {
+        if (this.boss && this.boss.health <= 0 && !this.gameWon) {
             this.gameWin();
-        }
-        
-        // Activate boss when player is near
-        if (this.boss && !this.boss.active && this.player.x > this.boss.triggerX) {
-            this.boss.activate();
-            this.uiManager.showBossHealth();
         }
     }
     
@@ -526,6 +614,12 @@ class GameManager {
             this.ctx.strokeRect(enemy.x, enemy.y, enemy.width, enemy.height);
         });
         
+        // Boss hitbox
+        if (this.boss && this.boss.active) {
+            this.ctx.strokeStyle = '#ff00ff';
+            this.ctx.strokeRect(this.boss.x, this.boss.y, this.boss.width, this.boss.height);
+        }
+        
         this.ctx.restore();
     }
     
@@ -544,6 +638,11 @@ class GameManager {
             
             this.uiManager.updateWeaponIndicator(this.player.currentWeapon);
         }
+        
+        // Update boss health if active
+        if (this.boss && this.boss.active) {
+            this.uiManager.updateBossHealth(this.boss.health, this.boss.maxHealth);
+        }
     }
     
     gameOver() {
@@ -553,8 +652,40 @@ class GameManager {
     
     gameWin() {
         this.gameRunning = false;
-        this.score += 1000; // Boss bonus
-        this.uiManager.showGameOver(this.score, true);
+        this.gameWon = true;
+        this.score += this.boss.scoreValue; // Boss bonus
+        
+        // Epic victory effects
+        console.log('🎉 BOSS DEFEATED! LEVEL COMPLETE! 🎉');
+        
+        // Multiple explosion effects
+        for (let i = 0; i < 100; i++) {
+            setTimeout(() => {
+                this.particleSystem.createCustomParticles(
+                    this.boss.x + Math.random() * this.boss.width,
+                    this.boss.y + Math.random() * this.boss.height,
+                    3, i % 2 === 0 ? '#ffff00' : '#ff0000', 15, 50
+                );
+            }, i * 20);
+        }
+        
+        // Victory sparkles
+        for (let i = 0; i < 200; i++) {
+            setTimeout(() => {
+                this.particleSystem.createCustomParticles(
+                    this.boss.x - 100 + Math.random() * (this.boss.width + 200),
+                    this.boss.y - 100 + Math.random() * (this.boss.height + 200),
+                    1, '#00ff00', 10, 60
+                );
+            }, i * 10);
+        }
+        
+        this.cameraSystem.startShake(25, 90);
+        
+        // Show victory screen after effects
+        setTimeout(() => {
+            this.uiManager.showGameOver(this.score, true);
+        }, 2000);
     }
     
     returnToMapSelection() {
