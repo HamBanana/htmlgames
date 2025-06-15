@@ -144,7 +144,34 @@ class GameManager {
         this.weaponSystem = new WeaponSystem(this.config);
         this.enemySystem = new EnemySystem(this.config.enemies);
         this.particleSystem = new ParticleSystem(this.config.particles);
-        this.audioSystem = new AudioSystem(this.config.audio);
+        
+        // Initialize audio system with proper class name or fallback
+        try {
+            if (typeof EnhancedAudioSystem !== 'undefined') {
+                this.audioSystem = new EnhancedAudioSystem(this.config.audio);
+            } else if (typeof AudioSystem !== 'undefined') {
+                this.audioSystem = new AudioSystem(this.config.audio);
+            } else {
+                console.warn('No audio system available, using stub');
+                this.audioSystem = {
+                    enabled: false,
+                    loadSound: () => {},
+                    playSound: () => {},
+                    stopSound: () => {},
+                    preloadAll: () => Promise.resolve()
+                };
+            }
+        } catch (error) {
+            console.warn('Failed to initialize audio system:', error);
+            this.audioSystem = {
+                enabled: false,
+                loadSound: () => {},
+                playSound: () => {},
+                stopSound: () => {},
+                preloadAll: () => Promise.resolve()
+            };
+        }
+        
         this.collisionSystem = new CollisionSystem();
         this.cameraSystem = new CameraSystem(this.canvas, this.config.game);
 
