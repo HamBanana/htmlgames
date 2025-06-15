@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>R-Type: Ninja Edition</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+        }
+        
+        canvas {
+            border: 2px solid #333;
+            background: linear-gradient(180deg, #001122 0%, #002244 50%, #001122 100%);
+            box-shadow: 0 0 20px rgba(0, 150, 255, 0.3);
+        }
+        
+        .ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #00ff00;
+            font-size: 16px;
+            z-index: 100;
+        }
+        
+        .instructions {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #ffffff;
+            text-align: center;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div class="ui">
+        <div>Score: <span id="score">0</span></div>
+        <div>Lives: <span id="lives">3</span></div>
+        <div>Level: <span id="level">1</span></div>
+    </div>
+    <div class="instructions">
+        ARROW KEYS: Move | SPACE: Shoot | R: Restart
+    </div>
+
+    <!-- Framework files -->
+    <script>
+        // Framework Utils
+        class ObjectPool {
+            constructor(createFn, resetFn, initialSize = 10) {
+                this.createFn = createFn;
+                this.resetFn = resetFn;
+                this.available = [];
+                this.active = new Set();
+                
+                for (let i = 0; i < initialSize; i++) {
+                    this.available.push(this.createFn());
+                }
+            }
+            
+            get() {
+                let obj;
+                if (this.available.length > 0) {
+                    obj = this.available.pop();
+                } else {
+                    obj = this.createFn();
+                }
+                this.active.add(obj);
+                return obj;
+            }
+            
+            release(obj) {
+                if (this.active.has(obj)) {
+                    this.active.delete(obj);
+                    this.resetFn(obj);
+                    this.available.push(obj);
+                }
+            }
+        }
+
+        const Random = {
+            range: (min, max) => Math.random() * (max - min) + min,
+            rangeInt: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
+            chance: (probability = 0.5) => Math.random() < probability
+        };
+
+        const MathUtils = {
+            clamp: (value, min, max) => Math.max(min, Math.min(max, value)),
+            lerp: (start, end, t) => start + (end - start) * t,
+            distance: (x1, y1, x2, y2) => {
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                return Math.sqrt(dx * dx + dy * dy);
+            }
+        };
+
+        // Vector2 Class
+        class Vector2 {
+            constructor(x = 0, y = 0) {
+                this.x = x;
+                this.y = y;
+            }
+            
+            set(x, y) {
+                this.x = x;
+                this.y = y;
+                return this;
+            }
+            
+            copy() {
+                return new Vector2(this.x, this.y);
+            }
+            
+            add(v) {
+                return new Vector2(this.x + v.x, this.y + v.y);
+            }
+            
+            subtract(v) {
+                return new Vector2(this.x - v.x, this.y - v.y);
+            }
+            
+            multiply(scalar) {
+                return new Vector2(this.x * scalar, this.y * scalar);
+            }
+            
+            magnitude() {
+                return Math.sqrt(this.x * this.x + this.y * this.y);
+            }
+            
+            normalize() {
+                const mag = this.magnitude();
+                if (mag === 0) return new Vector2(0, 0);
+                return new Vector2(this.x / mag, this.y / mag);
+            }
+            
+            distanceTo(v) {
+                const dx = this.x - v.x;
+                const dy = this.y - v.y;
+                return Math.sqrt(dx * dx + dy * dy);
+            }
+        }
+
+        // Event Emitter
+        class EventEmitter {
+            constructor() {
+                this.events = new Map();
+            }
+            
+            on(event, callback) {
+                if (!this.events.has(event)) {
+                    this.events.set(event, []);
+                }
+                this.events.get(event).push(callback);
+                return this;
+            }
+            
+            emit(event, ...args) {
+                if (this.events.has(event)) {
+                    this.events.get(event).forEach(callback => {
+                        callback(...args);
+                    });
+                }
+                return this;
+            }
+        }
+
+        // Base Component
+        class Component {
+            constructor(config = {}) {
+                this.entity = null;
+                this.active = config.active !== false;
+                this.visible = config.visible !== false;
+            }
+            
+            get game() {
+                return this.entity ? this.entity.game : null;
+            }
+            
+            initialize() {}
+            update(deltaTime) {}
+            render(context) {}
+            destroy() {}
+        }
+
+        // Base System
+        class System {
+            constructor(config = {}) {
+                this.config = config;
+                this.game = null;
+            }
+            
+            initialize() {}
+            start() {}
+            update(deltaTime) {}
+        }
+
+        // Input System
+        class InputSystem extends System {
+            constructor(config = {}) {
+                super(config);
+                this.keys = new Map();
+                this.previousKeys = new Map();
+                this.setupEventListeners();
+            }
+            
+            setupEventListeners() {
+                window.addEventListener('keydown', (e) => {
+                    this.keys.set(e.code, true);
+                });
+                
+                window.addEventListener('keyup', (e) => {
+                    this.keys.set(e.code, false);
+                });
+            }
+            
+            update() {
+                this.previousKeys = new Map(this.keys);
+            }
+            
+            isKeyPressed(key) {
+                return this.keys.get(key) || false;
+            }
+            
+            isKeyJustPressed(key) {
+                return this.keys.get(key) && !this.previousKeys.get(key);
+            }
+        }
+
+        // Render System with basic sprite support
+        class RenderSystem extends System {
+            constructor(canvas, context, config = {}) {
+                super(config);
+                this.canvas = canvas;
+                this.context = context;
+                this.backgroundColor = '#001122';
+            }
+            
+            clear() {
+                const gradient = this.context.createLinearGradient(0, 0, 0, this.canvas.height);
+                gradient.addColorStop(0, '#001122');
+                gradient.addColorStop(0.5, '#002244');
+                gradient.addColorStop(1, '#001122');
+                
+                this.context.fillStyle = gradient;
+                this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            }
+            
+            drawRect(x, y, width, height, color) {
+                this.context.fillStyle = color;
+                this.context.fillRect(x, y, width, height);
+            }
+            
+            drawCircle(x, y, radius, color) {
+                this.context.fillStyle = color;
+                this.context.beginPath();
+                this.context.arc(x, y, radius, 0, Math.PI * 2);
+                this.context.fill();
+            }
+        }
+
+        // Base Entity
+        class BaseEntity {
+            constructor(config = {}) {
+                this.id = config.id || Math.random().toString(36);
+                this.type = config.type || 'entity';
+                this.position = new Vector2(config.x || 0, config.y || 0);
+                this.size = new Vector2(config.width || 32, config.height || 32);
+                this.active = config.active !== false;
+                this.visible = config.visible !== false;
+                this.components = new Map();
+                this.game = null;
+            }
+            
+            addComponent(component) {
+                const componentType = component.constructor;
+                this.components.set(componentType, component);
+                component.entity = this;
+                return this;
+            }
+            
+            getComponent(ComponentClass) {
+                return this.components.get(ComponentClass);
+            }
+            
+            hasComponent(ComponentClass) {
+                return this.components.has(ComponentClass);
+            }
+            
+            update(deltaTime) {
+                this.components.forEach(component => {
+                    if (component.active && component.update) {
+                        component.update(deltaTime);
+                    }
+                });
+            }
+            
+            render(context) {
+                context.save();
+                context.translate(this.position.x, this.position.y);
+                
+                this.components.forEach(component => {
+                    if (component.visible && component.render) {
+                        component.render(context);
+                    }
+                });
+                
+                context.restore();
+            }
+            
+            get x() { return this.position.x; }
+            set x(value) { this.position.x = value; }
+            
+            get y() { return this.position.y; }
+            set y(value) { this.position.y = value; }
+            
+            get width() { return this.size.x; }
+            get height() { return this.size.y; }
+        }
+
+        // Simple Physics Component
+        class PhysicsComponent extends Component {
+            constructor(config = {}) {
+                super(config);
+                this.velocity = new Vector2(config.vx || 0, config.vy || 0);
+                this.maxVelocity = new Vector2(config.maxVx || 500, config.maxVy || 500);
+            }
+            
+            update(deltaTime) {
+                this.entity.x += this.velocity.x * deltaTime;
+                this.entity.y += this.velocity.y * deltaTime;
+            }
+        }
+
+        // Health Component
+        class HealthComponent extends Component {
+            constructor(config = {}) {
+                super(config);
+                this.maxHealth = config.maxHealth || 100;
+                this.health = config.health || this.maxHealth;
+            }
+            
+            takeDamage(amount) {
+                this.health = Math.max(0, this.health - amount);
+                if (this.health <= 0) {
+                    this.game.events.emit('entity:death', this.entity);
+                }
+            }
+            
+            isDead() {
+                return this.health <= 0;
+            }
+        }
+
+        // Collision Component
+        class CollisionComponent extends Component {
+            constructor(config = {}) {
+                super(config);
+                this.bounds = {
+                    width: config.width || this.entity?.width || 32,
+                    height: config.height || this.entity?.height || 32,
+                    offsetX: config.offsetX || 0,
+                    offsetY: config.offsetY || 0
+                };
+                this.layer = config.layer || 'default';
+                this.mask = config.mask || ['default'];
+            }
+            
+            getBounds() {
+                return {
+                    x: this.entity.x + this.bounds.offsetX,
+                    y: this.entity.y + this.bounds.offsetY,
+                    width: this.bounds.width,
+                    height: this.bounds.height
+                };
+            }
+        }
+
+        // Basic Sprite Component (placeholder for ninja)
+        class SpriteComponent extends Component {
+            constructor(config = {}) {
+                super(config);
+                this.color = config.color || '#00ff00';
+                this.shape = config.shape || 'rect';
+            }
+            
+            render(context) {
+                const renderer = this.game.getSystem('renderer');
+                if (this.shape === 'circle') {
+                    renderer.drawCircle(0, 0, this.entity.width / 2, this.color);
+                } else {
+                    renderer.drawRect(0, 0, this.entity.width, this.entity.height, this.color);
+                }
+            }
+        }
+
+        // Main Game Framework
+        class GameFramework {
+            constructor(config = {}) {
+                this.config = config;
+                this.canvas = null;
+                this.context = null;
+                this.running = false;
+                this.systems = new Map();
+                this.entities = new Map();
+                this.events = new EventEmitter();
+                this.lastTime = 0;
+            }
+            
+            async initialize(canvasId) {
+                this.canvas = document.getElementById(canvasId);
+                this.canvas.width = 800;
+                this.canvas.height = 600;
+                this.context = this.canvas.getContext('2d');
+                
+                // Initialize systems
+                this.registerSystem('input', new InputSystem());
+                this.registerSystem('renderer', new RenderSystem(this.canvas, this.context));
+                
+                return this;
+            }
+            
+            registerSystem(name, system) {
+                system.game = this;
+                this.systems.set(name, system);
+                if (system.initialize) system.initialize();
+            }
+            
+            getSystem(name) {
+                return this.systems.get(name);
+            }
+            
+            addEntity(entity) {
+                if (!entity.id) entity.id = Math.random().toString(36);
+                this.entities.set(entity.id, entity);
+                entity.game = this;
+                return entity;
+            }
+            
+            removeEntity(entity) {
+                const id = typeof entity === 'string' ? entity : entity.id;
+                return this.entities.delete(id);
+            }
+            
+            getAllEntities() {
+                return Array.from(this.entities.values());
+            }
+            
+            getEntitiesByType(type) {
+                return this.getAllEntities().filter(e => e.type === type);
+            }
+            
+            getEntitiesWithComponent(ComponentClass) {
+                return this.getAllEntities().filter(e => e.hasComponent(ComponentClass));
+            }
+            
+            start() {
+                this.running = true;
+                this.lastTime = performance.now();
+                this.systems.forEach(system => {
+                    if (system.start) system.start();
+                });
+                this.gameLoop();
+            }
+            
+            gameLoop(currentTime = performance.now()) {
+                if (!this.running) return;
+                
+                requestAnimationFrame((time) => this.gameLoop(time));
+                
+                const deltaTime = Math.min((currentTime - this.lastTime) / 1000, 0.1);
+                this.lastTime = currentTime;
+                
+                this.update(deltaTime);
+                this.render();
+            }
+            
+            update(deltaTime) {
+                this.systems.forEach(system => {
+                    if (system.update) system.update(deltaTime);
+                });
+                
+                this.entities.forEach(entity => {
+                    if (entity.active && entity.update) {
+                        entity.update(deltaTime);
+                    }
+                });
+            }
+            
+            render() {
+                const renderer = this.getSystem('renderer');
+                renderer.clear();
+                
+                const sortedEntities = this.getAllEntities()
+                    .filter(e => e.active && e.visible)
+                    .sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
+                
+                sortedEntities.forEach(entity => {
+                    if (entity.render) entity.render(this.context);
+                });
+            }
+        }
+
+        // Game Entities
+        class NinjaPlayer extends BaseEntity {
+            constructor(x, y) {
+                super({
+                    x: x,
+                    y: y,
+                    width: 32,
+                    height: 32,
+                    type: 'player'
+                });
+                
+                this.addComponent(new PhysicsComponent({ maxVx: 300, maxVy: 300 }));
+                this.addComponent(new SpriteComponent({ color: '#00ff00' }));
+                this.addComponent(new HealthComponent({ maxHealth: 100 }));
+                this.addComponent(new CollisionComponent({ layer: 'player', mask: ['enemy', 'enemyBullet'] }));
+                
+                this.moveSpeed = 250;
+                this.shootCooldown = 0;
+                this.shootRate = 0.2; // shots per second
+            }
+            
+            update(deltaTime) {
+                super.update(deltaTime);
+                
+                const input = this.game.getSystem('input');
+                const physics = this.getComponent(PhysicsComponent);
+                
+                // Movement
+                physics.velocity.set(0, 0);
+                
+                if (input.isKeyPressed('ArrowUp')) {
+                    physics.velocity.y = -this.moveSpeed;
+                }
+                if (input.isKeyPressed('ArrowDown')) {
+                    physics.velocity.y = this.moveSpeed;
+                }
+                if (input.isKeyPressed('ArrowLeft')) {
+                    physics.velocity.x = -this.moveSpeed;
+                }
+                if (input.isKeyPressed('ArrowRight')) {
+                    physics.velocity.x = this.moveSpeed;
+                }
+                
+                // Keep player on screen
+                this.x = MathUtils.clamp(this.x, 0, 800 - this.width);
+                this.y = MathUtils.clamp(this.y, 0, 600 - this.height);
+                
+                // Shooting
+                this.shootCooldown -= deltaTime;
+                if (input.isKeyPressed('Space') && this.shootCooldown <= 0) {
+                    this.shoot();
+                    this.shootCooldown = this.shootRate;
+                }
+            }
+            
+            shoot() {
+                const bullet = new PlayerBullet(this.x + this.width, this.y + this.height / 2);
+                this.game.addEntity(bullet);
+            }
+        }
+
+        class PlayerBullet extends BaseEntity {
+            constructor(x, y) {
+                super({
+                    x: x,
+                    y: y,
+                    width: 8,
+                    height: 4,
+                    type: 'playerBullet'
+                });
+                
+                this.addComponent(new PhysicsComponent({ vx: 500 }));
+                this.addComponent(new SpriteComponent({ color: '#ffff00' }));
+                this.addComponent(new CollisionComponent({ layer: 'playerBullet', mask: ['enemy'] }));
+                
+                this.damage = 25;
+            }
+            
+            update(deltaTime) {
+                super.update(deltaTime);
+                
+                // Remove if off screen
+                if (this.x > 820) {
+                    this.game.removeEntity(this);
+                }
+            }
+        }
+
+        class Enemy extends BaseEntity {
+            constructor(x, y, type = 'basic') {
+                super({
+                    x: x,
+                    y: y,
+                    width: 24,
+                    height: 24,
+                    type: 'enemy'
+                });
+                
+                this.enemyType = type;
+                this.addComponent(new PhysicsComponent({ vx: -100 }));
+                this.addComponent(new SpriteComponent({ color: '#ff0000' }));
+                this.addComponent(new HealthComponent({ maxHealth: 50 }));
+                this.addComponent(new CollisionComponent({ layer: 'enemy', mask: ['player', 'playerBullet'] }));
+                
+                this.shootTimer = Random.range(1, 3);
+                this.points = 100;
+                
+                if (type === 'fast') {
+                    this.getComponent(PhysicsComponent).velocity.x = -200;
+                    this.getComponent(SpriteComponent).color = '#ff8800';
+                    this.points = 150;
+                } else if (type === 'heavy') {
+                    this.getComponent(HealthComponent).maxHealth = 100;
+                    this.getComponent(HealthComponent).health = 100;
+                    this.getComponent(SpriteComponent).color = '#8800ff';
+                    this.width = 32;
+                    this.height = 32;
+                    this.points = 200;
+                }
+            }
+            
+            update(deltaTime) {
+                super.update(deltaTime);
+                
+                // Shooting
+                this.shootTimer -= deltaTime;
+                if (this.shootTimer <= 0) {
+                    this.shoot();
+                    this.shootTimer = Random.range(2, 4);
+                }
+                
+                // Remove if off screen
+                if (this.x < -50) {
+                    this.game.removeEntity(this);
+                }
+                
+                // Sine wave movement for some enemies
+                if (this.enemyType === 'fast') {
+                    this.y += Math.sin(performance.now() * 0.005) * 2;
+                }
+            }
+            
+            shoot() {
+                const bullet = new EnemyBullet(this.x, this.y + this.height / 2);
+                this.game.addEntity(bullet);
+            }
+        }
+
+        class EnemyBullet extends BaseEntity {
+            constructor(x, y) {
+                super({
+                    x: x,
+                    y: y,
+                    width: 6,
+                    height: 6,
+                    type: 'enemyBullet'
+                });
+                
+                this.addComponent(new PhysicsComponent({ vx: -300 }));
+                this.addComponent(new SpriteComponent({ color: '#ff4444', shape: 'circle' }));
+                this.addComponent(new CollisionComponent({ layer: 'enemyBullet', mask: ['player'] }));
+                
+                this.damage = 20;
+            }
+            
+            update(deltaTime) {
+                super.update(deltaTime);
+                
+                if (this.x < -20) {
+                    this.game.removeEntity(this);
+                }
+            }
+        }
+
+        // Game Scene
+        class RTypeScene {
+            constructor() {
+                this.score = 0;
+                this.lives = 3;
+                this.level = 1;
+                this.enemySpawnTimer = 0;
+                this.enemySpawnRate = 2;
+                this.gameOver = false;
+                this.player = null;
+            }
+            
+            initialize(game) {
+                this.game = game;
+                
+                // Create player
+                this.player = new NinjaPlayer(50, 300);
+                game.addEntity(this.player);
+                
+                // Setup event listeners
+                game.events.on('entity:death', (entity) => {
+                    if (entity.type === 'player') {
+                        this.lives--;
+                        if (this.lives <= 0) {
+                            this.gameOver = true;
+                        } else {
+                            // Respawn player
+                            setTimeout(() => {
+                                this.player = new NinjaPlayer(50, 300);
+                                game.addEntity(this.player);
+                            }, 1000);
+                        }
+                    } else if (entity.type === 'enemy') {
+                        this.score += entity.points || 100;
+                    }
+                });
+                
+                this.updateUI();
+            }
+            
+            update(deltaTime) {
+                if (this.gameOver) {
+                    const input = this.game.getSystem('input');
+                    if (input.isKeyJustPressed('KeyR')) {
+                        this.restart();
+                    }
+                    return;
+                }
+                
+                // Spawn enemies
+                this.enemySpawnTimer += deltaTime;
+                if (this.enemySpawnTimer >= this.enemySpawnRate) {
+                    this.spawnEnemy();
+                    this.enemySpawnTimer = 0;
+                    
+                    // Increase difficulty over time
+                    this.enemySpawnRate = Math.max(0.5, this.enemySpawnRate - 0.01);
+                }
+                
+                // Check collisions
+                this.checkCollisions();
+                
+                // Update level
+                if (this.score > this.level * 1000) {
+                    this.level++;
+                }
+                
+                this.updateUI();
+            }
+            
+            spawnEnemy() {
+                const y = Random.range(50, 550);
+                let enemyType = 'basic';
+                
+                if (this.level > 2 && Random.chance(0.3)) {
+                    enemyType = 'fast';
+                } else if (this.level > 3 && Random.chance(0.2)) {
+                    enemyType = 'heavy';
+                }
+                
+                const enemy = new Enemy(820, y, enemyType);
+                this.game.addEntity(enemy);
+            }
+            
+            checkCollisions() {
+                const playerBullets = this.game.getEntitiesByType('playerBullet');
+                const enemies = this.game.getEntitiesByType('enemy');
+                const enemyBullets = this.game.getEntitiesByType('enemyBullet');
+                const players = this.game.getEntitiesByType('player');
+                
+                // Player bullets vs enemies
+                playerBullets.forEach(bullet => {
+                    enemies.forEach(enemy => {
+                        if (this.checkAABB(bullet, enemy)) {
+                            const health = enemy.getComponent(HealthComponent);
+                            health.takeDamage(bullet.damage);
+                            this.game.removeEntity(bullet);
+                            
+                            if (health.isDead()) {
+                                this.score += enemy.points;
+                                this.game.removeEntity(enemy);
+                            }
+                        }
+                    });
+                });
+                
+                // Enemy bullets vs player
+                players.forEach(player => {
+                    enemyBullets.forEach(bullet => {
+                        if (this.checkAABB(bullet, player)) {
+                            const health = player.getComponent(HealthComponent);
+                            health.takeDamage(bullet.damage);
+                            this.game.removeEntity(bullet);
+                        }
+                    });
+                    
+                    // Direct enemy collision
+                    enemies.forEach(enemy => {
+                        if (this.checkAABB(player, enemy)) {
+                            const health = player.getComponent(HealthComponent);
+                            health.takeDamage(30);
+                            this.game.removeEntity(enemy);
+                        }
+                    });
+                });
+            }
+            
+            checkAABB(a, b) {
+                return a.x < b.x + b.width &&
+                       a.x + a.width > b.x &&
+                       a.y < b.y + b.height &&
+                       a.y + a.height > b.y;
+            }
+            
+            updateUI() {
+                document.getElementById('score').textContent = this.score;
+                document.getElementById('lives').textContent = this.lives;
+                document.getElementById('level').textContent = this.level;
+            }
+            
+            restart() {
+                this.score = 0;
+                this.lives = 3;
+                this.level = 1;
+                this.enemySpawnRate = 2;
+                this.gameOver = false;
+                
+                // Clear all entities
+                this.game.getAllEntities().forEach(entity => {
+                    this.game.removeEntity(entity);
+                });
+                
+                // Recreate player
+                this.player = new NinjaPlayer(50, 300);
+                this.game.addEntity(this.player);
+                
+                this.updateUI();
+            }
+        }
+
+        // Initialize and start the game
+        async function startGame() {
+            const game = new GameFramework();
+            await game.initialize('gameCanvas');
+            
+            const scene = new RTypeScene();
+            scene.initialize(game);
+            
+            // Game loop with scene updates
+            const originalUpdate = game.update.bind(game);
+            game.update = function(deltaTime) {
+                originalUpdate(deltaTime);
+                scene.update(deltaTime);
+            };
+            
+            game.start();
+        }
+
+        // Start the game when page loads
+        window.addEventListener('load', startGame);
+    </script>
+</body>
+</html>
