@@ -211,7 +211,8 @@ class RenderSystem extends System {
         this.sprites = new Map();
         this.spriteData = new Map();
         this.backgroundColor = config.game?.backgroundColor || '#000000';
-        this.baseSpritePath = config.sprites?.basePath || '../Sprites/Aseprite/';
+        // Get sprite path from FRAMEWORK_CONFIG if available
+        this.baseSpritePath = window.FRAMEWORK_CONFIG?.paths?.sprites || '/GameAssets/Sprites/Aseprite/';
     }
     
     clear() {
@@ -221,7 +222,17 @@ class RenderSystem extends System {
     
     async loadAseprite(name, filename) {
         try {
-            const url = filename.startsWith('http') ? filename : this.baseSpritePath + filename;
+            // If filename already includes a path (starts with / or http), use it as-is
+            // Otherwise, prepend the base sprite path
+            let url;
+            if (filename.startsWith('/') || filename.startsWith('http')) {
+                url = filename;
+            } else {
+                // Clean up any accidental double paths
+                const cleanFilename = filename.replace(/^.*\/GameAssets\/Sprites\/Aseprite\//, '');
+                url = this.baseSpritePath + cleanFilename;
+            }
+            
             const response = await fetch(url);
             
             if (!response.ok) {

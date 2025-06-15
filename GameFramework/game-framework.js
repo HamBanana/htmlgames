@@ -404,7 +404,10 @@ class AssetLoader {
     }
     
     async loadSprite(assetId, filename) {
-        const path = (this.config.paths?.sprites || '/GameAssets/Sprites/Aseprite/') + filename;
+        // Construct the full path using the configured sprites path
+        // Note: filename should be just the filename, not a full path
+        const basePath = this.config.paths?.sprites || '/GameAssets/Sprites/Aseprite/';
+        const path = basePath + filename;
         
         if (this.loadedAssets.has(assetId)) {
             return this.loadedAssets.get(assetId);
@@ -448,6 +451,7 @@ class AssetLoader {
             throw new Error('Renderer system not available');
         }
         
+        // Pass the full path to loadAseprite since we've already constructed it
         const spriteData = await renderer.loadAseprite(assetId, path);
         
         if (spriteData.animations && spriteData.animations.size > 0) {
@@ -835,6 +839,8 @@ class GameFramework {
     
     /**
      * Load sprite asset
+     * @param {string} assetId - Unique identifier for the sprite
+     * @param {string} filename - Just the filename (e.g., 'player.json'), not a full path
      */
     async loadSprite(assetId, filename) {
         return this.assetLoader.loadSprite(assetId, filename);
