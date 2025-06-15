@@ -3,455 +3,522 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Character Pong - GameFramework Demo</title>
+    <title>Pong - GameFramework</title>
     <style>
         body {
             margin: 0;
             padding: 0;
-            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            background: #0a0a0a;
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
             font-family: 'Courier New', monospace;
-            color: white;
-        }
-        
-        #gameContainer {
-            text-align: center;
-            background: rgba(0, 0, 0, 0.3);
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 30px rgba(0, 255, 255, 0.3);
+            color: #fff;
         }
         
         #gameCanvas {
-            border: 3px solid #00ffff;
-            border-radius: 5px;
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
-            background: #0a0a0a;
+            border: 2px solid #fff;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
         }
         
-        .game-info {
-            margin: 10px 0;
-            font-size: 18px;
-            text-shadow: 0 0 10px #00ffff;
+        .game-container {
+            text-align: center;
+        }
+        
+        .title {
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px #00ff00;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+        
+        @keyframes glow {
+            from { text-shadow: 0 0 20px #00ff00; }
+            to { text-shadow: 0 0 30px #00ff00, 0 0 40px #00ff00; }
         }
         
         .controls {
-            margin-top: 15px;
+            margin-top: 20px;
             font-size: 14px;
-            opacity: 0.8;
+            color: #888;
+        }
+        
+        .controls div {
+            margin: 5px;
+        }
+        
+        .score {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 36px;
+            color: #fff;
+            text-shadow: 0 0 10px #fff;
         }
         
         .loading {
-            color: #00ffff;
-            animation: pulse 1.5s infinite;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            color: #00ff00;
         }
         
-        @keyframes pulse {
-            0%, 100% { opacity: 0.5; }
-            50% { opacity: 1; }
+        .error {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 18px;
+            color: #ff0000;
+            text-align: center;
+            max-width: 400px;
         }
     </style>
 </head>
 <body>
-    <div id="gameContainer">
-        <h1 style="margin: 0 0 20px 0; color: #00ffff; text-shadow: 0 0 15px #00ffff;">⚔️ CHARACTER PONG ⚔️</h1>
-        <canvas id="gameCanvas" width="800" height="600"></canvas>
-        <div class="game-info">
-            <span id="gameStatus" class="loading">Loading GameFramework...</span>
-        </div>
+    <div class="game-container">
+        <h1 class="title">PONG</h1>
+        <canvas id="gameCanvas"></canvas>
         <div class="controls">
-            <strong>Player 1 (Karate Guy):</strong> W/S keys<br>
-            <strong>Player 2 (Ninja):</strong> ↑/↓ keys<br>
-            <strong>Reset:</strong> R key | <strong>Pause:</strong> Space
+            <div>Player 1: W (Up), S (Down)</div>
+            <div>Player 2: ↑ (Up), ↓ (Down)</div>
+            <div>Press SPACE to start/pause</div>
         </div>
     </div>
+    
+    <div id="loading" class="loading">Loading GameFramework...</div>
+    <div id="error" class="error" style="display: none;"></div>
 
     <!-- Load GameFramework -->
-    <script src="/GameFramework/framework-config.js"></script>
     <script src="/GameFramework/index.js"></script>
     
+    <!-- Load additional systems -->
+    <script src="/GameFramework/framework-physics.js"></script>
+    
+    <!-- Load Pong components -->
+    <script src="pong-components.js"></script>
+    
     <script>
-        let game;
-        let gameState = 'loading';
-        let player1, player2, ball;
-        let player1Score = 0, player2Score = 0;
-        let ballSpeed = 200;
-        let paddleSpeed = 300;
-        let gameStarted = false;
-
-        // Wait for framework to be ready before defining game classes
-        function initializeGameClasses() {
-            // Game entities
-            window.PongPaddle = class extends BaseEntity {
-                constructor(config) {
-                    super({
-                        type: 'paddle',
-                        width: 32,
-                        height: 64,
-                        ...config
-                    });
-                    
-                    this.playerNumber = config.playerNumber;
-                    this.speed = config.speed || 300;
-                    this.bounds = config.bounds || { top: 0, bottom: 600 };
-                    
-                    // Add sprite component
-                    this.addComponent(new SpriteComponent(config.spriteName));
-                    
-                    // Add animation component
-                    this.addComponent(new AnimationComponent({
-                        autoLoadAnimations: true
-                    }));
-                    
-                    // Add physics for collision
-                    this.addComponent(new PhysicsComponent({
-                        useGravity: false
-                    }));
-                    
-                    // Add collision
-                    this.addComponent(new CollisionComponent({
-                        width: this.width,
-                        height: this.height
-                    }));
-                    
-                    this.direction = 0; // -1 up, 0 stopped, 1 down
-                }
-                
-                update(deltaTime) {
-                    super.update(deltaTime);
-                    
-                    // Handle input
-                    const input = game.getSystem('input');
-                    if (input) {
-                        if (this.playerNumber === 1) {
-                            if (input.isActionPressed('p1up')) {
-                                this.direction = -1;
-                            } else if (input.isActionPressed('p1down')) {
-                                this.direction = 1;
-                            } else {
-                                this.direction = 0;
-                            }
-                        } else if (this.playerNumber === 2) {
-                            if (input.isActionPressed('p2up')) {
-                                this.direction = -1;
-                            } else if (input.isActionPressed('p2down')) {
-                                this.direction = 1;
-                            } else {
-                                this.direction = 0;
-                            }
-                        }
-                    }
-                    
-                    // Move paddle
-                    this.y += this.direction * this.speed * deltaTime;
-                    
-                    // Keep in bounds
-                    this.y = Math.max(this.bounds.top, Math.min(this.bounds.bottom - this.height, this.y));
-                    
-                    // Update animation
-                    const animation = this.getComponent(AnimationComponent);
-                    if (animation) {
-                        if (this.direction !== 0) {
-                            animation.play('walk');
-                        } else {
-                            animation.play('idle');
-                        }
-                    }
-                }
-            };
-
-            window.PongBall = class extends BaseEntity {
-                constructor(config) {
-                    super({
-                        type: 'ball',
-                        width: 16,
-                        height: 16,
-                        x: 400,
-                        y: 300,
-                        ...config
-                    });
-                    
-                    this.speed = config.speed || 200;
-                    this.velocity = { x: 0, y: 0 };
-                    this.resetBall();
-                    
-                    // Add physics
-                    this.addComponent(new PhysicsComponent({
-                        useGravity: false,
-                        vx: this.velocity.x,
-                        vy: this.velocity.y
-                    }));
-                    
-                    // Add collision
-                    this.addComponent(new CollisionComponent({
-                        width: this.width,
-                        height: this.height
-                    }));
-                }
-                
-                resetBall() {
-                    this.x = 400;
-                    this.y = 300;
-                    
-                    // Random direction
-                    const angle = (Math.random() - 0.5) * Math.PI * 0.5; // ±45 degrees
-                    const direction = Math.random() < 0.5 ? -1 : 1;
-                    
-                    this.velocity.x = Math.cos(angle) * this.speed * direction;
-                    this.velocity.y = Math.sin(angle) * this.speed;
-                    
-                    const physics = this.getComponent(PhysicsComponent);
-                    if (physics) {
-                        physics.velocity.x = this.velocity.x;
-                        physics.velocity.y = this.velocity.y;
-                    }
-                }
-                
-                update(deltaTime) {
-                    super.update(deltaTime);
-                    
-                    const physics = this.getComponent(PhysicsComponent);
-                    if (!physics) return;
-                    
-                    // Update position
-                    this.x += physics.velocity.x * deltaTime;
-                    this.y += physics.velocity.y * deltaTime;
-                    
-                    // Bounce off top and bottom walls
-                    if (this.y <= 0 || this.y >= 600 - this.height) {
-                        physics.velocity.y = -physics.velocity.y;
-                        this.y = Math.max(0, Math.min(600 - this.height, this.y));
-                        game.playSound('bounce');
-                        game.createParticleEffect('sparkle', this.x + this.width/2, this.y + this.height/2);
-                    }
-                    
-                    // Check for scoring
-                    if (this.x < -50) {
-                        // Player 2 scores
-                        player2Score++;
-                        updateScore();
-                        this.resetBall();
-                        game.playSound('score');
-                        game.createParticleEffect('explosion', 400, 300);
-                    } else if (this.x > 850) {
-                        // Player 1 scores
-                        player1Score++;
-                        updateScore();
-                        this.resetBall();
-                        game.playSound('score');
-                        game.createParticleEffect('explosion', 400, 300);
-                    }
-                    
-                    // Check collision with paddles
-                    this.checkPaddleCollision(player1);
-                    this.checkPaddleCollision(player2);
-                }
-                
-                checkPaddleCollision(paddle) {
-                    if (!paddle) return;
-                    
-                    // Simple AABB collision
-                    if (this.x < paddle.x + paddle.width &&
-                        this.x + this.width > paddle.x &&
-                        this.y < paddle.y + paddle.height &&
-                        this.y + this.height > paddle.y) {
-                        
-                        const physics = this.getComponent(PhysicsComponent);
-                        if (!physics) return;
-                        
-                        // Calculate collision point for angle
-                        const paddleCenter = paddle.y + paddle.height / 2;
-                        const ballCenter = this.y + this.height / 2;
-                        const relativeIntersectY = (ballCenter - paddleCenter) / (paddle.height / 2);
-                        
-                        // Bounce angle based on where ball hits paddle
-                        const bounceAngle = relativeIntersectY * Math.PI / 4; // Max 45 degrees
-                        
-                        // Increase speed slightly each hit
-                        const currentSpeed = Math.sqrt(physics.velocity.x * physics.velocity.x + physics.velocity.y * physics.velocity.y);
-                        const newSpeed = Math.min(currentSpeed * 1.05, 400);
-                        
-                        // Set new velocity
-                        physics.velocity.x = Math.cos(bounceAngle) * newSpeed * (physics.velocity.x > 0 ? -1 : 1);
-                        physics.velocity.y = Math.sin(bounceAngle) * newSpeed;
-                        
-                        // Move ball away from paddle to prevent sticking
-                        if (paddle.playerNumber === 1) {
-                            this.x = paddle.x + paddle.width + 1;
-                        } else {
-                            this.x = paddle.x - this.width - 1;
-                        }
-                        
-                        game.playSound('paddle');
-                        game.createParticleEffect('hit', this.x + this.width/2, this.y + this.height/2);
-                        
-                        // Trigger paddle animation
-                        const animation = paddle.getComponent(AnimationComponent);
-                        if (animation) {
-                            animation.play('punch');
-                        }
-                    }
-                }
-                
-                render(context) {
-                    // Draw ball as a glowing circle
-                    context.save();
-                    context.fillStyle = '#00ffff';
-                    context.shadowColor = '#00ffff';
-                    context.shadowBlur = 10;
-                    context.beginPath();
-                    context.arc(this.x + this.width/2, this.y + this.height/2, this.width/2, 0, Math.PI * 2);
-                    context.fill();
-                    context.restore();
-                }
-            };
+    // Pong Game Implementation
+    
+    /**
+     * Paddle Entity
+     */
+    class Paddle extends BaseEntity {
+        constructor(config = {}) {
+            super({
+                type: 'paddle',
+                width: 15,
+                height: 80,
+                ...config
+            });
+            
+            // Input
+            this.addComponent(new InputComponent({
+                keyMap: config.controls
+            }));
+            
+            // Physics
+            this.addComponent(new PhysicsComponent({
+                useGravity: false,
+                drag: 5,
+                maxVelocityY: 8
+            }));
+            
+            // Collision
+            this.addComponent(new CollisionComponent({
+                layer: 'paddle',
+                mask: ['ball']
+            }));
+            
+            this.speed = config.speed || 400;
+            this.player = config.player || 1;
+            this.isAI = config.isAI || false;
         }
-
-        function updateScore() {
-            const status = document.getElementById('gameStatus');
-            status.innerHTML = `🥋 Player 1: ${player1Score} | Player 2: ${player2Score} 🥷`;
-            status.className = '';
+        
+        update(deltaTime) {
+            super.update(deltaTime);
+            
+            const input = this.getComponent(InputComponent);
+            const physics = this.getComponent(PhysicsComponent);
+            
+            if (this.isAI) {
+                this.updateAI(deltaTime);
+            } else {
+                // Player control
+                if (input.isActionPressed('up')) {
+                    physics.velocity.y = -this.speed;
+                } else if (input.isActionPressed('down')) {
+                    physics.velocity.y = this.speed;
+                } else {
+                    physics.velocity.y *= 0.8; // Deceleration
+                }
+            }
+            
+            // Keep paddle on screen
+            const halfHeight = this.height / 2;
+            this.y = Math.max(halfHeight, Math.min(this.game.canvas.height - halfHeight, this.y));
+        }
+        
+        updateAI(deltaTime) {
+            const ball = this.game.getEntitiesByType('ball')[0];
+            if (!ball) return;
+            
+            const physics = this.getComponent(PhysicsComponent);
+            const paddleCenter = this.y;
+            const ballCenter = ball.y;
+            const diff = ballCenter - paddleCenter;
+            
+            // Simple AI - follow ball with some delay
+            if (Math.abs(diff) > 10) {
+                physics.velocity.y = Math.sign(diff) * this.speed * 0.8;
+            } else {
+                physics.velocity.y *= 0.8;
+            }
+        }
+        
+        render(context) {
+            context.fillStyle = '#fff';
+            context.fillRect(-this.width/2, -this.height/2, this.width, this.height);
+            
+            // Glow effect
+            context.shadowBlur = 20;
+            context.shadowColor = '#00ff00';
+            context.fillRect(-this.width/2, -this.height/2, this.width, this.height);
+            context.shadowBlur = 0;
+        }
+    }
+    
+    /**
+     * Ball Entity
+     */
+    class Ball extends BaseEntity {
+        constructor(config = {}) {
+            super({
+                type: 'ball',
+                width: 12,
+                height: 12,
+                ...config
+            });
+            
+            // Physics
+            this.addComponent(new PhysicsComponent({
+                useGravity: false,
+                drag: 0,
+                mass: 0.5
+            }));
+            
+            // Collision
+            this.addComponent(new CollisionComponent({
+                layer: 'ball',
+                mask: ['paddle', 'wall']
+            }));
+            
+            this.baseSpeed = config.speed || 300;
+            this.speedIncrease = 1.05;
+            this.maxSpeed = 800;
+            this.trail = [];
+            this.maxTrailLength = 10;
+            
+            this.reset();
+        }
+        
+        reset(winner = 0) {
+            const physics = this.getComponent(PhysicsComponent);
+            
+            // Center ball
+            this.x = this.game.canvas.width / 2;
+            this.y = this.game.canvas.height / 2;
+            
+            // Random serve direction
+            const angle = (Math.random() - 0.5) * Math.PI / 4; // -45 to 45 degrees
+            const direction = winner === 1 ? 1 : winner === 2 ? -1 : (Math.random() > 0.5 ? 1 : -1);
+            
+            physics.velocity.x = Math.cos(angle) * this.baseSpeed * direction;
+            physics.velocity.y = Math.sin(angle) * this.baseSpeed;
+            
+            this.trail = [];
+        }
+        
+        update(deltaTime) {
+            super.update(deltaTime);
+            
+            // Add to trail
+            this.trail.push({ x: this.x, y: this.y });
+            if (this.trail.length > this.maxTrailLength) {
+                this.trail.shift();
+            }
+            
+            // Check boundaries
+            if (this.y - this.height/2 <= 0 || this.y + this.height/2 >= this.game.canvas.height) {
+                this.bounceY();
+                this.game.playSound('wall_hit');
+            }
+            
+            // Check scoring
+            if (this.x < -this.width) {
+                this.game.events.emit('score', { player: 2 });
+                this.reset(2);
+            } else if (this.x > this.game.canvas.width + this.width) {
+                this.game.events.emit('score', { player: 1 });
+                this.reset(1);
+            }
+        }
+        
+        bounceY() {
+            const physics = this.getComponent(PhysicsComponent);
+            physics.velocity.y = -physics.velocity.y;
+            
+            // Keep ball in bounds
+            if (this.y - this.height/2 < 0) {
+                this.y = this.height/2;
+            } else if (this.y + this.height/2 > this.game.canvas.height) {
+                this.y = this.game.canvas.height - this.height/2;
+            }
+            
+            // Particle effect
+            this.game.createParticleEffect('hit', this.x, this.y);
+        }
+        
+        onPaddleHit(paddle) {
+            const physics = this.getComponent(PhysicsComponent);
+            
+            // Calculate hit position (-1 to 1)
+            const relativeIntersectY = (paddle.y - this.y) / (paddle.height / 2);
+            const normalizedRelativeIntersectY = Math.max(-1, Math.min(1, relativeIntersectY));
+            
+            // Calculate bounce angle (max 75 degrees)
+            const bounceAngle = normalizedRelativeIntersectY * Math.PI / 4;
+            
+            // Current speed
+            const currentSpeed = physics.velocity.magnitude();
+            const newSpeed = Math.min(currentSpeed * this.speedIncrease, this.maxSpeed);
+            
+            // Set new velocity
+            const direction = this.x < this.game.canvas.width / 2 ? 1 : -1;
+            physics.velocity.x = Math.cos(bounceAngle) * newSpeed * direction;
+            physics.velocity.y = -Math.sin(bounceAngle) * newSpeed;
+            
+            // Effects
+            this.game.playSound('paddle_hit');
+            this.game.createParticleEffect('hit', this.x, this.y);
+            this.game.shake(5, 0.1);
+            
+            // Move ball out of paddle
+            if (direction > 0) {
+                this.x = paddle.x + paddle.width/2 + this.width/2 + 1;
+            } else {
+                this.x = paddle.x - paddle.width/2 - this.width/2 - 1;
+            }
+        }
+        
+        render(context) {
+            // Trail
+            context.strokeStyle = '#00ff00';
+            context.lineWidth = 2;
+            this.trail.forEach((pos, index) => {
+                context.globalAlpha = index / this.trail.length * 0.5;
+                context.beginPath();
+                context.arc(pos.x - this.x, pos.y - this.y, this.width/2, 0, Math.PI * 2);
+                context.stroke();
+            });
+            context.globalAlpha = 1;
+            
+            // Ball
+            context.fillStyle = '#fff';
+            context.shadowBlur = 20;
+            context.shadowColor = '#00ff00';
+            context.beginPath();
+            context.arc(0, 0, this.width/2, 0, Math.PI * 2);
+            context.fill();
+            context.shadowBlur = 0;
+        }
+    }
+    
+    /**
+     * Pong Scene
+     */
+    class PongScene extends Scene {
+        constructor() {
+            super('pong');
+            this.score = { player1: 0, player2: 0 };
+            this.winScore = 5;
+            this.gameState = 'waiting'; // waiting, playing, paused, gameover
+        }
+        
+        async onLoad() {
+            // Create paddles
+            this.paddle1 = new Paddle({
+                x: 30,
+                y: this.game.canvas.height / 2,
+                player: 1,
+                controls: {
+                    up: 'p1up',
+                    down: 'p1down'
+                }
+            });
+            
+            this.paddle2 = new Paddle({
+                x: this.game.canvas.width - 30,
+                y: this.game.canvas.height / 2,
+                player: 2,
+                controls: {
+                    up: 'p2up',
+                    down: 'p2down'
+                },
+                isAI: false // Set to true for single player
+            });
+            
+            // Create ball
+            this.ball = new Ball({
+                x: this.game.canvas.width / 2,
+                y: this.game.canvas.height / 2
+            });
+            
+            // Add entities
+            this.game.addEntity(this.paddle1);
+            this.game.addEntity(this.paddle2);
+            this.game.addEntity(this.ball);
+            
+            // Listen for scoring
+            this.game.events.on('score', (data) => this.onScore(data));
+            
+            // Listen for collisions
+            this.game.events.on('collision:enter', (data) => this.onCollision(data));
+        }
+        
+        update(deltaTime) {
+            const input = this.game.getSystem('input');
+            
+            // Start/pause game
+            if (input.isActionJustPressed('jump')) { // Space key
+                if (this.gameState === 'waiting') {
+                    this.gameState = 'playing';
+                } else if (this.gameState === 'playing') {
+                    this.gameState = 'paused';
+                    this.game.pause();
+                } else if (this.gameState === 'paused') {
+                    this.gameState = 'playing';
+                    this.game.resume();
+                } else if (this.gameState === 'gameover') {
+                    this.resetGame();
+                }
+            }
+        }
+        
+        render(context) {
+            // Draw center line
+            context.strokeStyle = '#444';
+            context.lineWidth = 4;
+            context.setLineDash([10, 10]);
+            context.beginPath();
+            context.moveTo(this.game.canvas.width / 2, 0);
+            context.lineTo(this.game.canvas.width / 2, this.game.canvas.height);
+            context.stroke();
+            context.setLineDash([]);
+            
+            // Draw scores
+            context.fillStyle = '#fff';
+            context.font = '48px Courier New';
+            context.textAlign = 'center';
+            context.fillText(this.score.player1, this.game.canvas.width / 2 - 100, 60);
+            context.fillText(this.score.player2, this.game.canvas.width / 2 + 100, 60);
+            
+            // Draw game state messages
+            if (this.gameState === 'waiting') {
+                context.font = '24px Courier New';
+                context.fillText('Press SPACE to Start', this.game.canvas.width / 2, this.game.canvas.height / 2);
+            } else if (this.gameState === 'paused') {
+                context.font = '24px Courier New';
+                context.fillText('PAUSED', this.game.canvas.width / 2, this.game.canvas.height / 2);
+            } else if (this.gameState === 'gameover') {
+                const winner = this.score.player1 >= this.winScore ? 'Player 1' : 'Player 2';
+                context.font = '36px Courier New';
+                context.fillText(`${winner} Wins!`, this.game.canvas.width / 2, this.game.canvas.height / 2 - 30);
+                context.font = '24px Courier New';
+                context.fillText('Press SPACE to Play Again', this.game.canvas.width / 2, this.game.canvas.height / 2 + 30);
+            }
+        }
+        
+        onScore(data) {
+            this.score[`player${data.player}`]++;
             
             // Check for winner
-            if (player1Score >= 5) {
-                status.innerHTML += '<br><span style="color: #00ff00;">🏆 KARATE GUY WINS! 🏆</span>';
-            } else if (player2Score >= 5) {
-                status.innerHTML += '<br><span style="color: #00ff00;">🏆 NINJA WINS! 🏆</span>';
+            if (this.score.player1 >= this.winScore || this.score.player2 >= this.winScore) {
+                this.gameState = 'gameover';
+                this.game.playSound('game_over');
+            } else {
+                this.game.playSound('score');
             }
         }
-
-        function drawCenterLine(context) {
-            context.save();
-            context.strokeStyle = '#333333';
-            context.lineWidth = 2;
-            context.setLineDash([20, 10]);
-            context.beginPath();
-            context.moveTo(400, 0);
-            context.lineTo(400, 600);
-            context.stroke();
-            context.restore();
-        }
-
-        function resetGame() {
-            player1Score = 0;
-            player2Score = 0;
-            updateScore();
-            if (ball) {
-                ball.resetBall();
+        
+        onCollision(data) {
+            // Handle ball-paddle collisions
+            if (data.entityA.type === 'ball' && data.entityB.type === 'paddle') {
+                data.entityA.onPaddleHit(data.entityB);
+            } else if (data.entityB.type === 'ball' && data.entityA.type === 'paddle') {
+                data.entityB.onPaddleHit(data.entityA);
             }
         }
-
-        // Initialize game when framework is ready
-        window.addEventListener('gameframework:ready', async () => {
-            try {
-                document.getElementById('gameStatus').textContent = 'Initializing game...';
-                
-                // Initialize game classes now that framework is ready
-                initializeGameClasses();
-                
-                // Create game instance
-                game = new GameFramework.Game({
-                    width: 800,
-                    height: 600,
-                    backgroundColor: '#0a0a0a',
-                    canvasId: 'gameCanvas'
-                });
-                
-                await game.ready;
-                
-                document.getElementById('gameStatus').textContent = 'Loading sprites...';
-                
-                // Load sprites
-                await game.loadSprite('karateguy', 'karateguy.json');
-                await game.loadSprite('ninjamand', 'ninjamand.json');
-                
-                document.getElementById('gameStatus').textContent = 'Creating players...';
-                
-                // Create players
-                player1 = new PongPaddle({
-                    x: 50,
-                    y: 268,
-                    playerNumber: 1,
-                    spriteName: 'karateguy',
-                    speed: paddleSpeed,
-                    bounds: { top: 0, bottom: 600 }
-                });
-                
-                player2 = new PongPaddle({
-                    x: 718,
-                    y: 268,
-                    playerNumber: 2,
-                    spriteName: 'ninjamand',
-                    speed: paddleSpeed,
-                    bounds: { top: 0, bottom: 600 }
-                });
-                
-                // Create ball
-                ball = new PongBall({
-                    speed: ballSpeed
-                });
-                
-                // Add entities to game
-                game.addEntity(player1);
-                game.addEntity(player2);
-                game.addEntity(ball);
-                
-                // Handle input
-                const input = game.getSystem('input');
-                if (input) {
-                    // Add custom key handlers for reset and pause
-                    document.addEventListener('keydown', (e) => {
-                        if (e.code === 'KeyR') {
-                            resetGame();
-                        } else if (e.code === 'Space') {
-                            e.preventDefault();
-                            if (game.paused) {
-                                game.resume();
-                            } else {
-                                game.pause();
-                            }
-                        }
-                    });
-                }
-                
-                // Custom render for UI elements
-                game.events.on('game:render', () => {
-                    const renderer = game.getSystem('renderer');
-                    if (renderer) {
-                        drawCenterLine(renderer.context);
-                    }
-                });
-                
-                // Initialize score display
-                updateScore();
-                
-                // Start the game
-                game.start();
-                gameStarted = true;
-                
-                console.log('🎮 Character Pong game started!');
-                
-            } catch (error) {
-                console.error('Failed to initialize game:', error);
-                document.getElementById('gameStatus').textContent = 'Failed to load game. Check console for details.';
-            }
-        });
-
-        // Handle framework loading errors
-        window.addEventListener('gameframework:error', (e) => {
-            console.error('GameFramework error:', e.detail.error);
-            document.getElementById('gameStatus').textContent = 'Failed to load GameFramework. Check console for details.';
-        });
-
-        // Fallback if framework doesn't load
-        setTimeout(() => {
-            if (!gameStarted) {
-                document.getElementById('gameStatus').textContent = 'GameFramework taking too long to load. Please refresh the page.';
-            }
-        }, 10000);
+        
+        resetGame() {
+            this.score = { player1: 0, player2: 0 };
+            this.gameState = 'waiting';
+            this.ball.reset();
+            this.paddle1.y = this.game.canvas.height / 2;
+            this.paddle2.y = this.game.canvas.height / 2;
+        }
+    }
+    
+    // Start game when framework is ready
+    window.addEventListener('gameframework:ready', async () => {
+        console.log('🎮 Starting Pong game...');
+        
+        try {
+            // Create game instance
+            const game = await GameFramework.quickStart({
+                width: 800,
+                height: 400,
+                backgroundColor: '#000',
+                pixelated: true,
+                gravity: 0
+            });
+            
+            // Register and load the Pong scene
+            game.registerScene('pong', new PongScene());
+            await game.loadScene('pong');
+            
+            // Start the game
+            game.start();
+            
+            // Hide loading message
+            document.getElementById('loading').style.display = 'none';
+            
+            console.log('✨ Pong game started!');
+            
+        } catch (error) {
+            console.error('Failed to start game:', error);
+            document.getElementById('loading').style.display = 'none';
+            const errorEl = document.getElementById('error');
+            errorEl.style.display = 'block';
+            errorEl.innerHTML = `Failed to start game: ${error.message}<br><br>Check console for details.`;
+        }
+    });
+    
+    // Handle framework loading error
+    window.addEventListener('gameframework:error', (e) => {
+        console.error('Framework loading error:', e.detail.error);
+        document.getElementById('loading').style.display = 'none';
+        const errorEl = document.getElementById('error');
+        errorEl.style.display = 'block';
+        errorEl.innerHTML = `Failed to load GameFramework: ${e.detail.error.message}<br><br>Make sure all framework files are properly served.`;
+    });
     </script>
 </body>
 </html>
