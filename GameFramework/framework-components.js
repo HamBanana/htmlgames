@@ -1,0 +1,629 @@
+// framework-components.js - Common game components
+
+/**
+ * Transform Component - Position, rotation, scale
+ */
+class TransformComponent extends Component {
+    constructor(config = {}) {
+        super(config);
+        this.localPosition = new Vector2(config.x || 0, config.y || 0);
+        this.localRotation = config.rotation || 0;
+        this.localScale = new Vector2(config.scaleX || 1, config.scaleY || 1);
+        this.parent = null;
+    }
+    
+    get worldPosition() {
+        if (!this.parent) return this.localPosition.copy();
+        // Calculate world position based on parent
+        return this.parent.worldPosition.add(this.localPosition);
+    }
+    
+    get worldRotation() {
+        if (!this.parent) return this.localRotation;
+        return this.parent.worldRotation + this.localRotation;
+    }
+}
+
+/**
+ * Physics Component - Velocity, forces, gravity
+ */
+class PhysicsComponent extends Component {
+    constructor(config = {}) {
+        super(config);
+        this.velocity = new Vector2(config.vx || 0, config.vy || 0);
+        this.acceleration = new Vector2(0, 0);
+        this.forces = [];
+        this.mass = config.mass || 1;
+        this.drag = config.drag || 0;
+        this.useGravity = config.useGravity !== false;
+        this.gravityScale = config.gravityScale || 1;
+        this.grounded = false;
+        this.maxVelocity = new Vector2(
+            config.maxVelocityX || 20,
+            config.maxVelocityY || 20
+        );
+    }
+    
+    addForce(force) {
+        this.forces.push(force);
+    }
+    
+    setVelocity(x, y) {
+        this.velocity.set(x, y);
+    }
+}
+
+/**
+ * Collision Component - Collision detection
+ */
+class CollisionComponent extends Component {
+    constructor(config = {}) {
+        super(config);
+        this.bounds = {
+            offset: new Vector2(config.offsetX || 0, config.offsetY || 0),
+            size: new Vector2(config.width || 32, config.height || 32)
+        };
+        this.isTrigger = config.isTrigger || false;
+        this.layer = config.layer || 'default';
+        this.mask = config.mask || ['default'];
+    }
+    
+    getBounds() {
+        return {
+            x: this.entity.x + this.bounds.offset.x,
+            y: this.entity.y + this.bounds.offset.y,
+            width: this.bounds.size.x,
+            height: this.bounds.size.y
+        };
+    }
+}
+
+/**
+ * Sprite Component - Sprite rendering
+ */
+class SpriteComponent extends Component {
+    constructor(spriteName, config = {}) {
+        super(config);
+        this.spriteName = spriteName;
+        this.currentAnimation = config.animation || 'idle';
+        this.animationFrame = 0;
+        this.animationTime = 0;
+        this.flipX = false;
+        this.flipY = false;
+        this.tint = config.tint || null;
+        this.opacity = config.opacity || 1;
+    }
+    
+    setAnimation(name) {
+        if (this.currentAnimation !== name) {
+            this.currentAnimation = name;
+            this.animationFrame = 0;
+            this.animationTime = 0;
+        }
+    }
+    
+    render(context) {
+        const renderer = this.game.getSystem('renderer');
+        if (!renderer) return;
+        
+        context.save();
+        
+        if (this.opacity < 1) {
+            context.globalAlpha = this.opacity;
+        }
+        
+        if (this.flipX || this.flipY) {
+            context.scale(this.flipX ? -1 : 1, this.flipY ? -1 : 1);
+        }
+        
+        // Draw sprite
+        renderer.drawSprite(
+            this.spriteName,
+            0,
+            0,
+            this.entity.width,
+            this.entity.height
+        );
+        
+        context.restore();
+    }
+}
+
+/**
+ * Animation Component - Sprite animation
+ */
+class AnimationComponent extends Component {
+    constructor(config = {}) {
+        super(config);
+        this.animations = new Map();
+        this.currentAnimation = null;
+        this.currentFrame = 0;
+        this.frameTime = 0;
+        this.playing = false;
+        this.loop = true;
+        
+        // Register animations from config
+        if (config.animations) {
+            Object.entries(config.animations).forEach(([name, anim]) => {
+                this.addAnimation(name, anim);
+            });
+        }
+    }
+    
+    addAnimation(name, config) {
+        this.animations.set(name, {
+            frames: config.frames,
+            frameDuration: config.frameDuration || 100,
+            loop: config.loop !== false,
+            onComplete: config.onComplete
+        });
+    }
+    
+    play(name, restart = false) {
+        if (this.currentAnimation === name && !restart) return;
+        
+        const animation = this.animations.get(name);
+        if (!animation) return;
+        
+        this.currentAnimation = name;
+        this.currentFrame = 0;
+        this.frameTime = 0;
+        this.playing = true;
+        this.loop = animation.loop;
+    }
+    
+    stop() {
+        this.playing = false;
+    }
+    
+    update(deltaTime) {
+        if (!this.playing || !this.currentAnimation) return;
+        
+        const animation = this.animations.get(this.currentAnimation);
+        if (!animation) return;
+        
+        // Update frame time
+        this.frameTime += deltaTime * 1000; // Convert to ms
+        
+        // Check if should advance frame
+        if (this.frameTime >= animation.frameDuration) {
+            this.frameTime = 0;
+            this.currentFrame++;
+            
+            // Check if animation completed
+            if (this.currentFrame >= animation.frames.length) {
+                if (animation.loop) {
+                    this.currentFrame = 0;
+                } else {
+                    this.playing = false;
+                    this.currentFrame = animation.frames.length - 1;
+                    
+                    if (animation.onComplete) {
+                        animation.onComplete();
+                    }
+                }
+            }
+        }
+    }
+    
+    getCurrentFrame() {
+        const animation = this.animations.get(this.currentAnimation);
+        if (!animation) return null;
+        return animation.frames[this.currentFrame];
+    }
+}
+
+/**
+ * Health Component - Health management
+ */
+class HealthComponent extends Component {
+    constructor(config = {}) {
+        super(config);
+        this.maxHealth = config.maxHealth || 100;
+        this.health = config.health || this.maxHealth;
+        this.invulnerable = false;
+        this.invulnerabilityTime = config.invulnerabilityTime || 1000; // ms
+        this.invulnerabilityTimer = 0;
+        
+        this.onDamage = config.onDamage;
+        this.onHeal = config.onHeal;
+        this.onDeath = config.onDeath;
+    }
+    
+    takeDamage(amount) {
+        if (this.invulnerable || this.health <= 0) return;
+        
+        this.health = Math.max(0, this.health - amount);
+        this.invulnerable = true;
+        this.invulnerabilityTimer = this.invulnerabilityTime;
+        
+        if (this.onDamage) {
+            this.onDamage(amount);
+        }
+        
+        if (this.health <= 0 && this.onDeath) {
+            this.onDeath();
+        }
+        
+        this.game.events.emit('entity:damage', {
+            entity: this.entity,
+            amount,
+            health: this.health
+        });
+    }
+    
+    heal(amount) {
+        const oldHealth = this.health;
+        this.health = Math.min(this.maxHealth, this.health + amount);
+        const healed = this.health - oldHealth;
+        
+        if (healed > 0 && this.onHeal) {
+            this.onHeal(healed);
+        }
+        
+        this.game.events.emit('entity:heal', {
+            entity: this.entity,
+            amount: healed,
+            health: this.health
+        });
+    }
+    
+    update(deltaTime) {
+        if (this.invulnerable && this.invulnerabilityTimer > 0) {
+            this.invulnerabilityTimer -= deltaTime * 1000;
+            if (this.invulnerabilityTimer <= 0) {
+                this.invulnerable = false;
+            }
+        }
+    }
+    
+    isDead() {
+        return this.health <= 0;
+    }
+    
+    getHealthPercent() {
+        return this.health / this.maxHealth;
+    }
+}
+
+/**
+ * Input Component - Player input handling
+ */
+class InputComponent extends Component {
+    constructor(config = {}) {
+        super(config);
+        this.actions = config.actions || {};
+        this.inputEnabled = true;
+    }
+    
+    update(deltaTime) {
+        if (!this.inputEnabled) return;
+        
+        const input = this.game.getSystem('input');
+        if (!input) return;
+        
+        // Check for action events
+        Object.keys(this.actions).forEach(action => {
+            if (input.isActionJustPressed(action)) {
+                this.game.events.emit(`input:${action}`, this.entity);
+            }
+        });
+    }
+    
+    isActionPressed(action) {
+        const input = this.game.getSystem('input');
+        return input && input.isActionPressed(action);
+    }
+    
+    isActionJustPressed(action) {
+        const input = this.game.getSystem('input');
+        return input && input.isActionJustPressed(action);
+    }
+    
+    getMovementVector() {
+        let x = 0;
+        let y = 0;
+        
+        if (this.isActionPressed('left')) x -= 1;
+        if (this.isActionPressed('right')) x += 1;
+        if (this.isActionPressed('up')) y -= 1;
+        if (this.isActionPressed('down')) y += 1;
+        
+        // Normalize diagonal movement
+        if (x !== 0 && y !== 0) {
+            const length = Math.sqrt(x * x + y * y);
+            x /= length;
+            y /= length;
+        }
+        
+        return { x, y };
+    }
+}
+
+/**
+ * Weapon Component - Weapon management
+ */
+class WeaponComponent extends Component {
+    constructor(config = {}) {
+        super(config);
+        this.weapons = new Map();
+        this.currentWeapon = null;
+        this.cooldown = 0;
+        
+        // Add default weapon
+        if (config.defaultWeapon) {
+            this.addWeapon('default', config.defaultWeapon);
+            this.currentWeapon = 'default';
+        }
+    }
+    
+    addWeapon(name, config) {
+        this.weapons.set(name, {
+            damage: config.damage || 10,
+            fireRate: config.fireRate || 0.5, // shots per second
+            projectileSpeed: config.projectileSpeed || 10,
+            projectileSize: config.projectileSize || { width: 8, height: 8 },
+            spread: config.spread || 0,
+            projectileCount: config.projectileCount || 1,
+            onFire: config.onFire
+        });
+    }
+    
+    switchWeapon(name) {
+        if (this.weapons.has(name)) {
+            this.currentWeapon = name;
+            this.cooldown = 0;
+        }
+    }
+    
+    fire(direction) {
+        if (this.cooldown > 0 || !this.currentWeapon) return false;
+        
+        const weapon = this.weapons.get(this.currentWeapon);
+        if (!weapon) return false;
+        
+        // Set cooldown
+        this.cooldown = 1 / weapon.fireRate;
+        
+        // Create projectiles
+        for (let i = 0; i < weapon.projectileCount; i++) {
+            const spread = (Math.random() - 0.5) * weapon.spread;
+            const angle = Math.atan2(direction.y, direction.x) + spread;
+            
+            const projectile = {
+                x: this.entity.x + this.entity.width / 2,
+                y: this.entity.y + this.entity.height / 2,
+                vx: Math.cos(angle) * weapon.projectileSpeed,
+                vy: Math.sin(angle) * weapon.projectileSpeed,
+                damage: weapon.damage,
+                size: weapon.projectileSize,
+                owner: this.entity
+            };
+            
+            this.game.events.emit('projectile:created', projectile);
+            
+            if (weapon.onFire) {
+                weapon.onFire(projectile);
+            }
+        }
+        
+        return true;
+    }
+    
+    update(deltaTime) {
+        if (this.cooldown > 0) {
+            this.cooldown -= deltaTime;
+        }
+    }
+}
+
+/**
+ * AI Component - Basic AI behaviors
+ */
+class AIComponent extends Component {
+    constructor(config = {}) {
+        super(config);
+        this.behavior = config.behavior || 'idle';
+        this.target = null;
+        this.detectionRange = config.detectionRange || 200;
+        this.attackRange = config.attackRange || 100;
+        this.moveSpeed = config.moveSpeed || 2;
+        this.state = 'idle';
+        this.stateTimer = 0;
+    }
+    
+    update(deltaTime) {
+        // Find target if needed
+        if (!this.target) {
+            this.findTarget();
+        }
+        
+        // Update based on behavior
+        switch (this.behavior) {
+            case 'patrol':
+                this.updatePatrol(deltaTime);
+                break;
+            case 'aggressive':
+                this.updateAggressive(deltaTime);
+                break;
+            case 'defensive':
+                this.updateDefensive(deltaTime);
+                break;
+            default:
+                this.updateIdle(deltaTime);
+        }
+    }
+    
+    findTarget() {
+        // Find nearest player
+        const players = this.game.getEntitiesByType('player');
+        let nearestPlayer = null;
+        let nearestDistance = this.detectionRange;
+        
+        players.forEach(player => {
+            const distance = this.entity.position.distanceTo(player.position);
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearestPlayer = player;
+            }
+        });
+        
+        this.target = nearestPlayer;
+    }
+    
+    updateIdle(deltaTime) {
+        // Do nothing
+    }
+    
+    updatePatrol(deltaTime) {
+        this.stateTimer += deltaTime;
+        
+        const physics = this.entity.getComponent(PhysicsComponent);
+        if (!physics) return;
+        
+        // Simple back and forth movement
+        if (this.stateTimer > 2) {
+            this.moveSpeed *= -1;
+            this.stateTimer = 0;
+        }
+        
+        physics.velocity.x = this.moveSpeed;
+        
+        // Attack if target in range
+        if (this.target) {
+            const distance = this.entity.position.distanceTo(this.target.position);
+            if (distance < this.attackRange) {
+                this.attack();
+            }
+        }
+    }
+    
+    updateAggressive(deltaTime) {
+        if (!this.target) return;
+        
+        const physics = this.entity.getComponent(PhysicsComponent);
+        if (!physics) return;
+        
+        // Move towards target
+        const direction = this.target.position.subtract(this.entity.position).normalize();
+        physics.velocity.x = direction.x * this.moveSpeed;
+        
+        // Attack if in range
+        const distance = this.entity.position.distanceTo(this.target.position);
+        if (distance < this.attackRange) {
+            this.attack();
+        }
+    }
+    
+    updateDefensive(deltaTime) {
+        if (!this.target) return;
+        
+        const distance = this.entity.position.distanceTo(this.target.position);
+        
+        // Only attack if target gets close
+        if (distance < this.attackRange) {
+            this.attack();
+            
+            // Back away
+            const physics = this.entity.getComponent(PhysicsComponent);
+            if (physics) {
+                const direction = this.entity.position.subtract(this.target.position).normalize();
+                physics.velocity.x = direction.x * this.moveSpeed;
+            }
+        }
+    }
+    
+    attack() {
+        const weapon = this.entity.getComponent(WeaponComponent);
+        if (weapon && this.target) {
+            const direction = this.target.position.subtract(this.entity.position).normalize();
+            weapon.fire(direction);
+        }
+    }
+}
+
+/**
+ * State Machine Component
+ */
+class StateMachineComponent extends Component {
+    constructor(config = {}) {
+        super(config);
+        this.states = new Map();
+        this.currentState = null;
+        this.previousState = null;
+        
+        // Register initial states
+        if (config.states) {
+            Object.entries(config.states).forEach(([name, state]) => {
+                this.addState(name, state);
+            });
+        }
+        
+        if (config.initialState) {
+            this.changeState(config.initialState);
+        }
+    }
+    
+    addState(name, state) {
+        state.name = name;
+        state.component = this;
+        this.states.set(name, state);
+    }
+    
+    changeState(name) {
+        const newState = this.states.get(name);
+        if (!newState) return;
+        
+        // Exit current state
+        if (this.currentState && this.currentState.exit) {
+            this.currentState.exit();
+        }
+        
+        this.previousState = this.currentState;
+        this.currentState = newState;
+        
+        // Enter new state
+        if (this.currentState.enter) {
+            this.currentState.enter();
+        }
+        
+        this.game.events.emit('state:changed', {
+            entity: this.entity,
+            from: this.previousState?.name,
+            to: name
+        });
+    }
+    
+    update(deltaTime) {
+        if (this.currentState && this.currentState.update) {
+            this.currentState.update(deltaTime);
+        }
+    }
+    
+    getCurrentState() {
+        return this.currentState?.name;
+    }
+}
+
+/**
+ * Collider Component - Static collider
+ */
+class ColliderComponent extends Component {
+    constructor(config = {}) {
+        super(config);
+        this.static = config.static !== false;
+        this.bounds = {
+            offset: new Vector2(config.offsetX || 0, config.offsetY || 0),
+            size: new Vector2(config.width || 32, config.height || 32)
+        };
+    }
+    
+    getBounds() {
+        return {
+            x: this.entity.x + this.bounds.offset.x,
+            y: this.entity.y + this.bounds.offset.y,
+            width: this.bounds.size.x,
+            height: this.bounds.size.y
+        };
+    }
+}
