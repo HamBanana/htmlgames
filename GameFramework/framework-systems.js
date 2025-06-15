@@ -1,4 +1,259 @@
-// Enhanced framework-systems.js - Updated RenderSystem with Aseprite support
+// GameFramework/framework-systems.js - Game systems (without redeclarations)
+
+/**
+ * Time System - Manages game time and time scaling
+ */
+class TimeSystem extends System {
+    constructor() {
+        super();
+        this.timeScale = 1;
+        this.totalTime = 0;
+        this.deltaTime = 0;
+    }
+    
+    update(deltaTime) {
+        this.deltaTime = deltaTime * this.timeScale;
+        this.totalTime += this.deltaTime;
+    }
+    
+    getTotalTime() {
+        return this.totalTime;
+    }
+    
+    getDeltaTime() {
+        return this.deltaTime;
+    }
+    
+    setTimeScale(scale) {
+        this.timeScale = scale;
+    }
+}
+
+/**
+ * Input System - Handles keyboard and mouse input
+ */
+class InputSystem extends System {
+    constructor(config = {}) {
+        super(config);
+        this.keys = new Map();
+        this.keysJustPressed = new Set();
+        this.keysJustReleased = new Set();
+        this.mouse = { x: 0, y: 0, buttons: new Map() };
+        this.actionMappings = config.keyboard || {};
+        
+        this.setupEventListeners();
+    }
+    
+    setupEventListeners() {
+        document.addEventListener('keydown', (e) => this.onKeyDown(e));
+        document.addEventListener('keyup', (e) => this.onKeyUp(e));
+        document.addEventListener('mousemove', (e) => this.onMouseMove(e));
+        document.addEventListener('mousedown', (e) => this.onMouseDown(e));
+        document.addEventListener('mouseup', (e) => this.onMouseUp(e));
+    }
+    
+    onKeyDown(event) {
+        if (!this.keys.get(event.code)) {
+            this.keysJustPressed.add(event.code);
+        }
+        this.keys.set(event.code, true);
+    }
+    
+    onKeyUp(event) {
+        this.keys.set(event.code, false);
+        this.keysJustReleased.add(event.code);
+    }
+    
+    onMouseMove(event) {
+        const rect = this.game.canvas.getBoundingClientRect();
+        this.mouse.x = event.clientX - rect.left;
+        this.mouse.y = event.clientY - rect.top;
+    }
+    
+    onMouseDown(event) {
+        this.mouse.buttons.set(event.button, true);
+    }
+    
+    onMouseUp(event) {
+        this.mouse.buttons.set(event.button, false);
+    }
+    
+    update(deltaTime) {
+        this.keysJustPressed.clear();
+        this.keysJustReleased.clear();
+    }
+    
+    isKeyPressed(key) {
+        return this.keys.get(key) || false;
+    }
+    
+    isKeyJustPressed(key) {
+        return this.keysJustPressed.has(key);
+    }
+    
+    isActionPressed(action) {
+        const keys = this.actionMappings[action];
+        if (!keys) return false;
+        return keys.some(key => this.isKeyPressed(key));
+    }
+    
+    isActionJustPressed(action) {
+        const keys = this.actionMappings[action];
+        if (!keys) return false;
+        return keys.some(key => this.isKeyJustPressed(key));
+    }
+    
+    getMovementVector() {
+        let x = 0;
+        let y = 0;
+        
+        if (this.isActionPressed('left')) x -= 1;
+        if (this.isActionPressed('right')) x += 1;
+        if (this.isActionPressed('up')) y -= 1;
+        if (this.isActionPressed('down')) y += 1;
+        
+        if (x !== 0 && y !== 0) {
+            const length = Math.sqrt(x * x + y * y);
+            x /= length;
+            y /= length;
+        }
+        
+        return { x, y };
+    }
+    
+    getMousePosition() {
+        return { x: this.mouse.x, y: this.mouse.y };
+    }
+    
+    isMouseButtonPressed(button) {
+        return this.mouse.buttons.get(button) || false;
+    }
+}
+
+/**
+ * Physics System - Handles physics simulation
+ */
+class PhysicsSystem extends System {
+    constructor(config = {}) {
+        super(config);
+        this.gravity = config.gravity || 0.5;
+        this.friction = config.friction || 0.1;
+    }
+    
+    update(deltaTime) {
+        const entities = this.game.getEntitiesWithComponent(PhysicsComponent);
+        
+        entities.forEach(entity => {
+            const physics = entity.getComponent(PhysicsComponent);
+            
+            // Apply gravity
+            if (physics.useGravity) {
+                physics.acceleration.y += this.gravity * physics.gravityScale;
+            }
+            
+            // Apply forces
+            physics.forces.forEach(force => {
+                physics.acceleration.x += force.x / physics.mass;
+                physics.acceleration.y += force.y / physics.mass;
+            });
+            physics.forces = [];
+            
+            // Update velocity
+            physics.velocity.x += physics.acceleration.x * deltaTime;
+            physics.velocity.y += physics.acceleration.y * deltaTime;
+            
+            // Apply drag
+            physics.velocity.x *= (1 - physics.drag);
+            physics.velocity.y *= (1 - physics.drag);
+            
+            // Clamp velocity
+            physics.velocity.x = Math.max(-physics.maxVelocity.x, 
+                Math.min(physics.maxVelocity.x, physics.velocity.x));
+            physics.velocity.y = Math.max(-physics.maxVelocity.y, 
+                Math.min(physics.maxVelocity.y, physics.velocity.y));
+            
+            // Update position
+            entity.x += physics.velocity.x * deltaTime;
+            entity.y += physics.velocity.y * deltaTime;
+            
+            // Reset acceleration
+            physics.acceleration.set(0, 0);
+        });
+    }
+}
+
+/**
+ * Audio System - Handles sound and music playback
+ */
+class AudioSystem extends System {
+    constructor(config = {}) {
+        super(config);
+        this.sounds = new Map();
+        this.music = null;
+        this.masterVolume = config.masterVolume || 1.0;
+        this.musicVolume = config.musicVolume || 0.7;
+        this.soundVolume = config.soundVolume || 0.8;
+    }
+    
+    async loadSound(name, url) {
+        try {
+            const audio = new Audio(url);
+            audio.preload = 'auto';
+            
+            return new Promise((resolve, reject) => {
+                audio.addEventListener('canplaythrough', () => {
+                    this.sounds.set(name, audio);
+                    resolve(audio);
+                });
+                audio.addEventListener('error', reject);
+            });
+        } catch (error) {
+            console.error(`Failed to load sound ${name}:`, error);
+            throw error;
+        }
+    }
+    
+    playSound(name, options = {}) {
+        const sound = this.sounds.get(name);
+        if (!sound) {
+            console.warn(`Sound ${name} not found`);
+            return;
+        }
+        
+        const clone = sound.cloneNode();
+        clone.volume = (options.volume || 1) * this.soundVolume * this.masterVolume;
+        clone.play();
+        return clone;
+    }
+    
+    async playMusic(name, loop = true) {
+        const music = this.sounds.get(name);
+        if (!music) {
+            console.warn(`Music ${name} not found`);
+            return;
+        }
+        
+        if (this.music) {
+            this.music.pause();
+        }
+        
+        this.music = music;
+        this.music.loop = loop;
+        this.music.volume = this.musicVolume * this.masterVolume;
+        await this.music.play();
+    }
+    
+    stopMusic() {
+        if (this.music) {
+            this.music.pause();
+            this.music.currentTime = 0;
+        }
+    }
+    
+    setMasterVolume(volume) {
+        this.masterVolume = Math.max(0, Math.min(1, volume));
+    }
+}
 
 /**
  * Aseprite Sprite Data Parser
@@ -19,7 +274,6 @@ class AsepriteParser {
         const frames = new Map();
         
         if (Array.isArray(framesData)) {
-            // Array format
             framesData.forEach((frame, index) => {
                 frames.set(index.toString(), {
                     x: frame.frame.x,
@@ -32,7 +286,6 @@ class AsepriteParser {
                 });
             });
         } else {
-            // Object format
             Object.entries(framesData).forEach(([name, frame]) => {
                 frames.set(name, {
                     x: frame.frame.x,
@@ -57,7 +310,7 @@ class AsepriteParser {
                 from: tag.from,
                 to: tag.to,
                 direction: tag.direction || 'forward',
-                repeat: tag.repeat !== undefined ? tag.repeat : -1 // -1 = infinite
+                repeat: tag.repeat !== undefined ? tag.repeat : -1
             });
         });
         
@@ -67,12 +320,10 @@ class AsepriteParser {
     static parseImage(imageData) {
         if (!imageData) return null;
         
-        // If image data is embedded as base64
         if (typeof imageData === 'string' && imageData.startsWith('data:image/')) {
             return this.createImageFromBase64(imageData);
         }
         
-        // If it's a filename, we'll need to load it separately
         return imageData;
     }
     
@@ -87,15 +338,15 @@ class AsepriteParser {
 }
 
 /**
- * Enhanced Render System with Aseprite Support
+ * Render System - Handles all rendering operations
  */
 class RenderSystem extends System {
     constructor(canvas, context, config = {}) {
         super(config);
         this.canvas = canvas;
         this.context = context;
-        this.sprites = new Map(); // Image objects
-        this.spriteData = new Map(); // Parsed sprite data
+        this.sprites = new Map();
+        this.spriteData = new Map();
         this.backgroundColor = config.game?.backgroundColor || '#000000';
         this.baseSpritePath = config.sprites?.basePath || '../Sprites/Aseprite/';
     }
@@ -105,9 +356,6 @@ class RenderSystem extends System {
         this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
     
-    /**
-     * Load Aseprite sprite from JSON file
-     */
     async loadAseprite(name, filename) {
         try {
             const url = filename.startsWith('http') ? filename : this.baseSpritePath + filename;
@@ -120,18 +368,15 @@ class RenderSystem extends System {
             const jsonData = await response.json();
             const spriteData = AsepriteParser.parse(jsonData);
             
-            // Load the image
             let image;
             if (spriteData.image instanceof Promise) {
                 image = await spriteData.image;
             } else if (typeof spriteData.image === 'string') {
-                // Load external image file
                 image = await this.loadImageFromUrl(spriteData.image);
             } else {
                 throw new Error('No valid image data found in sprite');
             }
             
-            // Store sprite data and image
             this.sprites.set(name, image);
             this.spriteData.set(name, spriteData);
             
@@ -144,9 +389,6 @@ class RenderSystem extends System {
         }
     }
     
-    /**
-     * Load regular sprite image
-     */
     async loadSprite(name, url) {
         const image = await this.loadImageFromUrl(url);
         this.sprites.set(name, image);
@@ -162,24 +404,15 @@ class RenderSystem extends System {
         });
     }
     
-    /**
-     * Get sprite data (frames, animations, etc.)
-     */
     getSpriteData(name) {
         return this.spriteData.get(name);
     }
     
-    /**
-     * Get available animations for a sprite
-     */
     getSpriteAnimations(name) {
         const data = this.spriteData.get(name);
         return data ? Array.from(data.animations.keys()) : [];
     }
     
-    /**
-     * Draw a specific frame from an Aseprite sprite
-     */
     drawSpriteFrame(name, frameIndex, x, y, width, height) {
         const image = this.sprites.get(name);
         const data = this.spriteData.get(name);
@@ -197,20 +430,16 @@ class RenderSystem extends System {
             return;
         }
         
-        // Use provided dimensions or frame dimensions
         const drawWidth = width !== undefined ? width : frame.w;
         const drawHeight = height !== undefined ? height : frame.h;
         
         this.context.drawImage(
             image,
-            frame.x, frame.y, frame.w, frame.h,  // Source
-            x, y, drawWidth, drawHeight           // Destination
+            frame.x, frame.y, frame.w, frame.h,
+            x, y, drawWidth, drawHeight
         );
     }
     
-    /**
-     * Draw a sprite (backwards compatibility)
-     */
     drawSprite(name, x, y, width, height, frame = 0) {
         const image = this.sprites.get(name);
         if (!image) {
@@ -218,12 +447,10 @@ class RenderSystem extends System {
             return;
         }
         
-        // Check if it's an Aseprite sprite
         const data = this.spriteData.get(name);
         if (data) {
             this.drawSpriteFrame(name, frame, x, y, width, height);
         } else {
-            // Regular sprite
             this.context.drawImage(image, x, y, width || image.width, height || image.height);
         }
     }
@@ -250,497 +477,110 @@ class RenderSystem extends System {
 }
 
 /**
- * Enhanced Sprite Component with Aseprite Support
+ * Camera System - Handles viewport and camera controls
  */
-class SpriteComponent extends Component {
-    constructor(spriteName, config = {}) {
-        super(config);
-        this.spriteName = spriteName;
-        this.currentFrame = config.frame || 0;
-        this.flipX = config.flipX || false;
-        this.flipY = config.flipY || false;
-        this.tint = config.tint || null;
-        this.opacity = config.opacity !== undefined ? config.opacity : 1;
-        this.offset = new Vector2(config.offsetX || 0, config.offsetY || 0);
-    }
-    
-    setFrame(frameIndex) {
-        this.currentFrame = frameIndex;
-    }
-    
-    getFrameCount() {
-        const renderer = this.game?.getSystem('renderer');
-        if (!renderer) return 1;
-        
-        const spriteData = renderer.getSpriteData(this.spriteName);
-        return spriteData ? spriteData.frames.size : 1;
-    }
-    
-    render(context) {
-        const renderer = this.game?.getSystem('renderer');
-        if (!renderer) return;
-        
-        context.save();
-        
-        // Apply opacity
-        if (this.opacity < 1) {
-            context.globalAlpha = this.opacity;
-        }
-        
-        // Apply flipping
-        if (this.flipX || this.flipY) {
-            const scaleX = this.flipX ? -1 : 1;
-            const scaleY = this.flipY ? -1 : 1;
-            context.scale(scaleX, scaleY);
-            
-            // Adjust position for flipping
-            const x = this.flipX ? -this.entity.width - this.offset.x : this.offset.x;
-            const y = this.flipY ? -this.entity.height - this.offset.y : this.offset.y;
-            
-            renderer.drawSprite(
-                this.spriteName,
-                x, y,
-                this.entity.width,
-                this.entity.height,
-                this.currentFrame
-            );
-        } else {
-            renderer.drawSprite(
-                this.spriteName,
-                this.offset.x, this.offset.y,
-                this.entity.width,
-                this.entity.height,
-                this.currentFrame
-            );
-        }
-        
-        context.restore();
-    }
-}
-
-/**
- * Enhanced Animation Component with Aseprite Support
- */
-class AnimationComponent extends Component {
+class CameraSystem extends System {
     constructor(config = {}) {
         super(config);
-        this.animations = new Map();
-        this.currentAnimation = null;
-        this.currentFrame = 0;
-        this.frameTime = 0;
-        this.playing = false;
-        this.loop = true;
-        this.speed = config.speed || 1; // Animation speed multiplier
-        this.onAnimationComplete = config.onAnimationComplete;
-        
-        // Auto-load animations from sprite data
-        this.autoLoadAnimations = config.autoLoadAnimations !== false;
-        
-        // Register manual animations from config
-        if (config.animations) {
-            Object.entries(config.animations).forEach(([name, anim]) => {
-                this.addAnimation(name, anim);
-            });
-        }
+        this.position = new Vector2(0, 0);
+        this.target = null;
+        this.followSpeed = 0.1;
+        this.bounds = null;
+        this.shake = { intensity: 0, duration: 0, timer: 0 };
     }
     
-    initialize() {
-        if (this.autoLoadAnimations) {
-            this.loadAnimationsFromSprite();
-        }
+    follow(entity) {
+        this.target = entity;
     }
     
-    loadAnimationsFromSprite() {
-        const sprite = this.entity.getComponent(SpriteComponent);
-        if (!sprite) return;
-        
-        const renderer = this.game?.getSystem('renderer');
-        if (!renderer) return;
-        
-        const spriteData = renderer.getSpriteData(sprite.spriteName);
-        if (!spriteData) return;
-        
-        // Load animations from Aseprite data
-        spriteData.animations.forEach((animData, name) => {
-            const frames = [];
-            const frameDurations = [];
-            
-            for (let i = animData.from; i <= animData.to; i++) {
-                frames.push(i);
-                
-                // Get frame duration from sprite data
-                const frameData = spriteData.frames.get(i.toString());
-                frameDurations.push(frameData ? frameData.duration : 100);
-            }
-            
-            this.addAnimation(name, {
-                frames: frames,
-                frameDurations: frameDurations,
-                loop: animData.repeat !== 0,
-                direction: animData.direction
-            });
-        });
-        
-        console.log(`Loaded ${spriteData.animations.size} animations for sprite ${sprite.spriteName}`);
+    setBounds(x, y, width, height) {
+        this.bounds = { x, y, width, height };
     }
     
-    addAnimation(name, config) {
-        this.animations.set(name, {
-            frames: config.frames || [0],
-            frameDurations: config.frameDurations || [config.frameDuration || 100],
-            loop: config.loop !== false,
-            direction: config.direction || 'forward',
-            onComplete: config.onComplete
-        });
-    }
-    
-    play(name, restart = false) {
-        if (this.currentAnimation === name && !restart && this.playing) return;
-        
-        const animation = this.animations.get(name);
-        if (!animation) {
-            console.warn(`Animation '${name}' not found`);
-            return;
-        }
-        
-        this.currentAnimation = name;
-        this.currentFrame = 0;
-        this.frameTime = 0;
-        this.playing = true;
-        this.loop = animation.loop;
-        
-        // Update sprite frame
-        this.updateSpriteFrame();
-    }
-    
-    stop() {
-        this.playing = false;
-    }
-    
-    pause() {
-        this.playing = false;
-    }
-    
-    resume() {
-        this.playing = true;
+    shake(intensity, duration) {
+        this.shake.intensity = intensity;
+        this.shake.duration = duration;
+        this.shake.timer = duration;
     }
     
     update(deltaTime) {
-        if (!this.playing || !this.currentAnimation) return;
+        if (this.target) {
+            const targetX = this.target.x - this.game.canvas.width / 2;
+            const targetY = this.target.y - this.game.canvas.height / 2;
+            
+            this.position.x += (targetX - this.position.x) * this.followSpeed;
+            this.position.y += (targetY - this.position.y) * this.followSpeed;
+        }
         
-        const animation = this.animations.get(this.currentAnimation);
-        if (!animation) return;
+        if (this.bounds) {
+            this.position.x = Math.max(this.bounds.x, 
+                Math.min(this.bounds.width - this.game.canvas.width, this.position.x));
+            this.position.y = Math.max(this.bounds.y, 
+                Math.min(this.bounds.height - this.game.canvas.height, this.position.y));
+        }
         
-        // Get current frame duration
-        const frameDurationIndex = Math.min(this.currentFrame, animation.frameDurations.length - 1);
-        const frameDuration = animation.frameDurations[frameDurationIndex];
-        
-        // Update frame time
-        this.frameTime += deltaTime * 1000 * this.speed;
-        
-        // Check if should advance frame
-        if (this.frameTime >= frameDuration) {
-            this.frameTime = 0;
-            this.advanceFrame(animation);
+        if (this.shake.timer > 0) {
+            this.shake.timer -= deltaTime * 1000;
         }
     }
     
-    advanceFrame(animation) {
-        if (animation.direction === 'reverse') {
-            this.currentFrame--;
-            if (this.currentFrame < 0) {
-                if (animation.loop) {
-                    this.currentFrame = animation.frames.length - 1;
-                } else {
-                    this.currentFrame = 0;
-                    this.playing = false;
-                    this.onAnimationEnd(animation);
-                }
-            }
-        } else {
-            // Forward or ping-pong
-            this.currentFrame++;
-            if (this.currentFrame >= animation.frames.length) {
-                if (animation.loop) {
-                    this.currentFrame = 0;
-                } else {
-                    this.currentFrame = animation.frames.length - 1;
-                    this.playing = false;
-                    this.onAnimationEnd(animation);
-                }
-            }
+    applyTransform(context) {
+        let offsetX = -this.position.x;
+        let offsetY = -this.position.y;
+        
+        if (this.shake.timer > 0) {
+            const progress = this.shake.timer / this.shake.duration;
+            const shakeX = (Math.random() - 0.5) * this.shake.intensity * progress;
+            const shakeY = (Math.random() - 0.5) * this.shake.intensity * progress;
+            offsetX += shakeX;
+            offsetY += shakeY;
         }
         
-        this.updateSpriteFrame();
-    }
-    
-    updateSpriteFrame() {
-        const sprite = this.entity.getComponent(SpriteComponent);
-        if (!sprite) return;
-        
-        const animation = this.animations.get(this.currentAnimation);
-        if (!animation) return;
-        
-        const frameIndex = animation.frames[this.currentFrame];
-        sprite.setFrame(frameIndex);
-    }
-    
-    onAnimationEnd(animation) {
-        if (animation.onComplete) {
-            animation.onComplete();
-        }
-        
-        if (this.onAnimationComplete) {
-            this.onAnimationComplete(this.currentAnimation);
-        }
-        
-        this.game?.events.emit('animation:complete', {
-            entity: this.entity,
-            animation: this.currentAnimation
-        });
-    }
-    
-    getCurrentAnimation() {
-        return this.currentAnimation;
-    }
-    
-    isPlaying() {
-        return this.playing;
-    }
-    
-    getCurrentFrame() {
-        const animation = this.animations.get(this.currentAnimation);
-        if (!animation) return null;
-        return animation.frames[this.currentFrame];
-    }
-    
-    getAvailableAnimations() {
-        return Array.from(this.animations.keys());
+        context.translate(offsetX, offsetY);
     }
 }
 
 /**
- * Sprite Manager - Helper class for managing sprite loading
+ * Collision System - Handles collision detection
  */
-class SpriteManager {
-    constructor(renderer) {
-        this.renderer = renderer;
-        this.loadingPromises = new Map();
-    }
-    
-    async loadSprites(spriteList) {
-        const promises = spriteList.map(async (sprite) => {
-            if (sprite.type === 'aseprite') {
-                return this.renderer.loadAseprite(sprite.name, sprite.file);
-            } else {
-                return this.renderer.loadSprite(sprite.name, sprite.file);
-            }
-        });
-        
-        return Promise.all(promises);
-    }
-    
-    async preloadSprite(name, file, type = 'aseprite') {
-        if (this.loadingPromises.has(name)) {
-            return this.loadingPromises.get(name);
-        }
-        
-        const promise = type === 'aseprite' 
-            ? this.renderer.loadAseprite(name, file)
-            : this.renderer.loadSprite(name, file);
-            
-        this.loadingPromises.set(name, promise);
-        return promise;
-    }
-}
-
-// Example usage for loading Aseprite sprites:
-
-/*
-// In your game initialization:
-const game = new GameFramework({
-    sprites: {
-        basePath: '../Sprites/Aseprite/'
-    }
-});
-
-await game.initialize('gameCanvas');
-const renderer = game.getSystem('renderer');
-const spriteManager = new SpriteManager(renderer);
-
-// Load multiple sprites at once
-await spriteManager.loadSprites([
-    { name: 'player', file: 'player.json', type: 'aseprite' },
-    { name: 'enemy', file: 'enemy.json', type: 'aseprite' },
-    { name: 'background', file: 'bg.png', type: 'image' }
-]);
-
-// Create entity with animated sprite
-class AnimatedPlayer extends BaseEntity {
-    constructor(x, y) {
-        super({ x, y, width: 32, height: 32, type: 'player' });
-        
-        // Add sprite component
-        this.addComponent(new SpriteComponent('player'));
-        
-        // Add animation component (will auto-load animations from sprite)
-        this.addComponent(new AnimationComponent({
-            autoLoadAnimations: true,
-            speed: 1.0,
-            onAnimationComplete: (animName) => {
-                console.log(`Animation ${animName} completed`);
-            }
-        }));
-        
-        this.moveSpeed = 100;
-        this.facingRight = true;
+class CollisionSystem extends System {
+    checkAABB(a, b) {
+        return a.x < b.x + b.width &&
+               a.x + a.width > b.x &&
+               a.y < b.y + b.height &&
+               a.y + a.height > b.y;
     }
     
     update(deltaTime) {
-        super.update(deltaTime);
+        const collisionEntities = this.game.getEntitiesWithComponent(CollisionComponent);
         
-        const animation = this.getComponent(AnimationComponent);
-        const sprite = this.getComponent(SpriteComponent);
-        const input = this.game.getSystem('input');
-        
-        let moving = false;
-        
-        // Handle movement
-        if (input.isActionPressed('left')) {
-            this.x -= this.moveSpeed * deltaTime;
-            if (this.facingRight) {
-                this.facingRight = false;
-                sprite.flipX = true;
+        for (let i = 0; i < collisionEntities.length; i++) {
+            for (let j = i + 1; j < collisionEntities.length; j++) {
+                const entityA = collisionEntities[i];
+                const entityB = collisionEntities[j];
+                
+                const collisionA = entityA.getComponent(CollisionComponent);
+                const collisionB = entityB.getComponent(CollisionComponent);
+                
+                if (this.checkAABB(entityA, entityB)) {
+                    this.game.events.emit('collision', {
+                        entity: entityA,
+                        other: entityB
+                    });
+                }
             }
-            moving = true;
-        }
-        
-        if (input.isActionPressed('right')) {
-            this.x += this.moveSpeed * deltaTime;
-            if (!this.facingRight) {
-                this.facingRight = true;
-                sprite.flipX = false;
-            }
-            moving = true;
-        }
-        
-        if (input.isActionJustPressed('jump')) {
-            animation.play('jump');
-        } else if (moving) {
-            animation.play('walk');
-        } else if (animation.getCurrentAnimation() !== 'jump' || !animation.isPlaying()) {
-            animation.play('idle');
         }
     }
 }
 
-// Advanced example with custom animation events
-class EnemyWithAI extends BaseEntity {
-    constructor(x, y) {
-        super({ x, y, width: 32, height: 32, type: 'enemy' });
-        
-        this.addComponent(new SpriteComponent('enemy'));
-        this.addComponent(new AnimationComponent({
-            autoLoadAnimations: true,
-            onAnimationComplete: (animName) => {
-                if (animName === 'attack') {
-                    this.onAttackComplete();
-                }
-            }
-        }));
-        
-        this.state = 'idle';
-        this.stateTimer = 0;
-        this.attackCooldown = 0;
-    }
-    
-    update(deltaTime) {
-        super.update(deltaTime);
-        
-        const animation = this.getComponent(AnimationComponent);
-        this.stateTimer += deltaTime;
-        this.attackCooldown -= deltaTime;
-        
-        switch (this.state) {
-            case 'idle':
-                animation.play('idle');
-                if (this.stateTimer > 2) {
-                    this.state = 'patrol';
-                    this.stateTimer = 0;
-                }
-                break;
-                
-            case 'patrol':
-                animation.play('walk');
-                if (this.stateTimer > 3) {
-                    this.state = 'idle';
-                    this.stateTimer = 0;
-                }
-                break;
-                
-            case 'attacking':
-                if (!animation.isPlaying()) {
-                    this.state = 'idle';
-                    this.stateTimer = 0;
-                }
-                break;
-        }
-        
-        // Check for player nearby and attack
-        const players = this.game.getEntitiesByType('player');
-        const nearbyPlayer = players.find(p => 
-            Math.abs(p.x - this.x) < 50 && this.attackCooldown <= 0
-        );
-        
-        if (nearbyPlayer && this.state !== 'attacking') {
-            this.attack();
-        }
-    }
-    
-    attack() {
-        this.state = 'attacking';
-        this.attackCooldown = 2; // 2 second cooldown
-        const animation = this.getComponent(AnimationComponent);
-        animation.play('attack');
-    }
-    
-    onAttackComplete() {
-        // Damage nearby players
-        const players = this.game.getEntitiesByType('player');
-        players.forEach(player => {
-            if (Math.abs(player.x - this.x) < 50) {
-                const health = player.getComponent(HealthComponent);
-                if (health) {
-                    health.takeDamage(10);
-                }
-            }
-        });
-    }
+// Register systems globally (only if not already defined)
+if (typeof window !== 'undefined') {
+    if (!window.TimeSystem) window.TimeSystem = TimeSystem;
+    if (!window.InputSystem) window.InputSystem = InputSystem;
+    if (!window.PhysicsSystem) window.PhysicsSystem = PhysicsSystem;
+    if (!window.AudioSystem) window.AudioSystem = AudioSystem;
+    if (!window.RenderSystem) window.RenderSystem = RenderSystem;
+    if (!window.CameraSystem) window.CameraSystem = CameraSystem;
+    if (!window.CollisionSystem) window.CollisionSystem = CollisionSystem;
+    if (!window.AsepriteParser) window.AsepriteParser = AsepriteParser;
 }
-
-// Usage in game scene
-class GameScene extends Scene {
-    async onLoad() {
-        const renderer = this.game.getSystem('renderer');
-        const spriteManager = new SpriteManager(renderer);
-        
-        // Load all game sprites
-        await spriteManager.loadSprites([
-            { name: 'player', file: 'player.json', type: 'aseprite' },
-            { name: 'enemy', file: 'enemy.json', type: 'aseprite' },
-            { name: 'coin', file: 'coin.json', type: 'aseprite' }
-        ]);
-        
-        // Create entities
-        const player = new AnimatedPlayer(100, 400);
-        this.game.addEntity(player);
-        
-        const enemy = new EnemyWithAI(300, 400);
-        this.game.addEntity(enemy);
-        
-        // Setup camera to follow player
-        const camera = this.game.getSystem('camera');
-        camera.follow(player);
-    }
-}
-*/

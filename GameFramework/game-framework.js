@@ -1,4 +1,495 @@
-// game-framework.js - Core game framework implementation
+// GameFramework/game-framework.js - Core game framework implementation
+
+/**
+ * Base utility classes that everything else depends on
+ */
+
+/**
+ * Vector2 Class - Must be defined first as it's used by many other classes
+ */
+class Vector2 {
+    constructor(x = 0, y = 0) {
+        this.x = x;
+        this.y = y;
+    }
+    
+    set(x, y) {
+        this.x = x;
+        this.y = y;
+        return this;
+    }
+    
+    copy() {
+        return new Vector2(this.x, this.y);
+    }
+    
+    add(v) {
+        return new Vector2(this.x + v.x, this.y + v.y);
+    }
+    
+    subtract(v) {
+        return new Vector2(this.x - v.x, this.y - v.y);
+    }
+    
+    multiply(scalar) {
+        return new Vector2(this.x * scalar, this.y * scalar);
+    }
+    
+    divide(scalar) {
+        return new Vector2(this.x / scalar, this.y / scalar);
+    }
+    
+    magnitude() {
+        return Math.sqrt(this.x * this.x + this.y * this.y);
+    }
+    
+    normalize() {
+        const mag = this.magnitude();
+        if (mag === 0) return new Vector2(0, 0);
+        return this.divide(mag);
+    }
+    
+    distanceTo(v) {
+        const dx = this.x - v.x;
+        const dy = this.y - v.y;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+    
+    dot(v) {
+        return this.x * v.x + this.y * v.y;
+    }
+    
+    angle() {
+        return Math.atan2(this.y, this.x);
+    }
+    
+    rotate(angle) {
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        return new Vector2(
+            this.x * cos - this.y * sin,
+            this.x * sin + this.y * cos
+        );
+    }
+}
+
+/**
+ * Event Emitter - Core communication system
+ */
+class EventEmitter {
+    constructor() {
+        this.events = new Map();
+    }
+    
+    on(event, callback) {
+        if (!this.events.has(event)) {
+            this.events.set(event, []);
+        }
+        this.events.get(event).push(callback);
+        return this;
+    }
+    
+    off(event, callback) {
+        if (this.events.has(event)) {
+            const callbacks = this.events.get(event);
+            const index = callbacks.indexOf(callback);
+            if (index > -1) {
+                callbacks.splice(index, 1);
+            }
+        }
+        return this;
+    }
+    
+    emit(event, ...args) {
+        if (this.events.has(event)) {
+            this.events.get(event).forEach(callback => {
+                try {
+                    callback(...args);
+                } catch (error) {
+                    console.error(`Error in event handler for '${event}':`, error);
+                }
+            });
+        }
+        return this;
+    }
+    
+    once(event, callback) {
+        const onceCallback = (...args) => {
+            this.off(event, onceCallback);
+            callback(...args);
+        };
+        this.on(event, onceCallback);
+        return this;
+    }
+}
+
+/**
+ * Performance Monitor
+ */
+class PerformanceMonitor {
+    constructor() {
+        this.frameCount = 0;
+        this.fps = 0;
+        this.lastTime = 0;
+        this.frameTime = 0;
+        this.measurements = new Map();
+    }
+    
+    startFrame() {
+        this.frameStart = performance.now();
+    }
+    
+    endFrame() {
+        this.frameTime = performance.now() - this.frameStart;
+        this.frameCount++;
+        
+        const now = performance.now();
+        if (now - this.lastTime >= 1000) {
+            this.fps = Math.round((this.frameCount * 1000) / (now - this.lastTime));
+            this.frameCount = 0;
+            this.lastTime = now;
+        }
+    }
+    
+    measure(name, fn) {
+        const start = performance.now();
+        const result = fn();
+        const time = performance.now() - start;
+        this.measurements.set(name, time);
+        return result;
+    }
+    
+    getStats() {
+        return {
+            fps: this.fps,
+            frameTime: this.frameTime,
+            breakdown: Object.fromEntries(this.measurements)
+        };
+    }
+}
+
+/**
+ * Base Component Class - Foundation for all components
+ */
+class Component {
+    constructor(config = {}) {
+        this.entity = null;
+        this.active = config.active !== false;
+        this.visible = config.visible !== false;
+    }
+    
+    get game() {
+        return this.entity ? this.entity.game : null;
+    }
+    
+    initialize() {}
+    update(deltaTime) {}
+    render(context) {}
+    destroy() {}
+}
+
+/**
+ * Base System Class - Foundation for all systems
+ */
+class System {
+    constructor(config = {}) {
+        this.config = config;
+        this.game = null;
+    }
+    
+    initialize() {}
+    start() {}
+    stop() {}
+    update(deltaTime) {}
+    render(context) {}
+}
+
+/**
+ * Base Entity Class - Foundation for all game objects
+ */
+class BaseEntity {
+    constructor(config = {}) {
+        this.id = config.id || null;
+        this.type = config.type || 'entity';
+        this.name = config.name || '';
+        
+        // Transform
+        this.position = new Vector2(config.x || 0, config.y || 0);
+        this.size = new Vector2(config.width || 32, config.height || 32);
+        this.rotation = config.rotation || 0;
+        this.scale = new Vector2(config.scaleX || 1, config.scaleY || 1);
+        
+        // State
+        this.active = config.active !== false;
+        this.visible = config.visible !== false;
+        this.zIndex = config.zIndex || 0;
+        
+        // Components
+        this.components = new Map();
+        
+        // Reference to game
+        this.game = null;
+    }
+    
+    /**
+     * Initialize entity (called when added to game)
+     */
+    initialize() {
+        this.components.forEach(component => {
+            if (component.initialize) {
+                component.initialize();
+            }
+        });
+    }
+    
+    /**
+     * Add a component
+     */
+    addComponent(component) {
+        const componentType = component.constructor;
+        this.components.set(componentType, component);
+        component.entity = this;
+        
+        if (this.game && component.initialize) {
+            component.initialize();
+        }
+        
+        return this;
+    }
+    
+    /**
+     * Remove a component
+     */
+    removeComponent(ComponentClass) {
+        const component = this.components.get(ComponentClass);
+        if (component) {
+            if (component.destroy) {
+                component.destroy();
+            }
+            this.components.delete(ComponentClass);
+        }
+        return this;
+    }
+    
+    /**
+     * Get a component
+     */
+    getComponent(ComponentClass) {
+        return this.components.get(ComponentClass);
+    }
+    
+    /**
+     * Check if entity has a component
+     */
+    hasComponent(ComponentClass) {
+        return this.components.has(ComponentClass);
+    }
+    
+    /**
+     * Update entity and all components
+     */
+    update(deltaTime) {
+        this.components.forEach(component => {
+            if (component.active && component.update) {
+                component.update(deltaTime);
+            }
+        });
+    }
+    
+    /**
+     * Render entity and all components
+     */
+    render(context) {
+        context.save();
+        
+        // Apply transform
+        context.translate(this.position.x, this.position.y);
+        context.rotate(this.rotation);
+        context.scale(this.scale.x, this.scale.y);
+        
+        // Render components
+        this.components.forEach(component => {
+            if (component.visible && component.render) {
+                component.render(context);
+            }
+        });
+        
+        context.restore();
+    }
+    
+    /**
+     * Destroy entity and all components
+     */
+    destroy() {
+        this.components.forEach(component => {
+            if (component.destroy) {
+                component.destroy();
+            }
+        });
+        this.components.clear();
+        
+        if (this.game) {
+            this.game.removeEntity(this);
+        }
+    }
+    
+    // Convenience getters/setters
+    get x() { return this.position.x; }
+    set x(value) { this.position.x = value; }
+    
+    get y() { return this.position.y; }
+    set y(value) { this.position.y = value; }
+    
+    get width() { return this.size.x; }
+    set width(value) { this.size.x = value; }
+    
+    get height() { return this.size.y; }
+    set height(value) { this.size.y = value; }
+}
+
+/**
+ * Base Scene Class
+ */
+class Scene {
+    constructor(name) {
+        this.name = name;
+        this.game = null;
+        this.entities = [];
+    }
+    
+    async onLoad() {}
+    async onUnload() {}
+    
+    update(deltaTime) {}
+    render(context) {}
+    
+    addEntity(entity) {
+        if (!this.entities.includes(entity)) {
+            this.entities.push(entity);
+        }
+    }
+    
+    removeEntity(entity) {
+        const index = this.entities.indexOf(entity);
+        if (index > -1) {
+            this.entities.splice(index, 1);
+        }
+    }
+}
+
+/**
+ * Asset Loader - Handles loading of game assets
+ */
+class AssetLoader {
+    constructor(framework) {
+        this.framework = framework;
+        this.config = window.FRAMEWORK_CONFIG || {};
+        this.loadedAssets = new Map();
+        this.loadingPromises = new Map();
+    }
+    
+    async initialize() {
+        console.log('🔧 Framework Asset Loader initialized');
+    }
+    
+    async loadSprite(assetId, filename) {
+        const path = (this.config.paths?.sprites || '/GameAssets/Sprites/Aseprite/') + filename;
+        
+        if (this.loadedAssets.has(assetId)) {
+            return this.loadedAssets.get(assetId);
+        }
+        
+        if (this.loadingPromises.has(assetId)) {
+            return this.loadingPromises.get(assetId);
+        }
+        
+        console.log(`📦 Loading sprite: ${assetId} from ${filename}`);
+        
+        const loadPromise = this.doLoadSprite(assetId, path);
+        this.loadingPromises.set(assetId, loadPromise);
+        
+        try {
+            const startTime = performance.now();
+            const spriteData = await loadPromise;
+            const loadTime = performance.now() - startTime;
+            
+            this.loadedAssets.set(assetId, spriteData);
+            console.log(`  ✅ Loaded in ${loadTime.toFixed(2)}ms`);
+            
+            this.framework.events.emit('asset:loaded', {
+                type: 'sprite',
+                id: assetId,
+                filename: filename,
+                loadTime: loadTime
+            });
+            
+            return spriteData;
+        } catch (error) {
+            console.error(`❌ Failed to load sprite ${assetId}:`, error);
+            this.loadingPromises.delete(assetId);
+            throw error;
+        }
+    }
+    
+    async doLoadSprite(assetId, path) {
+        const renderer = this.framework.getSystem('renderer');
+        if (!renderer) {
+            throw new Error('Renderer system not available');
+        }
+        
+        const spriteData = await renderer.loadAseprite(assetId, path);
+        
+        if (spriteData.animations && spriteData.animations.size > 0) {
+            const animNames = Array.from(spriteData.animations.keys());
+            console.log(`  📋 Animations: ${animNames.join(', ')}`);
+        }
+        
+        return spriteData;
+    }
+    
+    async loadAudio(assetId, filename, type = 'sfx') {
+        const basePath = type === 'music' 
+            ? (this.config.paths?.audio?.music || '/GameAssets/Audio/Music/')
+            : (this.config.paths?.audio?.sfx || '/GameAssets/Audio/SFX/');
+        const path = basePath + filename;
+        
+        if (this.loadedAssets.has(assetId)) {
+            return this.loadedAssets.get(assetId);
+        }
+        
+        console.log(`🔊 Loading audio: ${assetId} from ${filename}`);
+        
+        try {
+            const audio = this.framework.getSystem('audio');
+            if (!audio) {
+                throw new Error('Audio system not available');
+            }
+            
+            const audioAsset = await audio.loadSound(assetId, path);
+            this.loadedAssets.set(assetId, audioAsset);
+            
+            this.framework.events.emit('asset:loaded', {
+                type: 'audio',
+                id: assetId,
+                filename: filename,
+                audioType: type
+            });
+            
+            return audioAsset;
+        } catch (error) {
+            console.error(`❌ Failed to load audio ${assetId}:`, error);
+            throw error;
+        }
+    }
+    
+    getAsset(assetId) {
+        return this.loadedAssets.get(assetId);
+    }
+    
+    hasAsset(assetId) {
+        return this.loadedAssets.has(assetId);
+    }
+}
 
 /**
  * Main Game Framework Class
@@ -7,6 +498,7 @@
 class GameFramework {
     constructor(config = {}) {
         this.config = this.mergeWithDefaults(config);
+        this.assetLoader = new AssetLoader(this);
         this.canvas = null;
         this.context = null;
         this.running = false;
@@ -24,7 +516,7 @@ class GameFramework {
         // Performance monitoring
         this.performanceMonitor = new PerformanceMonitor();
         
-        // Initialize core systems
+        // Initialize core systems (but not render system yet)
         this.initializeSystems();
     }
     
@@ -72,26 +564,15 @@ class GameFramework {
     }
     
     initializeSystems() {
+        // Only initialize systems that don't require canvas/context
+        // Render system will be initialized later in initialize()
+        
         // Time system
         this.registerSystem('time', new TimeSystem());
         
-        // Input system
-        this.registerSystem('input', new InputSystem(this.config.input));
-        
-        // Physics system
-        this.registerSystem('physics', new PhysicsSystem(this.config.physics));
-        
-        // Audio system
-        this.registerSystem('audio', new AudioSystem(this.config.audio));
-        
-        // Particle system
-        this.registerSystem('particles', new ParticleSystem(this.config.particles));
-        
-        // Camera system
-        this.registerSystem('camera', new CameraSystem(this.config.game));
-        
-        // Collision system
-        this.registerSystem('collision', new CollisionSystem());
+        // Input system (will be defined in framework-systems.js)
+        // Physics system (will be defined in framework-systems.js)
+        // etc.
     }
     
     /**
@@ -114,13 +595,47 @@ class GameFramework {
         this.context = this.canvas.getContext('2d');
         this.context.imageSmoothingEnabled = !this.config.rendering.pixelated;
         
-        // Initialize renderer
-        this.registerSystem('renderer', new RenderSystem(this.canvas, this.context, this.config));
+        // Now we can initialize systems that need canvas/context
+        await this.initializeCanvasSystems();
+        
+        // Initialize asset loader
+        await this.assetLoader.initialize();
         
         // Emit initialization event
         this.events.emit('game:initialized');
         
         return this;
+    }
+    
+    async initializeCanvasSystems() {
+        // These will be properly defined when framework-systems.js loads
+        if (window.RenderSystem) {
+            this.registerSystem('renderer', new window.RenderSystem(this.canvas, this.context, this.config));
+        }
+        
+        if (window.InputSystem) {
+            this.registerSystem('input', new window.InputSystem(this.config.input));
+        }
+        
+        if (window.PhysicsSystem) {
+            this.registerSystem('physics', new window.PhysicsSystem(this.config.physics));
+        }
+        
+        if (window.AudioSystem) {
+            this.registerSystem('audio', new window.AudioSystem(this.config.audio));
+        }
+        
+        if (window.ParticleSystem) {
+            this.registerSystem('particles', new window.ParticleSystem(this.config.particles));
+        }
+        
+        if (window.CameraSystem) {
+            this.registerSystem('camera', new window.CameraSystem(this.config.game));
+        }
+        
+        if (window.CollisionSystem) {
+            this.registerSystem('collision', new window.CollisionSystem());
+        }
     }
     
     /**
@@ -274,6 +789,34 @@ class GameFramework {
         this.events.emit('scene:unloaded', this.currentScene);
         
         this.currentScene = null;
+    }
+    
+    /**
+     * Load sprite asset
+     */
+    async loadSprite(assetId, filename) {
+        return this.assetLoader.loadSprite(assetId, filename);
+    }
+    
+    /**
+     * Load audio asset
+     */
+    async loadAudio(assetId, filename, type = 'sfx') {
+        return this.assetLoader.loadAudio(assetId, filename, type);
+    }
+    
+    /**
+     * Get loaded asset
+     */
+    getAsset(assetId) {
+        return this.assetLoader.getAsset(assetId);
+    }
+    
+    /**
+     * Check if asset is loaded
+     */
+    hasAsset(assetId) {
+        return this.assetLoader.hasAsset(assetId);
     }
     
     /**
@@ -446,13 +989,11 @@ class GameFramework {
      * Render UI elements
      */
     renderUI() {
-        // Render UI entities
-        const uiEntities = this.getEntitiesByType('ui');
-        uiEntities.forEach(entity => {
-            if (entity.renderUI) {
-                entity.renderUI(this.context);
-            }
-        });
+        // Render UI system if available
+        const ui = this.getSystem('ui');
+        if (ui && ui.render) {
+            ui.render(this.context);
+        }
     }
     
     /**
@@ -490,331 +1031,22 @@ class GameFramework {
     }
 }
 
-/**
- * Base Entity Class
- */
-class BaseEntity {
-    constructor(config = {}) {
-        this.id = config.id || null;
-        this.type = config.type || 'entity';
-        this.name = config.name || '';
-        
-        // Transform
-        this.position = new Vector2(config.x || 0, config.y || 0);
-        this.size = new Vector2(config.width || 32, config.height || 32);
-        this.rotation = config.rotation || 0;
-        this.scale = new Vector2(config.scaleX || 1, config.scaleY || 1);
-        
-        // State
-        this.active = config.active !== false;
-        this.visible = config.visible !== false;
-        this.zIndex = config.zIndex || 0;
-        
-        // Components
-        this.components = new Map();
-        
-        // Reference to game
-        this.game = null;
-    }
-    
-    /**
-     * Initialize entity (called when added to game)
-     */
-    initialize() {
-        this.components.forEach(component => {
-            if (component.initialize) {
-                component.initialize();
-            }
-        });
-    }
-    
-    /**
-     * Add a component
-     */
-    addComponent(component) {
-        const componentType = component.constructor;
-        this.components.set(componentType, component);
-        component.entity = this;
-        
-        if (this.game && component.initialize) {
-            component.initialize();
-        }
-        
-        return this;
-    }
-    
-    /**
-     * Remove a component
-     */
-    removeComponent(ComponentClass) {
-        const component = this.components.get(ComponentClass);
-        if (component) {
-            if (component.destroy) {
-                component.destroy();
-            }
-            this.components.delete(ComponentClass);
-        }
-        return this;
-    }
-    
-    /**
-     * Get a component
-     */
-    getComponent(ComponentClass) {
-        return this.components.get(ComponentClass);
-    }
-    
-    /**
-     * Check if entity has a component
-     */
-    hasComponent(ComponentClass) {
-        return this.components.has(ComponentClass);
-    }
-    
-    /**
-     * Update entity and all components
-     */
-    update(deltaTime) {
-        this.components.forEach(component => {
-            if (component.active && component.update) {
-                component.update(deltaTime);
-            }
-        });
-    }
-    
-    /**
-     * Render entity and all components
-     */
-    render(context) {
-        context.save();
-        
-        // Apply transform
-        context.translate(this.position.x, this.position.y);
-        context.rotate(this.rotation);
-        context.scale(this.scale.x, this.scale.y);
-        
-        // Render components
-        this.components.forEach(component => {
-            if (component.visible && component.render) {
-                component.render(context);
-            }
-        });
-        
-        context.restore();
-    }
-    
-    /**
-     * Destroy entity and all components
-     */
-    destroy() {
-        this.components.forEach(component => {
-            if (component.destroy) {
-                component.destroy();
-            }
-        });
-        this.components.clear();
-        
-        if (this.game) {
-            this.game.removeEntity(this);
-        }
-    }
-    
-    // Convenience getters/setters
-    get x() { return this.position.x; }
-    set x(value) { this.position.x = value; }
-    
-    get y() { return this.position.y; }
-    set y(value) { this.position.y = value; }
-    
-    get width() { return this.size.x; }
-    set width(value) { this.size.x = value; }
-    
-    get height() { return this.size.y; }
-    set height(value) { this.size.y = value; }
+// Make classes globally available (but check if they already exist)
+if (typeof window !== 'undefined') {
+    // Only define if not already defined
+    if (!window.GameFramework) window.GameFramework = GameFramework;
+    if (!window.BaseEntity) window.BaseEntity = BaseEntity;
+    if (!window.Component) window.Component = Component;
+    if (!window.Scene) window.Scene = Scene;
+    if (!window.System) window.System = System;
+    if (!window.EventEmitter) window.EventEmitter = EventEmitter;
+    if (!window.Vector2) window.Vector2 = Vector2;
+    if (!window.PerformanceMonitor) window.PerformanceMonitor = PerformanceMonitor;
+    if (!window.AssetLoader) window.AssetLoader = AssetLoader;
+    if (!window.TimeSystem) window.TimeSystem = TimeSystem;
 }
 
-/**
- * Base Component Class
- */
-class Component {
-    constructor(config = {}) {
-        this.entity = null;
-        this.active = config.active !== false;
-        this.visible = config.visible !== false;
-    }
-    
-    get game() {
-        return this.entity ? this.entity.game : null;
-    }
-    
-    initialize() {}
-    update(deltaTime) {}
-    render(context) {}
-    destroy() {}
-}
-
-/**
- * Base Scene Class
- */
-class Scene {
-    constructor(name) {
-        this.name = name;
-        this.game = null;
-        this.entities = [];
-    }
-    
-    async onLoad() {}
-    async onUnload() {}
-    
-    update(deltaTime) {}
-    render(context) {}
-    
-    addEntity(entity) {
-        if (!this.entities.includes(entity)) {
-            this.entities.push(entity);
-        }
-    }
-    
-    removeEntity(entity) {
-        const index = this.entities.indexOf(entity);
-        if (index > -1) {
-            this.entities.splice(index, 1);
-        }
-    }
-}
-
-/**
- * Base System Class
- */
-class System {
-    constructor(config = {}) {
-        this.config = config;
-        this.game = null;
-    }
-    
-    initialize() {}
-    start() {}
-    stop() {}
-    update(deltaTime) {}
-    render(context) {}
-}
-
-/**
- * Event Emitter
- */
-class EventEmitter {
-    constructor() {
-        this.events = new Map();
-    }
-    
-    on(event, callback) {
-        if (!this.events.has(event)) {
-            this.events.set(event, []);
-        }
-        this.events.get(event).push(callback);
-        return this;
-    }
-    
-    off(event, callback) {
-        if (this.events.has(event)) {
-            const callbacks = this.events.get(event);
-            const index = callbacks.indexOf(callback);
-            if (index > -1) {
-                callbacks.splice(index, 1);
-            }
-        }
-        return this;
-    }
-    
-    emit(event, ...args) {
-        if (this.events.has(event)) {
-            this.events.get(event).forEach(callback => {
-                callback(...args);
-            });
-        }
-        return this;
-    }
-    
-    once(event, callback) {
-        const onceCallback = (...args) => {
-            this.off(event, onceCallback);
-            callback(...args);
-        };
-        this.on(event, onceCallback);
-        return this;
-    }
-}
-
-/**
- * Vector2 Class
- */
-class Vector2 {
-    constructor(x = 0, y = 0) {
-        this.x = x;
-        this.y = y;
-    }
-    
-    set(x, y) {
-        this.x = x;
-        this.y = y;
-        return this;
-    }
-    
-    copy() {
-        return new Vector2(this.x, this.y);
-    }
-    
-    add(v) {
-        return new Vector2(this.x + v.x, this.y + v.y);
-    }
-    
-    subtract(v) {
-        return new Vector2(this.x - v.x, this.y - v.y);
-    }
-    
-    multiply(scalar) {
-        return new Vector2(this.x * scalar, this.y * scalar);
-    }
-    
-    divide(scalar) {
-        return new Vector2(this.x / scalar, this.y / scalar);
-    }
-    
-    magnitude() {
-        return Math.sqrt(this.x * this.x + this.y * this.y);
-    }
-    
-    normalize() {
-        const mag = this.magnitude();
-        if (mag === 0) return new Vector2(0, 0);
-        return this.divide(mag);
-    }
-    
-    distanceTo(v) {
-        const dx = this.x - v.x;
-        const dy = this.y - v.y;
-        return Math.sqrt(dx * dx + dy * dy);
-    }
-    
-    dot(v) {
-        return this.x * v.x + this.y * v.y;
-    }
-    
-    angle() {
-        return Math.atan2(this.y, this.x);
-    }
-    
-    rotate(angle) {
-        const cos = Math.cos(angle);
-        const sin = Math.sin(angle);
-        return new Vector2(
-            this.x * cos - this.y * sin,
-            this.x * sin + this.y * cos
-        );
-    }
-}
-
-// Export the framework
+// Export for module systems
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         GameFramework,
@@ -823,6 +1055,9 @@ if (typeof module !== 'undefined' && module.exports) {
         Scene,
         System,
         EventEmitter,
-        Vector2
+        Vector2,
+        PerformanceMonitor,
+        AssetLoader,
+        TimeSystem
     };
 }

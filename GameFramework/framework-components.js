@@ -1,4 +1,4 @@
-// framework-components.js - Common game components
+// GameFramework/framework-components.js - Game components (without base class redeclarations)
 
 /**
  * Transform Component - Position, rotation, scale
@@ -85,45 +85,62 @@ class SpriteComponent extends Component {
     constructor(spriteName, config = {}) {
         super(config);
         this.spriteName = spriteName;
-        this.currentAnimation = config.animation || 'idle';
-        this.animationFrame = 0;
-        this.animationTime = 0;
-        this.flipX = false;
-        this.flipY = false;
-        this.tint = config.tint || null;
-        this.opacity = config.opacity || 1;
+        this.currentFrame = config.frame || 0;
+        this.flipX = config.flipX || false;
+        this.flipY = config.flipY || false;
+        this.opacity = config.opacity !== undefined ? config.opacity : 1;
+        this.offset = new Vector2(config.offsetX || 0, config.offsetY || 0);
     }
     
-    setAnimation(name) {
-        if (this.currentAnimation !== name) {
-            this.currentAnimation = name;
-            this.animationFrame = 0;
-            this.animationTime = 0;
-        }
+    setFrame(frameIndex) {
+        this.currentFrame = frameIndex;
+    }
+    
+    getFrameCount() {
+        const renderer = this.game?.getSystem('renderer');
+        if (!renderer) return 1;
+        
+        const spriteData = renderer.getSpriteData(this.spriteName);
+        return spriteData ? spriteData.frames.size : 1;
     }
     
     render(context) {
-        const renderer = this.game.getSystem('renderer');
+        const renderer = this.game?.getSystem('renderer');
         if (!renderer) return;
         
         context.save();
         
+        // Apply opacity
         if (this.opacity < 1) {
             context.globalAlpha = this.opacity;
         }
         
+        // Apply flipping
         if (this.flipX || this.flipY) {
-            context.scale(this.flipX ? -1 : 1, this.flipY ? -1 : 1);
+            const scaleX = this.flipX ? -1 : 1;
+            const scaleY = this.flipY ? -1 : 1;
+            context.scale(scaleX, scaleY);
+            
+            // Adjust position for flipping
+            const x = this.flipX ? -this.entity.width - this.offset.x : this.offset.x;
+            const y = this.flipY ? -this.entity.height - this.offset.y : this.offset.y;
+            
+            renderer.drawSprite(
+                this.spriteName,
+                x, y,
+                this.entity.width,
+                this.entity.height,
+                this.currentFrame
+            );
+        } else {
+            renderer.drawSprite(
+                this.spriteName,
+                this.offset.x, this.offset.y,
+                this.entity.width,
+                this.entity.height,
+                this.currentFrame
+            );
         }
-        
-        // Draw sprite
-        renderer.drawSprite(
-            this.spriteName,
-            0,
-            0,
-            this.entity.width,
-            this.entity.height
-        );
         
         context.restore();
     }
@@ -141,8 +158,11 @@ class AnimationComponent extends Component {
         this.frameTime = 0;
         this.playing = false;
         this.loop = true;
+        this.speed = config.speed || 1;
+        this.onAnimationComplete = config.onAnimationComplete;
+        this.autoLoadAnimations = config.autoLoadAnimations !== false;
         
-        // Register animations from config
+        // Register manual animations from config
         if (config.animations) {
             Object.entries(config.animations).forEach(([name, anim]) => {
                 this.addAnimation(name, anim);
@@ -150,30 +170,84 @@ class AnimationComponent extends Component {
         }
     }
     
+    initialize() {
+        if (this.autoLoadAnimations) {
+            this.loadAnimationsFromSprite();
+        }
+    }
+    
+    loadAnimationsFromSprite() {
+        const sprite = this.entity.getComponent(SpriteComponent);
+        if (!sprite) return;
+        
+        const renderer = this.game?.getSystem('renderer');
+        if (!renderer) return;
+        
+        const spriteData = renderer.getSpriteData(sprite.spriteName);
+        if (!spriteData) return;
+        
+        // Load animations from Aseprite data
+        spriteData.animations.forEach((animData, name) => {
+            const frames = [];
+            const frameDurations = [];
+            
+            for (let i = animData.from; i <= animData.to; i++) {
+                frames.push(i);
+                
+                // Get frame duration from sprite data
+                const frameData = spriteData.frames.get(i.toString());
+                frameDurations.push(frameData ? frameData.duration : 100);
+            }
+            
+            this.addAnimation(name, {
+                frames: frames,
+                frameDurations: frameDurations,
+                loop: animData.repeat !== 0,
+                direction: animData.direction
+            });
+        });
+        
+        console.log(`Loaded ${spriteData.animations.size} animations for sprite ${sprite.spriteName}`);
+    }
+    
     addAnimation(name, config) {
         this.animations.set(name, {
-            frames: config.frames,
-            frameDuration: config.frameDuration || 100,
+            frames: config.frames || [0],
+            frameDurations: config.frameDurations || [config.frameDuration || 100],
             loop: config.loop !== false,
+            direction: config.direction || 'forward',
             onComplete: config.onComplete
         });
     }
     
     play(name, restart = false) {
-        if (this.currentAnimation === name && !restart) return;
+        if (this.currentAnimation === name && !restart && this.playing) return;
         
         const animation = this.animations.get(name);
-        if (!animation) return;
+        if (!animation) {
+            console.warn(`Animation '${name}' not found`);
+            return;
+        }
         
         this.currentAnimation = name;
         this.currentFrame = 0;
         this.frameTime = 0;
         this.playing = true;
         this.loop = animation.loop;
+        
+        this.updateSpriteFrame();
     }
     
     stop() {
         this.playing = false;
+    }
+    
+    pause() {
+        this.playing = false;
+    }
+    
+    resume() {
+        this.playing = true;
     }
     
     update(deltaTime) {
@@ -182,34 +256,87 @@ class AnimationComponent extends Component {
         const animation = this.animations.get(this.currentAnimation);
         if (!animation) return;
         
-        // Update frame time
-        this.frameTime += deltaTime * 1000; // Convert to ms
+        const frameDurationIndex = Math.min(this.currentFrame, animation.frameDurations.length - 1);
+        const frameDuration = animation.frameDurations[frameDurationIndex];
         
-        // Check if should advance frame
-        if (this.frameTime >= animation.frameDuration) {
+        this.frameTime += deltaTime * 1000 * this.speed;
+        
+        if (this.frameTime >= frameDuration) {
             this.frameTime = 0;
+            this.advanceFrame(animation);
+        }
+    }
+    
+    advanceFrame(animation) {
+        if (animation.direction === 'reverse') {
+            this.currentFrame--;
+            if (this.currentFrame < 0) {
+                if (animation.loop) {
+                    this.currentFrame = animation.frames.length - 1;
+                } else {
+                    this.currentFrame = 0;
+                    this.playing = false;
+                    this.onAnimationEnd(animation);
+                }
+            }
+        } else {
             this.currentFrame++;
-            
-            // Check if animation completed
             if (this.currentFrame >= animation.frames.length) {
                 if (animation.loop) {
                     this.currentFrame = 0;
                 } else {
-                    this.playing = false;
                     this.currentFrame = animation.frames.length - 1;
-                    
-                    if (animation.onComplete) {
-                        animation.onComplete();
-                    }
+                    this.playing = false;
+                    this.onAnimationEnd(animation);
                 }
             }
         }
+        
+        this.updateSpriteFrame();
+    }
+    
+    updateSpriteFrame() {
+        const sprite = this.entity.getComponent(SpriteComponent);
+        if (!sprite) return;
+        
+        const animation = this.animations.get(this.currentAnimation);
+        if (!animation) return;
+        
+        const frameIndex = animation.frames[this.currentFrame];
+        sprite.setFrame(frameIndex);
+    }
+    
+    onAnimationEnd(animation) {
+        if (animation.onComplete) {
+            animation.onComplete();
+        }
+        
+        if (this.onAnimationComplete) {
+            this.onAnimationComplete(this.currentAnimation);
+        }
+        
+        this.game?.events.emit('animation:complete', {
+            entity: this.entity,
+            animation: this.currentAnimation
+        });
+    }
+    
+    getCurrentAnimation() {
+        return this.currentAnimation;
+    }
+    
+    isPlaying() {
+        return this.playing;
     }
     
     getCurrentFrame() {
         const animation = this.animations.get(this.currentAnimation);
         if (!animation) return null;
         return animation.frames[this.currentFrame];
+    }
+    
+    getAvailableAnimations() {
+        return Array.from(this.animations.keys());
     }
 }
 
@@ -222,7 +349,7 @@ class HealthComponent extends Component {
         this.maxHealth = config.maxHealth || 100;
         this.health = config.health || this.maxHealth;
         this.invulnerable = false;
-        this.invulnerabilityTime = config.invulnerabilityTime || 1000; // ms
+        this.invulnerabilityTime = config.invulnerabilityTime || 1000;
         this.invulnerabilityTimer = 0;
         
         this.onDamage = config.onDamage;
@@ -292,22 +419,7 @@ class HealthComponent extends Component {
 class InputComponent extends Component {
     constructor(config = {}) {
         super(config);
-        this.actions = config.actions || {};
         this.inputEnabled = true;
-    }
-    
-    update(deltaTime) {
-        if (!this.inputEnabled) return;
-        
-        const input = this.game.getSystem('input');
-        if (!input) return;
-        
-        // Check for action events
-        Object.keys(this.actions).forEach(action => {
-            if (input.isActionJustPressed(action)) {
-                this.game.events.emit(`input:${action}`, this.entity);
-            }
-        });
     }
     
     isActionPressed(action) {
@@ -321,22 +433,8 @@ class InputComponent extends Component {
     }
     
     getMovementVector() {
-        let x = 0;
-        let y = 0;
-        
-        if (this.isActionPressed('left')) x -= 1;
-        if (this.isActionPressed('right')) x += 1;
-        if (this.isActionPressed('up')) y -= 1;
-        if (this.isActionPressed('down')) y += 1;
-        
-        // Normalize diagonal movement
-        if (x !== 0 && y !== 0) {
-            const length = Math.sqrt(x * x + y * y);
-            x /= length;
-            y /= length;
-        }
-        
-        return { x, y };
+        const input = this.game.getSystem('input');
+        return input ? input.getMovementVector() : { x: 0, y: 0 };
     }
 }
 
@@ -360,7 +458,7 @@ class WeaponComponent extends Component {
     addWeapon(name, config) {
         this.weapons.set(name, {
             damage: config.damage || 10,
-            fireRate: config.fireRate || 0.5, // shots per second
+            fireRate: config.fireRate || 0.5,
             projectileSpeed: config.projectileSpeed || 10,
             projectileSize: config.projectileSize || { width: 8, height: 8 },
             spread: config.spread || 0,
@@ -382,10 +480,8 @@ class WeaponComponent extends Component {
         const weapon = this.weapons.get(this.currentWeapon);
         if (!weapon) return false;
         
-        // Set cooldown
         this.cooldown = 1 / weapon.fireRate;
         
-        // Create projectiles
         for (let i = 0; i < weapon.projectileCount; i++) {
             const spread = (Math.random() - 0.5) * weapon.spread;
             const angle = Math.atan2(direction.y, direction.x) + spread;
@@ -433,12 +529,10 @@ class AIComponent extends Component {
     }
     
     update(deltaTime) {
-        // Find target if needed
         if (!this.target) {
             this.findTarget();
         }
         
-        // Update based on behavior
         switch (this.behavior) {
             case 'patrol':
                 this.updatePatrol(deltaTime);
@@ -455,7 +549,6 @@ class AIComponent extends Component {
     }
     
     findTarget() {
-        // Find nearest player
         const players = this.game.getEntitiesByType('player');
         let nearestPlayer = null;
         let nearestDistance = this.detectionRange;
@@ -481,7 +574,6 @@ class AIComponent extends Component {
         const physics = this.entity.getComponent(PhysicsComponent);
         if (!physics) return;
         
-        // Simple back and forth movement
         if (this.stateTimer > 2) {
             this.moveSpeed *= -1;
             this.stateTimer = 0;
@@ -489,7 +581,6 @@ class AIComponent extends Component {
         
         physics.velocity.x = this.moveSpeed;
         
-        // Attack if target in range
         if (this.target) {
             const distance = this.entity.position.distanceTo(this.target.position);
             if (distance < this.attackRange) {
@@ -504,11 +595,9 @@ class AIComponent extends Component {
         const physics = this.entity.getComponent(PhysicsComponent);
         if (!physics) return;
         
-        // Move towards target
         const direction = this.target.position.subtract(this.entity.position).normalize();
         physics.velocity.x = direction.x * this.moveSpeed;
         
-        // Attack if in range
         const distance = this.entity.position.distanceTo(this.target.position);
         if (distance < this.attackRange) {
             this.attack();
@@ -520,11 +609,9 @@ class AIComponent extends Component {
         
         const distance = this.entity.position.distanceTo(this.target.position);
         
-        // Only attack if target gets close
         if (distance < this.attackRange) {
             this.attack();
             
-            // Back away
             const physics = this.entity.getComponent(PhysicsComponent);
             if (physics) {
                 const direction = this.entity.position.subtract(this.target.position).normalize();
@@ -552,7 +639,6 @@ class StateMachineComponent extends Component {
         this.currentState = null;
         this.previousState = null;
         
-        // Register initial states
         if (config.states) {
             Object.entries(config.states).forEach(([name, state]) => {
                 this.addState(name, state);
@@ -574,7 +660,6 @@ class StateMachineComponent extends Component {
         const newState = this.states.get(name);
         if (!newState) return;
         
-        // Exit current state
         if (this.currentState && this.currentState.exit) {
             this.currentState.exit();
         }
@@ -582,7 +667,6 @@ class StateMachineComponent extends Component {
         this.previousState = this.currentState;
         this.currentState = newState;
         
-        // Enter new state
         if (this.currentState.enter) {
             this.currentState.enter();
         }
@@ -626,4 +710,19 @@ class ColliderComponent extends Component {
             height: this.bounds.size.y
         };
     }
+}
+
+// Register components globally (only if not already defined)
+if (typeof window !== 'undefined') {
+    if (!window.TransformComponent) window.TransformComponent = TransformComponent;
+    if (!window.PhysicsComponent) window.PhysicsComponent = PhysicsComponent;
+    if (!window.CollisionComponent) window.CollisionComponent = CollisionComponent;
+    if (!window.SpriteComponent) window.SpriteComponent = SpriteComponent;
+    if (!window.AnimationComponent) window.AnimationComponent = AnimationComponent;
+    if (!window.HealthComponent) window.HealthComponent = HealthComponent;
+    if (!window.InputComponent) window.InputComponent = InputComponent;
+    if (!window.WeaponComponent) window.WeaponComponent = WeaponComponent;
+    if (!window.AIComponent) window.AIComponent = AIComponent;
+    if (!window.StateMachineComponent) window.StateMachineComponent = StateMachineComponent;
+    if (!window.ColliderComponent) window.ColliderComponent = ColliderComponent;
 }
