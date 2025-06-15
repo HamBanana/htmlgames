@@ -46,12 +46,23 @@ class GameManager {
         this.boss = null;
         this.bossActivated = false;
 
-        //Utils
-        this.performanceMonitor = new PerformanceMonitor();
-
         // Game variables
         this.score = 0;
         this.lives = 3;
+        
+        // Initialize performance monitor with fallback
+        try {
+            this.performanceMonitor = new PerformanceMonitor();
+        } catch (error) {
+            console.warn('PerformanceMonitor not available, using fallback');
+            // Simple fallback implementation
+            this.performanceMonitor = {
+                startFrame: () => {},
+                endFrame: () => {},
+                measure: (name, fn) => fn(),
+                getStats: () => ({ fps: 0, avgFrameTime: 0, breakdown: {} })
+            };
+        }
     }
 
     async initialize() {

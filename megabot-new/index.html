@@ -104,6 +104,13 @@
     <script src="core/renderer.js"></script>
     <script src="core/time.js"></script>
 
+    <!-- Utility Scripts (MUST BE LOADED FIRST) -->
+    <script src="utils/helper.js"></script>
+    <script src="utils/math.js"></script>
+    <script src="utils/debug.js"></script>
+    <script src="utils/performance.js"></script>
+    <script src="utils/object-pool.js"></script>
+
     <!-- Entity Scripts (MUST BE LOADED BEFORE SYSTEMS AND MANAGERS) -->
     <script src="entities/player.js"></script>
     <script src="entities/enemy.js"></script>
@@ -126,13 +133,6 @@
     <script src="managers/ui-manager.js"></script>
     <script src="managers/save-manager.js"></script>
     <script src="managers/game-manager.js"></script>
-
-    <!-- Utility Scripts -->
-    <script src="utils/helper.js"></script>
-    <script src="utils/math.js"></script>
-    <script src="utils/debug.js"></script>
-    <script src="utils/performance.js"></script>
-    <script src="utils/object-pool.js"></script>
 
     <!-- Debug Menu (load before game manager to prevent errors) -->
     <script>
