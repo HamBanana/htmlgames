@@ -4,7 +4,6 @@
 if (typeof window !== 'undefined' && !window.FRAMEWORK_CONFIG) {
     window.FRAMEWORK_CONFIG = {
         // Asset path configuration (relative to server root)
-        // All paths should start with '/' to ensure they're relative to server root
         paths: {
             // Base path for all framework assets
             base: '/GameAssets/',

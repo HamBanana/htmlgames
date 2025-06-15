@@ -1,15 +1,9 @@
 // GameFramework/game-framework.js - Core game framework implementation
 
 /**
- * Base utility classes that everything else depends on
- */
-
-/**
  * Vector2 Class - Must be defined first as it's used by many other classes
- * Only define if not already defined
  */
-if (typeof window !== 'undefined' && !window.Vector2) {
-    class Vector2 {
+class Vector2 {
     constructor(x = 0, y = 0) {
         this.x = x;
         this.y = y;
@@ -75,6 +69,9 @@ if (typeof window !== 'undefined' && !window.Vector2) {
     }
 }
 
+// Make Vector2 globally available immediately
+window.Vector2 = Vector2;
+
 /**
  * Event Emitter - Core communication system
  */
@@ -126,14 +123,11 @@ class EventEmitter {
 }
 
 window.EventEmitter = EventEmitter;
-}
 
 /**
  * Performance Monitor
- * Only define if not already defined
  */
-if (typeof window !== 'undefined' && !window.PerformanceMonitor) {
-    class PerformanceMonitor {
+class PerformanceMonitor {
     constructor() {
         this.frameCount = 0;
         this.fps = 0;
@@ -176,14 +170,11 @@ if (typeof window !== 'undefined' && !window.PerformanceMonitor) {
 }
 
 window.PerformanceMonitor = PerformanceMonitor;
-}
 
 /**
  * Base Component Class - Foundation for all components
- * Only define if not already defined
  */
-if (typeof window !== 'undefined' && !window.Component) {
-    class Component {
+class Component {
     constructor(config = {}) {
         this.entity = null;
         this.active = config.active !== false;
@@ -201,14 +192,11 @@ if (typeof window !== 'undefined' && !window.Component) {
 }
 
 window.Component = Component;
-}
 
 /**
  * Base System Class - Foundation for all systems
- * Only define if not already defined
  */
-if (typeof window !== 'undefined' && !window.System) {
-    class System {
+class System {
     constructor(config = {}) {
         this.config = config;
         this.game = null;
@@ -222,14 +210,11 @@ if (typeof window !== 'undefined' && !window.System) {
 }
 
 window.System = System;
-}
 
 /**
  * Base Entity Class - Foundation for all game objects
- * Only define if not already defined
  */
-if (typeof window !== 'undefined' && !window.BaseEntity) {
-    class BaseEntity {
+class BaseEntity {
     constructor(config = {}) {
         this.id = config.id || null;
         this.type = config.type || 'entity';
@@ -370,14 +355,28 @@ if (typeof window !== 'undefined' && !window.BaseEntity) {
 }
 
 window.BaseEntity = BaseEntity;
+
+// Ensure all essential classes are globally available immediately
+if (typeof window !== 'undefined') {
+    window.Vector2 = Vector2;
+    window.EventEmitter = EventEmitter;
+    window.PerformanceMonitor = PerformanceMonitor;
+    window.Component = Component;
+    window.System = System;
+    window.BaseEntity = BaseEntity;
+    window.Scene = Scene;
+    window.AssetLoader = AssetLoader;
+    window.TimeSystem = TimeSystem;
+    window.GameFramework = GameFramework;
+    
+    // Verify the class is a constructor
+    console.log('🔧 GameFramework class loaded:', typeof GameFramework);
 }
 
 /**
  * Base Scene Class
- * Only define if not already defined
  */
-if (typeof window !== 'undefined' && !window.Scene) {
-    class Scene {
+class Scene {
     constructor(name) {
         this.name = name;
         this.game = null;
@@ -405,14 +404,11 @@ if (typeof window !== 'undefined' && !window.Scene) {
 }
 
 window.Scene = Scene;
-}
 
 /**
  * Asset Loader - Handles loading of game assets
- * Only define if not already defined
  */
-if (typeof window !== 'undefined' && !window.AssetLoader) {
-    class AssetLoader {
+class AssetLoader {
     constructor(framework) {
         this.framework = framework;
         this.config = window.FRAMEWORK_CONFIG || {};
@@ -524,48 +520,43 @@ if (typeof window !== 'undefined' && !window.AssetLoader) {
 }
 
 window.AssetLoader = AssetLoader;
-}
 
 /**
- * Basic Time System - Only define if not already defined
+ * Basic Time System
  */
-if (typeof window !== 'undefined' && !window.TimeSystem) {
-    class TimeSystem extends System {
-        constructor() {
-            super();
-            this.timeScale = 1;
-            this.totalTime = 0;
-            this.deltaTime = 0;
-        }
-        
-        update(deltaTime) {
-            this.deltaTime = deltaTime * this.timeScale;
-            this.totalTime += this.deltaTime;
-        }
-        
-        getTotalTime() {
-            return this.totalTime;
-        }
-        
-        getDeltaTime() {
-            return this.deltaTime;
-        }
-        
-        setTimeScale(scale) {
-            this.timeScale = scale;
-        }
+class TimeSystem extends System {
+    constructor() {
+        super();
+        this.timeScale = 1;
+        this.totalTime = 0;
+        this.deltaTime = 0;
     }
     
-    window.TimeSystem = TimeSystem;
+    update(deltaTime) {
+        this.deltaTime = deltaTime * this.timeScale;
+        this.totalTime += this.deltaTime;
+    }
+    
+    getTotalTime() {
+        return this.totalTime;
+    }
+    
+    getDeltaTime() {
+        return this.deltaTime;
+    }
+    
+    setTimeScale(scale) {
+        this.timeScale = scale;
+    }
 }
+
+window.TimeSystem = TimeSystem;
 
 /**
  * Main Game Framework Class
  * Manages all game systems and provides the main game loop
- * Only define if not already defined
  */
-if (typeof window !== 'undefined' && !window.GameFramework) {
-    class GameFramework {
+class GameFramework {
     constructor(config = {}) {
         this.config = this.mergeWithDefaults(config);
         this.assetLoader = new AssetLoader(this);
@@ -636,7 +627,7 @@ if (typeof window !== 'undefined' && !window.GameFramework) {
     initializeSystems() {
         // Only initialize basic time system here
         // Other systems will be initialized later when canvas is available
-        this.registerSystem('time', new (window.TimeSystem || TimeSystem)());
+        this.registerSystem('time', new TimeSystem());
     }
     
     /**
@@ -1097,15 +1088,36 @@ if (typeof window !== 'undefined' && !window.GameFramework) {
         }
         return this;
     }
+    
+    // Helper methods for Pong game
+    createParticleEffect(effectName, x, y, options = {}) {
+        const particles = this.getSystem('particles');
+        if (particles && particles.createEffect) {
+            particles.createEffect(effectName, x, y, options);
+        }
+    }
+    
+    playSound(soundName, options = {}) {
+        // For now, just log since we don't have actual audio files
+        console.log(`🔊 Playing sound: ${soundName}`);
+    }
+    
+    shake(intensity = 10, duration = 0.5) {
+        const camera = this.getSystem('camera');
+        if (camera && camera.shake) {
+            camera.shake(intensity, duration);
+        }
+    }
 }
 
 window.GameFramework = GameFramework;
-}
 
 // Make classes globally available for compatibility
 if (typeof window !== 'undefined') {
+    // Ensure Vector2 is available
+    window.Vector2 = Vector2;
     // These are now guaranteed to exist from the conditional definitions above
-    if (!window.TimeSystem && window.TimeSystem) window.TimeSystem = TimeSystem;
+    if (window.TimeSystem) window.TimeSystem = window.TimeSystem;
 }
 
 // Export for module systems

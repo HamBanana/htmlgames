@@ -1,14 +1,13 @@
-// GameFramework/index.js - Fixed main entry point for the framework
+// GameFramework/index.js - Framework entry point
 
 /**
  * GameFramework - A powerful HTML5 game development framework
- * @version 1.0.2 - Fixed loading issues
+ * @version 1.0.3 - Complete standalone version
  */
 
-// Prevent multiple loading attempts with better state management
+// Prevent multiple loading
 if (window.GameFramework?.loaded) {
     console.log('🎮 GameFramework already loaded');
-    // Emit ready event immediately if already loaded
     setTimeout(() => {
         window.dispatchEvent(new CustomEvent('gameframework:ready', {
             detail: { 
@@ -22,12 +21,11 @@ if (window.GameFramework?.loaded) {
 } else {
     console.log('🎮 Starting GameFramework loading...');
     
-    // Initialize loading state
     if (!window.GameFramework) window.GameFramework = {};
     window.GameFramework.loading = true;
     window.GameFramework.loadStartTime = Date.now();
     
-    // Set a maximum loading timeout
+    // Set loading timeout
     const loadingTimeout = setTimeout(() => {
         if (window.GameFramework?.loading) {
             console.error('💥 GameFramework loading timeout after 15 seconds');
@@ -40,10 +38,9 @@ if (window.GameFramework?.loaded) {
         }
     }, 15000);
 
-    // Enhanced script loader with better error handling
+    // Enhanced script loader
     const loadScript = (src) => {
         return new Promise((resolve, reject) => {
-            // Check if script already exists and is loaded
             const existingScript = document.querySelector(`script[src="${src}"]`);
             if (existingScript?.dataset?.loaded === 'true') {
                 console.log(`  ♻️  Already loaded: ${src.split('/').pop()}`);
@@ -51,7 +48,6 @@ if (window.GameFramework?.loaded) {
                 return;
             }
             
-            // If script exists but is loading, wait for it
             if (existingScript && !existingScript.dataset.loaded) {
                 console.log(`  ⏳ Waiting for: ${src.split('/').pop()}`);
                 const onLoad = () => {
@@ -69,10 +65,9 @@ if (window.GameFramework?.loaded) {
                 return;
             }
             
-            // Create new script
             const script = document.createElement('script');
             script.src = src;
-            script.async = false; // Ensure sequential loading
+            script.async = false;
             
             script.onload = () => {
                 script.dataset.loaded = 'true';
@@ -85,41 +80,30 @@ if (window.GameFramework?.loaded) {
                 reject(new Error(`Failed to load script: ${src}`));
             };
             
-            // Add script to head
             document.head.appendChild(script);
         });
     };
 
-    // Load framework modules with better error handling
+    // Load framework modules
     const loadFramework = async () => {
         try {
             console.log('📦 Starting framework module loading...');
             
             const basePath = '/GameFramework/';
             
-            // Load modules in strict order - reduced delays for faster loading
+            // Load modules in order
             const modules = [
-                'framework-config.js',
                 'game-framework.js',
-                'framework-systems.js', 
-                'framework-components.js',
-                'framework-utils.js',
-                'framework-effects.js',
-                'framework-prefabs.js',
-                'framework-behaviors.js',
-                'framework-ui.js'
+                'framework-components.js', 
+                'framework-systems.js'
             ];
             
-            // Load modules sequentially
             for (const moduleFile of modules) {
                 console.log(`  📥 Loading ${moduleFile}...`);
                 
                 try {
                     await loadScript(basePath + moduleFile);
-                    
-                    // Small delay to ensure initialization
                     await new Promise(resolve => setTimeout(resolve, 50));
-                    
                 } catch (error) {
                     console.error(`💥 Failed to load ${moduleFile}:`, error);
                     throw error;
@@ -134,22 +118,25 @@ if (window.GameFramework?.loaded) {
                 throw new Error(`Missing required classes: ${missing.join(', ')}`);
             }
             
+            // Verify GameFramework is a constructor
+            if (typeof window.GameFramework !== 'function') {
+                throw new Error(`GameFramework is not a constructor (type: ${typeof window.GameFramework})`);
+            }
+            
+            console.log('✅ All required classes verified:', requiredClasses.map(cls => `${cls}: ${typeof window[cls]}`));
+            
             // Initialize framework
             console.log('🔧 Initializing framework...');
             await initializeFramework();
             
-            // Clear timeout
             clearTimeout(loadingTimeout);
             
-            // Mark as loaded
             window.GameFramework.loaded = true;
             window.GameFramework.loading = false;
             window.GameFramework.loadTime = Date.now() - window.GameFramework.loadStartTime;
             
             console.log(`🎉 GameFramework loaded successfully in ${window.GameFramework.loadTime}ms!`);
-            logFrameworkInfo();
             
-            // Emit ready event
             window.dispatchEvent(new CustomEvent('gameframework:ready', {
                 detail: { 
                     framework: window.GameFramework,
@@ -162,14 +149,11 @@ if (window.GameFramework?.loaded) {
         } catch (error) {
             console.error('💥 Failed to load GameFramework:', error);
             
-            // Clear timeout
             clearTimeout(loadingTimeout);
             
-            // Update state
             window.GameFramework.loading = false;
             window.GameFramework.error = error;
             
-            // Emit error event
             window.dispatchEvent(new CustomEvent('gameframework:error', {
                 detail: { error }
             }));
@@ -180,161 +164,111 @@ if (window.GameFramework?.loaded) {
 
     // Initialize framework after all modules are loaded
     const initializeFramework = async () => {
-        // Ensure all core classes are available
-        if (!window.GameFramework || !window.BaseEntity || !window.Vector2) {
+        // Verify that GameFramework class is available
+        if (!window.GameFramework || typeof window.GameFramework !== 'function') {
+            throw new Error('GameFramework class not loaded properly');
+        }
+        
+        if (!window.BaseEntity || !window.Vector2) {
             throw new Error('Core framework classes not loaded properly');
         }
         
         console.log('🔧 Initializing framework components...');
         
-        // Quick game creation helper
-        if (!window.GameFramework.Game) {
-            class Game extends window.GameFramework {
-                constructor(config = {}) {
-                    // Apply sensible defaults for quick prototyping
-                    const defaults = {
-                        game: {
-                            width: config.width || 800,
-                            height: config.height || 600,
-                            backgroundColor: config.backgroundColor || '#1a1a2e',
-                            pixelPerfect: config.pixelPerfect !== false,
-                            debug: config.debug || false
-                        },
-                        physics: {
-                            gravity: config.gravity !== undefined ? config.gravity : 0.5,
-                            friction: config.friction || 0.1
-                        },
-                        rendering: {
-                            pixelated: config.pixelated !== false,
-                            antialias: !config.pixelated
-                        },
-                        input: {
-                            keyboard: config.controls || {
-                                left: ['ArrowLeft', 'KeyA'],
-                                right: ['ArrowRight', 'KeyD'],
-                                up: ['ArrowUp', 'KeyW'],
-                                down: ['ArrowDown', 'KeyS'],
-                                jump: ['Space'],
-                                action: ['KeyE', 'Enter'],
-                                pause: ['Escape'],
-                                inventory: ['KeyI'],
-                                // Pong-specific controls
-                                p1up: ['KeyW'],
-                                p1down: ['KeyS'],
-                                p2up: ['ArrowUp'],
-                                p2down: ['ArrowDown']
-                            }
+        // Quick game creation helper - extend the existing GameFramework class
+        class Game extends window.GameFramework {
+            constructor(config = {}) {
+                const defaults = {
+                    game: {
+                        width: config.width || 800,
+                        height: config.height || 600,
+                        backgroundColor: config.backgroundColor || '#1a1a2e',
+                        pixelPerfect: config.pixelPerfect !== false,
+                        debug: config.debug || false
+                    },
+                    physics: {
+                        gravity: config.gravity !== undefined ? config.gravity : 0.5,
+                        friction: config.friction || 0.1
+                    },
+                    rendering: {
+                        pixelated: config.pixelated !== false,
+                        antialias: !config.pixelated
+                    },
+                    input: {
+                        keyboard: config.controls || {
+                            left: ['ArrowLeft', 'KeyA'],
+                            right: ['ArrowRight', 'KeyD'],
+                            up: ['ArrowUp', 'KeyW'],
+                            down: ['ArrowDown', 'KeyS'],
+                            jump: ['Space'],
+                            action: ['KeyE', 'Enter'],
+                            pause: ['Escape'],
+                            inventory: ['KeyI'],
+                            p1up: ['KeyW'],
+                            p1down: ['KeyS'],
+                            p2up: ['ArrowUp'],
+                            p2down: ['ArrowDown']
                         }
-                    };
-                    
-                    super(defaults);
-                    
-                    // Auto-initialize on creation
-                    this.ready = this.initialize(config.canvasId || 'gameCanvas');
-                }
-                
-                // Quick particle effect
-                createParticleEffect(effectName, x, y, options = {}) {
-                    const particles = this.getSystem('particles');
-                    if (particles && particles.createEffect) {
-                        particles.createEffect(effectName, x, y, options);
                     }
-                }
+                };
                 
-                // Quick sound playback
-                playSound(soundName, options = {}) {
-                    const audio = this.getSystem('audio');
-                    if (audio && audio.playSound) {
-                        audio.playSound(soundName, options);
-                    }
-                }
-                
-                // Camera shake
-                shake(intensity = 10, duration = 0.5) {
-                    const camera = this.getSystem('camera');
-                    if (camera && camera.shake) {
-                        camera.shake(intensity, duration);
-                    }
+                super(defaults);
+                this.ready = this.initialize(config.canvasId || 'gameCanvas');
+            }
+            
+            createParticleEffect(effectName, x, y, options = {}) {
+                const particles = this.getSystem('particles');
+                if (particles && particles.createEffect) {
+                    particles.createEffect(effectName, x, y, options);
                 }
             }
             
-            // Safely extend the global GameFramework object
-            const frameworkExtensions = {
-                // Core classes
-                Game,
-                
-                // Quick start function
-                quickStart: async (config = {}) => {
-                    const game = new Game(config);
-                    await game.ready;
-                    return game;
-                },
-                
-                // Version info
-                version: '1.0.2',
-                
-                // Wait for framework to be ready
-                ready: () => {
-                    return new Promise((resolve) => {
-                        if (window.GameFramework && window.GameFramework.loaded) {
-                            resolve(window.GameFramework);
-                        } else {
-                            window.addEventListener('gameframework:ready', (e) => {
-                                resolve(e.detail.framework);
-                            });
-                        }
-                    });
-                }
-            };
+            playSound(soundName, options = {}) {
+                console.log(`🔊 Playing sound: ${soundName}`);
+            }
             
-            // Safely extend GameFramework without overwriting existing properties
-            Object.keys(frameworkExtensions).forEach(key => {
-                if (!window.GameFramework.hasOwnProperty(key)) {
-                    window.GameFramework[key] = frameworkExtensions[key];
+            shake(intensity = 10, duration = 0.5) {
+                const camera = this.getSystem('camera');
+                if (camera && camera.shake) {
+                    camera.shake(intensity, duration);
                 }
-            });
+            }
         }
+        
+        // Add extensions to the existing GameFramework object
+        const frameworkExtensions = {
+            Game,
+            
+            quickStart: async (config = {}) => {
+                const game = new Game(config);
+                await game.ready;
+                return game;
+            },
+            
+            version: '1.0.3',
+            
+            ready: () => {
+                return new Promise((resolve) => {
+                    if (window.GameFramework && window.GameFramework.loaded) {
+                        resolve(window.GameFramework);
+                    } else {
+                        window.addEventListener('gameframework:ready', (e) => {
+                            resolve(e.detail.framework);
+                        });
+                    }
+                });
+            }
+        };
+        
+        // Safely extend GameFramework without overwriting the constructor
+        Object.keys(frameworkExtensions).forEach(key => {
+            if (!window.GameFramework.hasOwnProperty(key)) {
+                window.GameFramework[key] = frameworkExtensions[key];
+            }
+        });
         
         console.log('✨ Framework initialization complete');
     };
-
-    // Log framework information
-    function logFrameworkInfo() {
-        const systems = getAvailableSystems();
-        const components = getAvailableComponents();
-        
-        console.log(`  📊 Available Systems: ${Object.keys(systems).length} loaded`);
-        console.log(`  🧩 Available Components: ${Object.keys(components).length} loaded`);
-        
-        if (window.GameFramework.Prefabs) {
-            console.log(`  🎯 Available Prefabs: ${Object.keys(window.GameFramework.Prefabs).join(', ')}`);
-        }
-    }
-
-    // Helper functions to check what's available
-    function getAvailableSystems() {
-        const systems = {};
-        [
-            'TimeSystem', 'InputSystem', 'PhysicsSystem', 'AudioSystem',
-            'RenderSystem', 'CameraSystem', 'CollisionSystem', 'ParticleSystem'
-        ].forEach(name => {
-            if (window[name]) systems[name] = window[name];
-        });
-        return systems;
-    }
-
-    function getAvailableComponents() {
-        const components = {};
-        [
-            'TransformComponent', 'PhysicsComponent', 'CollisionComponent',
-            'SpriteComponent', 'AnimationComponent', 'HealthComponent',
-            'InputComponent', 'WeaponComponent', 'AIComponent',
-            'StateMachineComponent', 'ColliderComponent'
-        ].forEach(name => {
-            if (window[name]) components[name] = window[name];
-        });
-        return components;
-    }
 
     // Auto-load framework
     const autoLoad = async () => {
@@ -343,7 +277,6 @@ if (window.GameFramework?.loaded) {
         } catch (error) {
             console.error('💥 Failed to auto-load GameFramework:', error);
             
-            // Show error in page if possible
             const errorDiv = document.createElement('div');
             errorDiv.style.cssText = `
                 position: fixed; top: 20px; right: 20px; 
@@ -369,7 +302,6 @@ if (window.GameFramework?.loaded) {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', autoLoad);
     } else {
-        // Small delay to ensure everything is ready
         setTimeout(autoLoad, 10);
     }
 }
@@ -382,13 +314,11 @@ if (typeof window !== 'undefined') {
             return Promise.resolve(window.GameFramework);
         }
         
-        // Reset loading state and try again
         if (window.GameFramework) {
             window.GameFramework.loading = false;
             window.GameFramework.error = null;
         }
         
-        // Trigger reload
         const script = document.createElement('script');
         script.src = '/GameFramework/index.js';
         document.head.appendChild(script);
@@ -398,6 +328,6 @@ if (typeof window !== 'undefined') {
 // Export for module systems
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = { 
-        version: '1.0.2'
+        version: '1.0.3'
     };
 }
