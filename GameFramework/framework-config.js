@@ -4,42 +4,42 @@ const FRAMEWORK_CONFIG = {
     // All paths should start with '/' to ensure they're relative to server root
     paths: {
         // Base path for all framework assets
-        base: '/GameFramework/Assets/',
+        base: '/GameAssets/',
         
         // Sprite assets - Aseprite JSON format with embedded base64 images
-        sprites: '/GameFramework/Assets/Sprites/Aseprite/',
+        sprites: '/GameAssets/Sprites/Aseprite/',
         
         // Audio assets
         audio: {
-            base: '/GameFramework/Assets/Audio/',
-            music: '/GameFramework/Assets/Audio/Music/',
-            sfx: '/GameFramework/Assets/Audio/SFX/'
+            base: '/GameAssets/Audio/',
+            music: '/GameAssets/Audio/Music/',
+            sfx: '/GameAssets/Audio/SFX/'
         },
         
         // Shader assets
         shaders: {
-            base: '/GameFramework/Assets/Shaders/',
-            vertex: '/GameFramework/Assets/Shaders/vertex/',
-            fragment: '/GameFramework/Assets/Shaders/fragment/'
+            base: '/GameAssets/Shaders/',
+            vertex: '/GameAssets/Shaders/vertex/',
+            fragment: '/GameAssets/Shaders/fragment/'
         },
         
         // Font assets
-        fonts: '/GameFramework/Assets/Fonts/',
+        fonts: '/GameAssets/Fonts/',
         
         // Data files (JSON, XML, etc.)
         data: {
-            base: '/GameFramework/Assets/Data/',
-            levels: '/GameFramework/Assets/Data/Levels/',
-            configs: '/GameFramework/Assets/Data/Configs/',
-            gamedata: '/GameFramework/Assets/Data/GameData/',
-            saves: '/GameFramework/Assets/Data/Saves/'
+            base: '/GameAssets/Data/',
+            levels: '/GameAssets/Data/Levels/',
+            configs: '/GameAssets/Data/Configs/',
+            gamedata: '/GameAssets/Data/GameData/',
+            saves: '/GameAssets/Data/Saves/'
         },
         
         // Texture atlases
-        atlases: '/GameFramework/Assets/Atlases/',
+        atlases: '/GameAssets/Atlases/',
         
         // Video assets
-        videos: '/GameFramework/Assets/Videos/'
+        videos: '/GameAssets/Videos/'
     },
     
     // Asset type configuration
