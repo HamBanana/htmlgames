@@ -91,11 +91,18 @@ if (window.GameFramework?.loaded) {
             
             const basePath = '/GameFramework/';
             
-            // Load modules in order
+            // Load modules in order - core first, then dependencies
             const modules = [
-                'game-framework.js',
-                'framework-components.js', 
-                'framework-systems.js'
+                'game-framework.js',        // Core classes (System, Component, etc.)
+                'framework-components.js',  // Components that use Component base class
+                'framework-systems.js',     // Systems that use System base class
+                'framework-physics.js',     // Physics system that extends System
+                'framework-ui.js',          // UI system
+                'framework-effects.js',     // Effects
+                'framework-behaviors.js',   // Behaviors
+                'framework-prefabs.js',     // Prefabs
+                'framework-utils.js',       // Utilities
+                'framework-config.js'       // Configuration
             ];
             
             for (const moduleFile of modules) {

@@ -356,23 +356,6 @@ class BaseEntity {
 
 window.BaseEntity = BaseEntity;
 
-// Ensure all essential classes are globally available immediately
-if (typeof window !== 'undefined') {
-    window.Vector2 = Vector2;
-    window.EventEmitter = EventEmitter;
-    window.PerformanceMonitor = PerformanceMonitor;
-    window.Component = Component;
-    window.System = System;
-    window.BaseEntity = BaseEntity;
-    window.Scene = Scene;
-    window.AssetLoader = AssetLoader;
-    window.TimeSystem = TimeSystem;
-    window.GameFramework = GameFramework;
-    
-    // Verify the class is a constructor
-    console.log('🔧 GameFramework class loaded:', typeof GameFramework);
-}
-
 /**
  * Base Scene Class
  */
@@ -1112,12 +1095,21 @@ class GameFramework {
 
 window.GameFramework = GameFramework;
 
-// Make classes globally available for compatibility
+// Ensure all essential classes are globally available immediately
 if (typeof window !== 'undefined') {
-    // Ensure Vector2 is available
     window.Vector2 = Vector2;
-    // These are now guaranteed to exist from the conditional definitions above
-    if (window.TimeSystem) window.TimeSystem = window.TimeSystem;
+    window.EventEmitter = EventEmitter;
+    window.PerformanceMonitor = PerformanceMonitor;
+    window.Component = Component;
+    window.System = System;
+    window.BaseEntity = BaseEntity;
+    window.Scene = Scene;
+    window.AssetLoader = AssetLoader;
+    window.TimeSystem = TimeSystem;
+    window.GameFramework = GameFramework;
+    
+    // Verify the class is a constructor
+    console.log('🔧 GameFramework class loaded:', typeof GameFramework);
 }
 
 // Export for module systems
