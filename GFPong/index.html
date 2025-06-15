@@ -45,23 +45,47 @@
     </div>
 
     <!-- Load GameFramework -->
-    <script src="/GameFramework/index.js"></script>
+    <script src="../GameFramework/index.js"></script>
     
     <!-- Pong Game -->
     <script>
-    // Following the migration guide - wrap everything in async function
-    (async function() {
+    // Handle framework loading errors
+    window.addEventListener('gameframework:error', (e) => {
+        console.error('Failed to load GameFramework:', e.detail.error);
+        document.getElementById('loading').innerHTML = 'Error loading framework: ' + e.detail.error.message;
+    });
+    
+    // Following the migration guide - using event listener approach
+    window.addEventListener('gameframework:ready', async () => {
         console.log('🏓 Starting Pong game...');
-        
-        // ALWAYS wait for framework first!
-        await GameFramework.ready();
         console.log('✅ Framework ready, creating game...');
         
         // Hide loading message
         document.getElementById('loading').style.display = 'none';
         
-        // Now we can use BaseEntity, Component, etc.
+        // Small delay to ensure everything is loaded
+        await new Promise(resolve => setTimeout(resolve, 100));
         
+        // Now we can use BaseEntity, Component, etc.
+        // Verify core classes are available
+        if (!window.BaseEntity || !window.Component || !window.Vector2) {
+            console.error('Framework classes not loaded properly!');
+            return;
+        }
+        
+        console.log('✅ Core classes verified:', {
+            BaseEntity: typeof BaseEntity,
+            Component: typeof Component,
+            Vector2: typeof Vector2,
+            PhysicsComponent: typeof PhysicsComponent,
+            CollisionComponent: typeof CollisionComponent,
+            SpriteComponent: typeof SpriteComponent,
+            GameFramework: typeof GameFramework,
+            Scene: typeof Scene
+        });
+        
+        try {
+            
         /**
          * Paddle Component - Handles paddle movement
          */
@@ -350,16 +374,13 @@
         }
         
         /**
-         * Score UI
+         * Score Renderer Entity
          */
-        class PongScoreUI extends UIElement {
+        class ScoreRenderer extends BaseEntity {
             constructor(config = {}) {
                 super({
-                    width: 200,
-                    height: 100,
-                    anchor: { x: 0.5, y: 0 },
-                    pivot: { x: 0.5, y: 0 },
-                    y: 20,
+                    type: 'ui',
+                    zIndex: 100,
                     ...config
                 });
                 
@@ -368,8 +389,29 @@
                 this.winScore = config.winScore || 5;
             }
             
+            update(deltaTime) {
+                // Check for restart
+                const input = this.game.getSystem('input');
+                if (input && input.isActionJustPressed('jump') && this.game.paused) {
+                    this.reset();
+                    this.game.resume();
+                    
+                    // Reset ball
+                    const balls = this.game.getEntitiesByType('ball');
+                    balls.forEach(ball => {
+                        const ballComp = ball.getComponent(BallComponent);
+                        if (ballComp) {
+                            ballComp.serve();
+                        }
+                    });
+                }
+            }
+            
             render(context) {
                 context.save();
+                
+                // Reset transform since UI should not be affected by camera
+                context.setTransform(1, 0, 0, 1, 0, 0);
                 
                 // Score text
                 context.fillStyle = '#00ff00';
@@ -378,15 +420,16 @@
                 context.textBaseline = 'top';
                 
                 const centerX = this.game.canvas.width / 2;
+                const y = 20;
                 
                 // Player 1 score
-                context.fillText(this.player1Score.toString(), centerX - 100, this.y);
+                context.fillText(this.player1Score.toString(), centerX - 100, y);
                 
                 // Divider
-                context.fillText('-', centerX, this.y);
+                context.fillText('-', centerX, y);
                 
                 // Player 2 score
-                context.fillText(this.player2Score.toString(), centerX + 100, this.y);
+                context.fillText(this.player2Score.toString(), centerX + 100, y);
                 
                 // Win message
                 if (this.player1Score >= this.winScore || this.player2Score >= this.winScore) {
@@ -541,49 +584,56 @@
                 });
                 this.game.addEntity(ball);
                 
-                // Create UI
-                const ui = this.game.getSystem('ui');
-                this.scoreUI = new PongScoreUI({ winScore: 5 });
-                ui.addElement('score', this.scoreUI);
+                // Create score display
+                this.scoreRenderer = new ScoreRenderer({ winScore: 5 });
+                this.game.addEntity(this.scoreRenderer);
                 
                 // Register collision system
                 this.game.registerSystem('pongCollision', new PongCollisionSystem());
                 
                 // Listen for goals
                 this.game.events.on('goal', (data) => {
-                    this.scoreUI.addScore(data.scorer);
+                    this.scoreRenderer.addScore(data.scorer);
                     this.game.createParticleEffect('explosion', this.game.canvas.width / 2, this.game.canvas.height / 2);
                     this.game.shake(10, 0.3);
                 });
             }
             
             update(deltaTime) {
-                // Check for restart
-                const input = this.game.getSystem('input');
-                if (input.isActionJustPressed('jump') && this.game.paused) {
-                    this.scoreUI.reset();
-                    this.game.resume();
-                    
-                    // Reset ball
-                    const balls = this.game.getEntitiesByType('ball');
-                    balls.forEach(ball => {
-                        const ballComp = ball.getComponent(BallComponent);
-                        if (ballComp) {
-                            ballComp.serve();
-                        }
-                    });
-                }
+                // Handled by ScoreRenderer now
             }
         }
         
         // Create and start the game
-        const game = await GameFramework.quickStart({
-            width: 800,
-            height: 400,
-            backgroundColor: '#0a0a0a',
-            pixelated: true,
-            gravity: 0 // No gravity for Pong
-        });
+        let game;
+        
+        // Try to use quickStart if available
+        if (GameFramework.quickStart) {
+            game = await GameFramework.quickStart({
+                width: 800,
+                height: 400,
+                backgroundColor: '#0a0a0a',
+                pixelated: true,
+                gravity: 0 // No gravity for Pong
+            });
+        } else {
+            // Fallback to manual initialization
+            console.log('QuickStart not available, using manual initialization');
+            game = new GameFramework({
+                game: {
+                    width: 800,
+                    height: 400,
+                    backgroundColor: '#0a0a0a'
+                },
+                physics: {
+                    gravity: 0
+                },
+                rendering: {
+                    pixelated: true
+                }
+            });
+            await game.initialize('gameCanvas');
+        }
         
         // Register and load the Pong scene
         game.registerScene('pong', new PongScene());
@@ -594,7 +644,13 @@
         
         console.log('🏓 Pong game started!');
         
-    })(); // End of async wrapper
+        } catch (error) {
+            console.error('Error creating Pong game:', error);
+            document.getElementById('loading').innerHTML = 'Error: ' + error.message;
+            document.getElementById('loading').style.display = 'block';
+        }
+        
+    }); // End of gameframework:ready event listener
     </script>
 </body>
 </html>
