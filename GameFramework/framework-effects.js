@@ -1,4 +1,4 @@
-// GameFramework/framework-effects.js - Visual effects and particle presets (without redeclarations)
+// GameFramework/framework-effects.js - Visual effects and particle presets (clean, no redeclarations)
 
 /**
  * Enhanced Particle System - Only define if not already defined
@@ -138,6 +138,32 @@ if (typeof window !== 'undefined' && !window.ParticleSystem) {
                 orbitRadius: 30,
                 sparkle: true
             });
+            
+            // Dash effect
+            this.registerEffect('dash', {
+                count: 15,
+                lifetime: 0.4,
+                speed: { min: 80, max: 120 },
+                spread: Math.PI / 6,
+                size: { min: 3, max: 7 },
+                color: '#00aaff',
+                gravity: 0,
+                friction: 0.95,
+                stretch: 2
+            });
+            
+            // Jump effect
+            this.registerEffect('jump', {
+                count: 8,
+                lifetime: 0.5,
+                speed: { min: 30, max: 80 },
+                spread: Math.PI / 4,
+                angle: -Math.PI / 2,
+                size: { min: 3, max: 6 },
+                color: ['#ffffff', '#cccccc'],
+                gravity: 200,
+                friction: 0.9
+            });
         }
         
         registerEffect(name, config) {
@@ -179,6 +205,10 @@ if (typeof window !== 'undefined' && !window.ParticleSystem) {
                 },
                 destroy: () => {
                     this.emitters.delete(id);
+                },
+                setPosition: (newX, newY) => {
+                    emitter.x = newX;
+                    emitter.y = newY;
                 }
             };
         }
@@ -381,148 +411,149 @@ if (typeof window !== 'undefined' && !window.ParticleSystem) {
 /**
  * Screen Effects
  */
-class ScreenEffects {
-    constructor(game) {
-        this.game = game;
-        this.effects = [];
-    }
-    
-    shake(intensity = 10, duration = 0.5) {
-        const camera = this.game.getSystem('camera');
-        if (camera) {
-            camera.shake(intensity, duration);
+if (typeof window !== 'undefined' && !window.ScreenEffects) {
+    class ScreenEffects {
+        constructor(game) {
+            this.game = game;
+            this.effects = [];
         }
-    }
-    
-    flash(color = '#ffffff', duration = 0.2) {
-        this.effects.push({
-            type: 'flash',
-            color,
-            duration,
-            timer: 0
-        });
-    }
-    
-    fade(fadeIn = true, duration = 1, color = '#000000') {
-        this.effects.push({
-            type: 'fade',
-            fadeIn,
-            duration,
-            timer: 0,
-            color
-        });
-    }
-    
-    overlay(color, opacity = 0.5, duration = -1) {
-        this.effects.push({
-            type: 'overlay',
-            color,
-            opacity,
-            duration,
-            timer: 0
-        });
-    }
-    
-    vignette(intensity = 0.5, color = '#000000') {
-        this.effects.push({
-            type: 'vignette',
-            intensity,
-            color,
-            permanent: true
-        });
-    }
-    
-    update(deltaTime) {
-        for (let i = this.effects.length - 1; i >= 0; i--) {
-            const effect = this.effects[i];
-            
-            if (!effect.permanent) {
-                effect.timer += deltaTime;
+        
+        shake(intensity = 10, duration = 0.5) {
+            const camera = this.game.getSystem('camera');
+            if (camera) {
+                camera.shake(intensity, duration);
+            }
+        }
+        
+        flash(color = '#ffffff', duration = 0.2) {
+            this.effects.push({
+                type: 'flash',
+                color,
+                duration,
+                timer: 0
+            });
+        }
+        
+        fade(fadeIn = true, duration = 1, color = '#000000') {
+            this.effects.push({
+                type: 'fade',
+                fadeIn,
+                duration,
+                timer: 0,
+                color
+            });
+        }
+        
+        overlay(color, opacity = 0.5, duration = -1) {
+            this.effects.push({
+                type: 'overlay',
+                color,
+                opacity,
+                duration,
+                timer: 0
+            });
+        }
+        
+        vignette(intensity = 0.5, color = '#000000') {
+            this.effects.push({
+                type: 'vignette',
+                intensity,
+                color,
+                permanent: true
+            });
+        }
+        
+        update(deltaTime) {
+            for (let i = this.effects.length - 1; i >= 0; i--) {
+                const effect = this.effects[i];
                 
-                if (effect.duration > 0 && effect.timer >= effect.duration) {
-                    this.effects.splice(i, 1);
+                if (!effect.permanent) {
+                    effect.timer += deltaTime;
+                    
+                    if (effect.duration > 0 && effect.timer >= effect.duration) {
+                        this.effects.splice(i, 1);
+                    }
                 }
             }
         }
+        
+        render(context) {
+            this.effects.forEach(effect => {
+                switch (effect.type) {
+                    case 'flash':
+                        this.renderFlash(context, effect);
+                        break;
+                    case 'fade':
+                        this.renderFade(context, effect);
+                        break;
+                    case 'overlay':
+                        this.renderOverlay(context, effect);
+                        break;
+                    case 'vignette':
+                        this.renderVignette(context, effect);
+                        break;
+                }
+            });
+        }
+        
+        renderFlash(context, effect) {
+            const progress = effect.timer / effect.duration;
+            const opacity = 1 - progress;
+            
+            context.save();
+            context.globalAlpha = opacity;
+            context.fillStyle = effect.color;
+            context.fillRect(0, 0, this.game.canvas.width, this.game.canvas.height);
+            context.restore();
+        }
+        
+        renderFade(context, effect) {
+            const progress = effect.timer / effect.duration;
+            const opacity = effect.fadeIn ? (1 - progress) : progress;
+            
+            context.save();
+            context.globalAlpha = opacity;
+            context.fillStyle = effect.color;
+            context.fillRect(0, 0, this.game.canvas.width, this.game.canvas.height);
+            context.restore();
+        }
+        
+        renderOverlay(context, effect) {
+            context.save();
+            context.globalAlpha = effect.opacity;
+            context.fillStyle = effect.color;
+            context.fillRect(0, 0, this.game.canvas.width, this.game.canvas.height);
+            context.restore();
+        }
+        
+        renderVignette(context, effect) {
+            const centerX = this.game.canvas.width / 2;
+            const centerY = this.game.canvas.height / 2;
+            const radius = Math.max(centerX, centerY) * 1.5;
+            
+            const gradient = context.createRadialGradient(
+                centerX, centerY, radius * (1 - effect.intensity),
+                centerX, centerY, radius
+            );
+            
+            gradient.addColorStop(0, 'transparent');
+            gradient.addColorStop(1, effect.color);
+            
+            context.fillStyle = gradient;
+            context.fillRect(0, 0, this.game.canvas.width, this.game.canvas.height);
+        }
     }
     
-    render(context) {
-        this.effects.forEach(effect => {
-            switch (effect.type) {
-                case 'flash':
-                    this.renderFlash(context, effect);
-                    break;
-                case 'fade':
-                    this.renderFade(context, effect);
-                    break;
-                case 'overlay':
-                    this.renderOverlay(context, effect);
-                    break;
-                case 'vignette':
-                    this.renderVignette(context, effect);
-                    break;
-            }
-        });
-    }
-    
-    renderFlash(context, effect) {
-        const progress = effect.timer / effect.duration;
-        const opacity = 1 - progress;
-        
-        context.save();
-        context.globalAlpha = opacity;
-        context.fillStyle = effect.color;
-        context.fillRect(0, 0, this.game.canvas.width, this.game.canvas.height);
-        context.restore();
-    }
-    
-    renderFade(context, effect) {
-        const progress = effect.timer / effect.duration;
-        const opacity = effect.fadeIn ? (1 - progress) : progress;
-        
-        context.save();
-        context.globalAlpha = opacity;
-        context.fillStyle = effect.color;
-        context.fillRect(0, 0, this.game.canvas.width, this.game.canvas.height);
-        context.restore();
-    }
-    
-    renderOverlay(context, effect) {
-        context.save();
-        context.globalAlpha = effect.opacity;
-        context.fillStyle = effect.color;
-        context.fillRect(0, 0, this.game.canvas.width, this.game.canvas.height);
-        context.restore();
-    }
-    
-    renderVignette(context, effect) {
-        const centerX = this.game.canvas.width / 2;
-        const centerY = this.game.canvas.height / 2;
-        const radius = Math.max(centerX, centerY) * 1.5;
-        
-        const gradient = context.createRadialGradient(
-            centerX, centerY, radius * (1 - effect.intensity),
-            centerX, centerY, radius
-        );
-        
-        gradient.addColorStop(0, 'transparent');
-        gradient.addColorStop(1, effect.color);
-        
-        context.fillStyle = gradient;
-        context.fillRect(0, 0, this.game.canvas.width, this.game.canvas.height);
-    }
+    window.ScreenEffects = ScreenEffects;
 }
 
-// Register effects globally (only if not already defined)
+// Register effects globally in GameFramework namespace
 if (typeof window !== 'undefined') {
-    if (!window.ScreenEffects) window.ScreenEffects = ScreenEffects;
-    
-    // Register in GameFramework namespace
     if (!window.GameFramework) window.GameFramework = {};
     if (!window.GameFramework.Effects) {
         window.GameFramework.Effects = {
             ParticleSystem: window.ParticleSystem,
-            ScreenEffects: ScreenEffects
+            ScreenEffects: window.ScreenEffects
         };
     }
 }
