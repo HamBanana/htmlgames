@@ -1,0 +1,106 @@
+{
+  "// This is your main game configuration file": "",
+  "// Place this in your project root as 'game-config.json'": "",
+  
+  "game": {
+    "title": "R-Type: Ninja Edition",
+    "width": 800,
+    "height": 600,
+    "debug": true,
+    "debugLevel": "verbose"
+  },
+  
+  "assets": {
+    "basePath": "../GameFramework/Assets/",
+    
+    "sprites": {
+      "path": "Sprites/Aseprite/",
+      "asepriteFormat": "json",
+      "preloadAll": false
+    },
+    
+    "audio": {
+      "path": "Audio/",
+      "music": {
+        "path": "Music/",
+        "format": ["ogg", "mp3"],
+        "defaultVolume": 0.6
+      },
+      "sfx": {
+        "path": "SFX/",
+        "format": ["ogg", "mp3", "wav"],
+        "defaultVolume": 0.8
+      }
+    },
+    
+    "shaders": {
+      "path": "Shaders/",
+      "vertex": {
+        "path": "vertex/",
+        "extension": ".vert"
+      },
+      "fragment": {
+        "path": "fragment/", 
+        "extension": ".frag"
+      }
+    },
+    
+    "data": {
+      "path": "Data/",
+      "levels": {
+        "path": "levels/",
+        "format": "json"
+      }
+    }
+  },
+  
+  "rendering": {
+    "pixelated": true,
+    "antialias": false,
+    "webgl": {
+      "enabled": false
+    }
+  },
+  
+  "physics": {
+    "enabled": true,
+    "gravity": 0,
+    "spatialHash": {
+      "enabled": true,
+      "cellSize": 64
+    }
+  },
+  
+  "audio": {
+    "enabled": true,
+    "masterVolume": 0.8,
+    "musicVolume": 0.6,
+    "sfxVolume": 0.9
+  },
+  
+  "input": {
+    "keyboard": {
+      "actions": {
+        "up": ["ArrowUp", "KeyW"],
+        "down": ["ArrowDown", "KeyS"], 
+        "left": ["ArrowLeft", "KeyA"],
+        "right": ["ArrowRight", "KeyD"],
+        "shoot": ["Space", "KeyX"],
+        "pause": ["KeyP", "Escape"],
+        "restart": ["KeyR"]
+      }
+    }
+  },
+  
+  "performance": {
+    "monitoring": true,
+    "showFPSCounter": true,
+    "targetFPS": 60
+  },
+  
+  "development": {
+    "hotReload": true,
+    "devTools": true,
+    "errorReporting": true
+  }
+}

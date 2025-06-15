@@ -9,42 +9,42 @@ const FRAMEWORK_CONFIG = {
     // Asset path configuration (relative to gameframework.js file)
     paths: {
         // Base path for all assets
-        base: 'Assets/',
+        base: './Assets/',
         
         // Sprite assets - Aseprite JSON format with embedded base64 images
-        sprites: 'Assets/Sprites/Aseprite/',
+        sprites: './Assets/Sprites/Aseprite/',
         
         // Audio assets
         audio: {
-            base: 'Assets/Audio/',
-            music: 'Assets/Audio/Music/',
-            sfx: 'Assets/Audio/SFX/'
+            base: '../Audio/',
+            music: '../Audio/Music/',
+            sfx: '../Audio/SFX/'
         },
         
         // Shader assets
         shaders: {
-            base: 'Assets/Shaders/',
-            vertex: 'Assets/Shaders/vertex/',
-            fragment: 'Assets/Shaders/fragment/'
+            base: '../Shaders/',
+            vertex: '../Shaders/vertex/',
+            fragment: '../Shaders/fragment/'
         },
         
         // Font assets
-        fonts: 'Assets/Fonts/',
+        fonts: '../Fonts/',
         
         // Data files (JSON, XML, etc.)
         data: {
-            base: 'Assets/Data/',
-            levels: 'Assets/Data/Levels/',
-            configs: 'Assets/Data/Configs/',
-            gamedata: 'Assets/Data/GameData/',
-            saves: 'Assets/Data/Saves/'
+            base: '../Data/',
+            levels: '../Data/Levels/',
+            configs: '../Data/Configs/',
+            gamedata: '../Data/GameData/',
+            saves: '../Data/Saves/'
         },
         
         // Texture atlases
-        atlases: 'Assets/Atlases/',
+        atlases: '../Atlases/',
         
         // Video assets
-        videos: 'Assets/Videos/'
+        videos: '../Videos/'
     },
     
     // Asset type configuration
@@ -777,33 +777,42 @@ if (typeof module !== 'undefined' && module.exports) {
 }
 
 /*
+Framework Expected Structure (relative to framework-config.js):
+
+GameFramework/
+├── framework-config.js         ← This file calculates paths relative to itself
+├── gameframework.js
+├── Assets/                     ← Assets folder next to framework files
+│   ├── Sprites/
+│   │   └── Aseprite/
+│   │       └── ninjamand.json  ← Your ninja sprite here!
+│   ├── Audio/
+│   │   ├── Music/
+│   │   └── SFX/
+│   ├── Shaders/
+│   ├── Fonts/
+│   └── Data/
+└── (anywhere else)/
+    └── your-game/
+        └── index.html           ← Your game can be anywhere
+
+Dynamic Path Resolution:
+- Framework automatically detects its own location
+- All asset paths are calculated relative to framework-config.js
+- Works regardless of where your game HTML file is located
+- No need to manually adjust paths when moving files
+
 Game Usage Examples:
 
-// 1. Initialize framework (defines paths, not assets)
+// 1. Initialize framework (paths auto-detected)
 const game = new GameFramework();
 await game.initialize('gameCanvas');
 
-// 2. Game decides which sprites to load
+// 2. Load sprites (framework finds them automatically)
 await game.loadSprite('ninja', 'ninjamand.json');
-await game.loadSprite('enemy1', 'enemy_grunt.json');
-await game.loadSprite('explosion', 'explosion_effect.json');
+// Framework resolves to: [framework-location]/Assets/Sprites/Aseprite/ninjamand.json
 
-// 3. Game decides which audio to load
-await game.loadAudio('shoot_sound', 'laser_shot.ogg', 'sfx');
-await game.loadAudio('bgm', 'space_theme.ogg', 'music');
-
-// 4. Batch load game-specific assets
-const gameAssets = [
-    { type: 'sprite', id: 'ninja', file: 'ninjamand.json' },
-    { type: 'sprite', id: 'enemy1', file: 'basic_enemy.json' },
-    { type: 'audio', id: 'shoot', file: 'shoot.wav', audioType: 'sfx' },
-    { type: 'data', id: 'level1', file: 'level_01.json', dataType: 'level' }
-];
-await game.loadAssets(gameAssets);
-
-// 5. Use loaded assets
-const ninja = game.createSpriteEntity('ninja', { x: 50, y: 300 });
-game.playSFX('shoot');
-
-// Framework provides the infrastructure, game chooses the content!
+// 3. Framework logs will show the detected paths
+// Console output: "Framework directory detected as: /path/to/GameFramework/"
+// Console output: "Framework loading sprite ninja from: /path/to/GameFramework/Assets/Sprites/Aseprite/ninjamand.json"
 */

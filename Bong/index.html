@@ -8,141 +8,153 @@
         body {
             margin: 0;
             padding: 0;
-            background: #000;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
             font-family: 'Courier New', monospace;
+            overflow: hidden;
         }
         
         canvas {
-            border: 2px solid #333;
-            background: linear-gradient(180deg, #001122 0%, #002244 50%, #001122 100%);
-            box-shadow: 0 0 20px rgba(0, 150, 255, 0.3);
+            border: 3px solid #00ffff;
+            background: linear-gradient(180deg, #000511 0%, #001133 30%, #002255 70%, #001133 100%);
+            box-shadow: 
+                0 0 30px rgba(0, 255, 255, 0.3),
+                inset 0 0 50px rgba(0, 100, 200, 0.1);
+            border-radius: 8px;
         }
         
-        .ui {
+        .game-ui {
             position: absolute;
-            top: 10px;
-            left: 10px;
-            color: #00ff00;
-            font-size: 16px;
+            top: 20px;
+            left: 20px;
+            color: #00ffff;
+            font-size: 18px;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
             z-index: 100;
+        }
+        
+        .game-ui .stat {
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            min-width: 150px;
+        }
+        
+        .loading-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #00ffff;
+            text-align: center;
+            font-size: 24px;
+            z-index: 200;
+        }
+        
+        .loading-bar {
+            width: 300px;
+            height: 20px;
+            border: 2px solid #00ffff;
+            margin: 20px auto;
+            background: rgba(0, 0, 0, 0.5);
+        }
+        
+        .loading-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #00ffff, #0088ff);
+            width: 0%;
+            transition: width 0.3s ease;
         }
         
         .instructions {
             position: absolute;
-            bottom: 10px;
+            bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
             color: #ffffff;
             text-align: center;
             font-size: 14px;
+            opacity: 0.8;
         }
+        
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ff4444;
+            text-align: center;
+            font-size: 32px;
+            text-shadow: 0 0 20px rgba(255, 68, 68, 0.8);
+            z-index: 200;
+            display: none;
+        }
+        
+        .hidden { display: none; }
     </style>
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
-    <div class="ui">
-        <div>Score: <span id="score">0</span></div>
-        <div>Lives: <span id="lives">3</span></div>
-        <div>Level: <span id="level">1</span></div>
+    
+    <div class="game-ui">
+        <div class="stat">
+            <span>Score:</span>
+            <span id="score">0</span>
+        </div>
+        <div class="stat">
+            <span>Lives:</span>
+            <span id="lives">3</span>
+        </div>
+        <div class="stat">
+            <span>Level:</span>
+            <span id="level">1</span>
+        </div>
+        <div class="stat">
+            <span>Health:</span>
+            <span id="health">100</span>
+        </div>
     </div>
+    
+    <div class="loading-screen" id="loadingScreen">
+        <div>Loading R-Type: Ninja Edition...</div>
+        <div class="loading-bar">
+            <div class="loading-progress" id="loadingProgress"></div>
+        </div>
+        <div id="loadingText">Initializing Framework...</div>
+    </div>
+    
+    <div class="game-over" id="gameOverScreen">
+        <div>GAME OVER</div>
+        <div style="font-size: 18px; margin-top: 20px;">Press R to Restart</div>
+    </div>
+    
     <div class="instructions">
-        ARROW KEYS: Move | SPACE: Shoot | R: Restart
+        ARROW KEYS: Move Ninja | SPACE: Shoot | P: Pause | R: Restart
     </div>
 
-    <!-- Framework files -->
     <script>
-        // Framework Utils
-        class ObjectPool {
-            constructor(createFn, resetFn, initialSize = 10) {
-                this.createFn = createFn;
-                this.resetFn = resetFn;
-                this.available = [];
-                this.active = new Set();
-                
-                for (let i = 0; i < initialSize; i++) {
-                    this.available.push(this.createFn());
-                }
-            }
-            
-            get() {
-                let obj;
-                if (this.available.length > 0) {
-                    obj = this.available.pop();
-                } else {
-                    obj = this.createFn();
-                }
-                this.active.add(obj);
-                return obj;
-            }
-            
-            release(obj) {
-                if (this.active.has(obj)) {
-                    this.active.delete(obj);
-                    this.resetFn(obj);
-                    this.available.push(obj);
-                }
-            }
-        }
-
-        const Random = {
-            range: (min, max) => Math.random() * (max - min) + min,
-            rangeInt: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
-            chance: (probability = 0.5) => Math.random() < probability
-        };
-
-        const MathUtils = {
-            clamp: (value, min, max) => Math.max(min, Math.min(max, value)),
-            lerp: (start, end, t) => start + (end - start) * t,
-            distance: (x1, y1, x2, y2) => {
-                const dx = x2 - x1;
-                const dy = y2 - y1;
-                return Math.sqrt(dx * dx + dy * dy);
-            }
-        };
-
-        // Vector2 Class
+        // ========== FRAMEWORK IMPLEMENTATION ==========
+        
+        // Vector2 utility class
         class Vector2 {
             constructor(x = 0, y = 0) {
                 this.x = x;
                 this.y = y;
             }
             
-            set(x, y) {
-                this.x = x;
-                this.y = y;
-                return this;
-            }
-            
-            copy() {
-                return new Vector2(this.x, this.y);
-            }
-            
-            add(v) {
-                return new Vector2(this.x + v.x, this.y + v.y);
-            }
-            
-            subtract(v) {
-                return new Vector2(this.x - v.x, this.y - v.y);
-            }
-            
-            multiply(scalar) {
-                return new Vector2(this.x * scalar, this.y * scalar);
-            }
-            
-            magnitude() {
-                return Math.sqrt(this.x * this.x + this.y * this.y);
-            }
-            
+            set(x, y) { this.x = x; this.y = y; return this; }
+            copy() { return new Vector2(this.x, this.y); }
+            add(v) { return new Vector2(this.x + v.x, this.y + v.y); }
+            subtract(v) { return new Vector2(this.x - v.x, this.y - v.y); }
+            multiply(scalar) { return new Vector2(this.x * scalar, this.y * scalar); }
+            magnitude() { return Math.sqrt(this.x * this.x + this.y * this.y); }
             normalize() {
                 const mag = this.magnitude();
-                if (mag === 0) return new Vector2(0, 0);
-                return new Vector2(this.x / mag, this.y / mag);
+                return mag === 0 ? new Vector2(0, 0) : new Vector2(this.x / mag, this.y / mag);
             }
-            
             distanceTo(v) {
                 const dx = this.x - v.x;
                 const dy = this.y - v.y;
@@ -152,107 +164,391 @@
 
         // Event Emitter
         class EventEmitter {
-            constructor() {
-                this.events = new Map();
-            }
-            
+            constructor() { this.events = new Map(); }
             on(event, callback) {
-                if (!this.events.has(event)) {
-                    this.events.set(event, []);
-                }
+                if (!this.events.has(event)) this.events.set(event, []);
                 this.events.get(event).push(callback);
                 return this;
             }
-            
             emit(event, ...args) {
                 if (this.events.has(event)) {
-                    this.events.get(event).forEach(callback => {
-                        callback(...args);
-                    });
+                    this.events.get(event).forEach(callback => callback(...args));
                 }
                 return this;
             }
         }
 
-        // Base Component
+        // Framework Configuration
+        const FRAMEWORK_CONFIG = {
+            paths: {
+                sprites: '../Sprites/Aseprite/',
+                audio: { sfx: '../Audio/SFX/', music: '../Audio/Music/' }
+            }
+        };
+
+        // Aseprite Parser
+        class AsepriteParser {
+            static parse(jsonData) {
+                const data = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
+                return {
+                    frames: this.parseFrames(data.frames),
+                    animations: this.parseAnimations(data.meta?.frameTags || []),
+                    image: this.parseImage(data.meta?.image)
+                };
+            }
+            
+            static parseFrames(framesData) {
+                const frames = new Map();
+                if (Array.isArray(framesData)) {
+                    framesData.forEach((frame, index) => {
+                        frames.set(index.toString(), {
+                            x: frame.frame.x, y: frame.frame.y,
+                            w: frame.frame.w, h: frame.frame.h,
+                            duration: frame.duration || 100
+                        });
+                    });
+                } else {
+                    Object.entries(framesData).forEach(([name, frame]) => {
+                        frames.set(name, {
+                            x: frame.frame.x, y: frame.frame.y,
+                            w: frame.frame.w, h: frame.frame.h,
+                            duration: frame.duration || 100
+                        });
+                    });
+                }
+                return frames;
+            }
+            
+            static parseAnimations(frameTags) {
+                const animations = new Map();
+                frameTags.forEach(tag => {
+                    animations.set(tag.name, {
+                        from: tag.from, to: tag.to,
+                        direction: tag.direction || 'forward'
+                    });
+                });
+                return animations;
+            }
+            
+            static parseImage(imageData) {
+                if (!imageData || typeof imageData !== 'string') return null;
+                return this.createImageFromBase64(imageData);
+            }
+            
+            static createImageFromBase64(base64Data) {
+                return new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.onload = () => resolve(img);
+                    img.onerror = reject;
+                    img.src = base64Data;
+                });
+            }
+        }
+
+        // Component Base Class
         class Component {
             constructor(config = {}) {
                 this.entity = null;
                 this.active = config.active !== false;
-                this.visible = config.visible !== false;
             }
-            
-            get game() {
-                return this.entity ? this.entity.game : null;
-            }
-            
-            initialize() {}
+            get game() { return this.entity ? this.entity.game : null; }
             update(deltaTime) {}
             render(context) {}
-            destroy() {}
         }
 
-        // Base System
-        class System {
+        // Components
+        class PhysicsComponent extends Component {
             constructor(config = {}) {
-                this.config = config;
+                super(config);
+                this.velocity = new Vector2(config.vx || 0, config.vy || 0);
+                this.maxVelocity = new Vector2(config.maxVx || 500, config.maxVy || 500);
+            }
+            
+            update(deltaTime) {
+                this.entity.x += this.velocity.x * deltaTime;
+                this.entity.y += this.velocity.y * deltaTime;
+            }
+        }
+
+        class SpriteComponent extends Component {
+            constructor(assetId, config = {}) {
+                super(config);
+                this.assetId = assetId;
+                this.currentFrame = 0;
+                this.flipX = config.flipX || false;
+                this.opacity = config.opacity || 1;
+            }
+            
+            render(context) {
+                const renderer = this.game?.getSystem('renderer');
+                if (!renderer) return;
+                
+                context.save();
+                if (this.opacity < 1) context.globalAlpha = this.opacity;
+                if (this.flipX) {
+                    context.scale(-1, 1);
+                    renderer.drawSpriteFrame(this.assetId, this.currentFrame, 
+                        -this.entity.width, 0, this.entity.width, this.entity.height);
+                } else {
+                    renderer.drawSpriteFrame(this.assetId, this.currentFrame, 
+                        0, 0, this.entity.width, this.entity.height);
+                }
+                context.restore();
+            }
+        }
+
+        class AnimationComponent extends Component {
+            constructor(config = {}) {
+                super(config);
+                this.animations = new Map();
+                this.currentAnimation = null;
+                this.currentFrame = 0;
+                this.frameTime = 0;
+                this.playing = false;
+                this.speed = config.speed || 1;
+            }
+            
+            initialize() {
+                const sprite = this.entity.getComponent(SpriteComponent);
+                if (sprite) this.loadAnimationsFromSprite(sprite.assetId);
+            }
+            
+            loadAnimationsFromSprite(assetId) {
+                const renderer = this.game?.getSystem('renderer');
+                const spriteData = renderer?.getSpriteData(assetId);
+                if (!spriteData) return;
+                
+                spriteData.animations.forEach((animData, name) => {
+                    const frames = [];
+                    const frameDurations = [];
+                    for (let i = animData.from; i <= animData.to; i++) {
+                        frames.push(i);
+                        const frameData = spriteData.frames.get(i.toString());
+                        frameDurations.push(frameData ? frameData.duration : 100);
+                    }
+                    this.animations.set(name, { frames, frameDurations, loop: true });
+                });
+            }
+            
+            play(name) {
+                const animation = this.animations.get(name);
+                if (!animation || this.currentAnimation === name) return;
+                
+                this.currentAnimation = name;
+                this.currentFrame = 0;
+                this.frameTime = 0;
+                this.playing = true;
+                this.updateSpriteFrame();
+            }
+            
+            update(deltaTime) {
+                if (!this.playing || !this.currentAnimation) return;
+                
+                const animation = this.animations.get(this.currentAnimation);
+                if (!animation) return;
+                
+                const frameDuration = animation.frameDurations[this.currentFrame] || 100;
+                this.frameTime += deltaTime * 1000 * this.speed;
+                
+                if (this.frameTime >= frameDuration) {
+                    this.frameTime = 0;
+                    this.currentFrame++;
+                    if (this.currentFrame >= animation.frames.length) {
+                        this.currentFrame = animation.loop ? 0 : animation.frames.length - 1;
+                        if (!animation.loop) this.playing = false;
+                    }
+                    this.updateSpriteFrame();
+                }
+            }
+            
+            updateSpriteFrame() {
+                const sprite = this.entity.getComponent(SpriteComponent);
+                const animation = this.animations.get(this.currentAnimation);
+                if (sprite && animation) {
+                    sprite.currentFrame = animation.frames[this.currentFrame];
+                }
+            }
+        }
+
+        class HealthComponent extends Component {
+            constructor(config = {}) {
+                super(config);
+                this.maxHealth = config.maxHealth || 100;
+                this.health = config.health || this.maxHealth;
+                this.invulnerable = false;
+                this.invulnerabilityTime = 0;
+            }
+            
+            takeDamage(amount) {
+                if (this.invulnerable) return;
+                this.health = Math.max(0, this.health - amount);
+                this.invulnerable = true;
+                this.invulnerabilityTime = 1000; // 1 second
+                
+                if (this.health <= 0) {
+                    this.game.events.emit('entity:death', this.entity);
+                }
+            }
+            
+            update(deltaTime) {
+                if (this.invulnerable) {
+                    this.invulnerabilityTime -= deltaTime * 1000;
+                    if (this.invulnerabilityTime <= 0) {
+                        this.invulnerable = false;
+                    }
+                }
+            }
+            
+            getHealthPercent() { return this.health / this.maxHealth; }
+        }
+
+        class CollisionComponent extends Component {
+            constructor(config = {}) {
+                super(config);
+                this.width = config.width || 32;
+                this.height = config.height || 32;
+                this.layer = config.layer || 'default';
+                this.mask = config.mask || ['default'];
+            }
+            
+            getBounds() {
+                return {
+                    x: this.entity.x, y: this.entity.y,
+                    width: this.width, height: this.height
+                };
+            }
+        }
+
+        // Base Entity
+        class BaseEntity {
+            constructor(config = {}) {
+                this.id = config.id || Math.random().toString(36);
+                this.type = config.type || 'entity';
+                this.position = new Vector2(config.x || 0, config.y || 0);
+                this.size = new Vector2(config.width || 32, config.height || 32);
+                this.active = true;
+                this.visible = true;
+                this.components = new Map();
                 this.game = null;
             }
             
-            initialize() {}
-            start() {}
-            update(deltaTime) {}
+            addComponent(component) {
+                this.components.set(component.constructor, component);
+                component.entity = this;
+                if (this.game && component.initialize) component.initialize();
+                return this;
+            }
+            
+            getComponent(ComponentClass) { return this.components.get(ComponentClass); }
+            hasComponent(ComponentClass) { return this.components.has(ComponentClass); }
+            
+            update(deltaTime) {
+                this.components.forEach(component => {
+                    if (component.active && component.update) component.update(deltaTime);
+                });
+            }
+            
+            render(context) {
+                context.save();
+                context.translate(this.position.x, this.position.y);
+                this.components.forEach(component => {
+                    if (component.render) component.render(context);
+                });
+                context.restore();
+            }
+            
+            get x() { return this.position.x; }
+            set x(value) { this.position.x = value; }
+            get y() { return this.position.y; }
+            set y(value) { this.position.y = value; }
+            get width() { return this.size.x; }
+            get height() { return this.size.y; }
         }
 
-        // Input System
-        class InputSystem extends System {
-            constructor(config = {}) {
-                super(config);
+        // Systems
+        class InputSystem {
+            constructor() {
                 this.keys = new Map();
                 this.previousKeys = new Map();
                 this.setupEventListeners();
             }
             
             setupEventListeners() {
-                window.addEventListener('keydown', (e) => {
-                    this.keys.set(e.code, true);
-                });
-                
-                window.addEventListener('keyup', (e) => {
-                    this.keys.set(e.code, false);
-                });
+                window.addEventListener('keydown', (e) => this.keys.set(e.code, true));
+                window.addEventListener('keyup', (e) => this.keys.set(e.code, false));
             }
             
-            update() {
-                this.previousKeys = new Map(this.keys);
-            }
-            
-            isKeyPressed(key) {
-                return this.keys.get(key) || false;
-            }
-            
-            isKeyJustPressed(key) {
-                return this.keys.get(key) && !this.previousKeys.get(key);
-            }
+            update() { this.previousKeys = new Map(this.keys); }
+            isKeyPressed(key) { return this.keys.get(key) || false; }
+            isKeyJustPressed(key) { return this.keys.get(key) && !this.previousKeys.get(key); }
         }
 
-        // Render System with basic sprite support
-        class RenderSystem extends System {
-            constructor(canvas, context, config = {}) {
-                super(config);
+        class RenderSystem {
+            constructor(canvas, context) {
                 this.canvas = canvas;
                 this.context = context;
-                this.backgroundColor = '#001122';
+                this.sprites = new Map();
+                this.spriteData = new Map();
             }
             
             clear() {
                 const gradient = this.context.createLinearGradient(0, 0, 0, this.canvas.height);
-                gradient.addColorStop(0, '#001122');
-                gradient.addColorStop(0.5, '#002244');
-                gradient.addColorStop(1, '#001122');
-                
+                gradient.addColorStop(0, '#000511');
+                gradient.addColorStop(0.3, '#001133');
+                gradient.addColorStop(0.7, '#002255');
+                gradient.addColorStop(1, '#001133');
                 this.context.fillStyle = gradient;
                 this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Add stars
+                this.renderStars();
+            }
+            
+            renderStars() {
+                this.context.fillStyle = '#ffffff';
+                for (let i = 0; i < 100; i++) {
+                    const x = (i * 37) % this.canvas.width;
+                    const y = (i * 67 + performance.now() * 0.01) % this.canvas.height;
+                    const alpha = 0.3 + 0.7 * Math.sin(i + performance.now() * 0.001);
+                    this.context.globalAlpha = alpha;
+                    this.context.fillRect(x, y, 1, 1);
+                }
+                this.context.globalAlpha = 1;
+            }
+            
+            async loadAseprite(name, url) {
+                try {
+                    const response = await fetch(url);
+                    const jsonData = await response.json();
+                    const spriteData = AsepriteParser.parse(jsonData);
+                    
+                    if (spriteData.image instanceof Promise) {
+                        spriteData.image = await spriteData.image;
+                    }
+                    
+                    this.sprites.set(name, spriteData.image);
+                    this.spriteData.set(name, spriteData);
+                    return spriteData;
+                } catch (error) {
+                    console.error(`Failed to load sprite ${name}:`, error);
+                    throw error;
+                }
+            }
+            
+            getSpriteData(name) { return this.spriteData.get(name); }
+            
+            drawSpriteFrame(name, frameIndex, x, y, width, height) {
+                const image = this.sprites.get(name);
+                const data = this.spriteData.get(name);
+                if (!image || !data) return;
+                
+                const frame = data.frames.get(frameIndex.toString());
+                if (!frame) return;
+                
+                this.context.drawImage(
+                    image, frame.x, frame.y, frame.w, frame.h,
+                    x, y, width || frame.w, height || frame.h
+                );
             }
             
             drawRect(x, y, width, height, color) {
@@ -268,151 +564,47 @@
             }
         }
 
-        // Base Entity
-        class BaseEntity {
-            constructor(config = {}) {
-                this.id = config.id || Math.random().toString(36);
-                this.type = config.type || 'entity';
-                this.position = new Vector2(config.x || 0, config.y || 0);
-                this.size = new Vector2(config.width || 32, config.height || 32);
-                this.active = config.active !== false;
-                this.visible = config.visible !== false;
-                this.components = new Map();
-                this.game = null;
+        // Asset Loader
+        class AssetLoader {
+            constructor(framework) {
+                this.framework = framework;
+                this.loadedAssets = new Map();
+                this.loadingPromises = new Map();
             }
             
-            addComponent(component) {
-                const componentType = component.constructor;
-                this.components.set(componentType, component);
-                component.entity = this;
-                return this;
-            }
-            
-            getComponent(ComponentClass) {
-                return this.components.get(ComponentClass);
-            }
-            
-            hasComponent(ComponentClass) {
-                return this.components.has(ComponentClass);
-            }
-            
-            update(deltaTime) {
-                this.components.forEach(component => {
-                    if (component.active && component.update) {
-                        component.update(deltaTime);
-                    }
-                });
-            }
-            
-            render(context) {
-                context.save();
-                context.translate(this.position.x, this.position.y);
+            async loadSprite(assetId, filename) {
+                if (this.loadedAssets.has(assetId)) return this.loadedAssets.get(assetId);
+                if (this.loadingPromises.has(assetId)) return this.loadingPromises.get(assetId);
                 
-                this.components.forEach(component => {
-                    if (component.visible && component.render) {
-                        component.render(context);
-                    }
-                });
+                const path = FRAMEWORK_CONFIG.paths.sprites + filename;
+                const loadPromise = this.framework.getSystem('renderer').loadAseprite(assetId, path);
+                this.loadingPromises.set(assetId, loadPromise);
                 
-                context.restore();
-            }
-            
-            get x() { return this.position.x; }
-            set x(value) { this.position.x = value; }
-            
-            get y() { return this.position.y; }
-            set y(value) { this.position.y = value; }
-            
-            get width() { return this.size.x; }
-            get height() { return this.size.y; }
-        }
-
-        // Simple Physics Component
-        class PhysicsComponent extends Component {
-            constructor(config = {}) {
-                super(config);
-                this.velocity = new Vector2(config.vx || 0, config.vy || 0);
-                this.maxVelocity = new Vector2(config.maxVx || 500, config.maxVy || 500);
-            }
-            
-            update(deltaTime) {
-                this.entity.x += this.velocity.x * deltaTime;
-                this.entity.y += this.velocity.y * deltaTime;
-            }
-        }
-
-        // Health Component
-        class HealthComponent extends Component {
-            constructor(config = {}) {
-                super(config);
-                this.maxHealth = config.maxHealth || 100;
-                this.health = config.health || this.maxHealth;
-            }
-            
-            takeDamage(amount) {
-                this.health = Math.max(0, this.health - amount);
-                if (this.health <= 0) {
-                    this.game.events.emit('entity:death', this.entity);
+                try {
+                    const spriteData = await loadPromise;
+                    this.loadedAssets.set(assetId, spriteData);
+                    this.framework.events.emit('asset:loaded', { type: 'sprite', id: assetId });
+                    return spriteData;
+                } catch (error) {
+                    this.loadingPromises.delete(assetId);
+                    throw error;
                 }
             }
             
-            isDead() {
-                return this.health <= 0;
-            }
+            getAsset(assetId) { return this.loadedAssets.get(assetId); }
+            hasAsset(assetId) { return this.loadedAssets.has(assetId); }
         }
 
-        // Collision Component
-        class CollisionComponent extends Component {
-            constructor(config = {}) {
-                super(config);
-                this.bounds = {
-                    width: config.width || this.entity?.width || 32,
-                    height: config.height || this.entity?.height || 32,
-                    offsetX: config.offsetX || 0,
-                    offsetY: config.offsetY || 0
-                };
-                this.layer = config.layer || 'default';
-                this.mask = config.mask || ['default'];
-            }
-            
-            getBounds() {
-                return {
-                    x: this.entity.x + this.bounds.offsetX,
-                    y: this.entity.y + this.bounds.offsetY,
-                    width: this.bounds.width,
-                    height: this.bounds.height
-                };
-            }
-        }
-
-        // Basic Sprite Component (placeholder for ninja)
-        class SpriteComponent extends Component {
-            constructor(config = {}) {
-                super(config);
-                this.color = config.color || '#00ff00';
-                this.shape = config.shape || 'rect';
-            }
-            
-            render(context) {
-                const renderer = this.game.getSystem('renderer');
-                if (this.shape === 'circle') {
-                    renderer.drawCircle(0, 0, this.entity.width / 2, this.color);
-                } else {
-                    renderer.drawRect(0, 0, this.entity.width, this.entity.height, this.color);
-                }
-            }
-        }
-
-        // Main Game Framework
+        // Main GameFramework
         class GameFramework {
-            constructor(config = {}) {
-                this.config = config;
+            constructor() {
                 this.canvas = null;
                 this.context = null;
                 this.running = false;
                 this.systems = new Map();
                 this.entities = new Map();
                 this.events = new EventEmitter();
+                this.assetLoader = null;
                 this.lastTime = 0;
             }
             
@@ -422,9 +614,9 @@
                 this.canvas.height = 600;
                 this.context = this.canvas.getContext('2d');
                 
-                // Initialize systems
                 this.registerSystem('input', new InputSystem());
                 this.registerSystem('renderer', new RenderSystem(this.canvas, this.context));
+                this.assetLoader = new AssetLoader(this);
                 
                 return this;
             }
@@ -432,17 +624,23 @@
             registerSystem(name, system) {
                 system.game = this;
                 this.systems.set(name, system);
-                if (system.initialize) system.initialize();
             }
             
-            getSystem(name) {
-                return this.systems.get(name);
+            getSystem(name) { return this.systems.get(name); }
+            
+            async loadSprite(assetId, filename) {
+                return this.assetLoader.loadSprite(assetId, filename);
             }
+            
+            getAsset(assetId) { return this.assetLoader.getAsset(assetId); }
+            hasAsset(assetId) { return this.assetLoader.hasAsset(assetId); }
             
             addEntity(entity) {
-                if (!entity.id) entity.id = Math.random().toString(36);
                 this.entities.set(entity.id, entity);
                 entity.game = this;
+                entity.components.forEach(component => {
+                    if (component.initialize) component.initialize();
+                });
                 return entity;
             }
             
@@ -451,30 +649,26 @@
                 return this.entities.delete(id);
             }
             
-            getAllEntities() {
-                return Array.from(this.entities.values());
-            }
+            getAllEntities() { return Array.from(this.entities.values()); }
+            getEntitiesByType(type) { return this.getAllEntities().filter(e => e.type === type); }
             
-            getEntitiesByType(type) {
-                return this.getAllEntities().filter(e => e.type === type);
-            }
-            
-            getEntitiesWithComponent(ComponentClass) {
-                return this.getAllEntities().filter(e => e.hasComponent(ComponentClass));
+            createSpriteEntity(assetId, config = {}) {
+                const entity = new BaseEntity(config);
+                entity.addComponent(new SpriteComponent(assetId));
+                if (this.assetLoader.hasAsset(assetId)) {
+                    entity.addComponent(new AnimationComponent());
+                }
+                return entity;
             }
             
             start() {
                 this.running = true;
                 this.lastTime = performance.now();
-                this.systems.forEach(system => {
-                    if (system.start) system.start();
-                });
                 this.gameLoop();
             }
             
             gameLoop(currentTime = performance.now()) {
                 if (!this.running) return;
-                
                 requestAnimationFrame((time) => this.gameLoop(time));
                 
                 const deltaTime = Math.min((currentTime - this.lastTime) / 1000, 0.1);
@@ -488,11 +682,8 @@
                 this.systems.forEach(system => {
                     if (system.update) system.update(deltaTime);
                 });
-                
                 this.entities.forEach(entity => {
-                    if (entity.active && entity.update) {
-                        entity.update(deltaTime);
-                    }
+                    if (entity.active) entity.update(deltaTime);
                 });
             }
             
@@ -500,35 +691,31 @@
                 const renderer = this.getSystem('renderer');
                 renderer.clear();
                 
-                const sortedEntities = this.getAllEntities()
+                this.getAllEntities()
                     .filter(e => e.active && e.visible)
-                    .sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
-                
-                sortedEntities.forEach(entity => {
-                    if (entity.render) entity.render(this.context);
-                });
+                    .sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0))
+                    .forEach(entity => entity.render(this.context));
             }
         }
 
-        // Game Entities
+        // ========== GAME ENTITIES ==========
+
         class NinjaPlayer extends BaseEntity {
             constructor(x, y) {
-                super({
-                    x: x,
-                    y: y,
-                    width: 32,
-                    height: 32,
-                    type: 'player'
-                });
+                super({ x, y, width: 32, height: 32, type: 'player' });
                 
                 this.addComponent(new PhysicsComponent({ maxVx: 300, maxVy: 300 }));
-                this.addComponent(new SpriteComponent({ color: '#00ff00' }));
+                this.addComponent(new SpriteComponent('ninja'));
+                this.addComponent(new AnimationComponent());
                 this.addComponent(new HealthComponent({ maxHealth: 100 }));
-                this.addComponent(new CollisionComponent({ layer: 'player', mask: ['enemy', 'enemyBullet'] }));
+                this.addComponent(new CollisionComponent({ 
+                    width: 24, height: 24,
+                    layer: 'player', mask: ['enemy', 'enemyBullet'] 
+                }));
                 
                 this.moveSpeed = 250;
                 this.shootCooldown = 0;
-                this.shootRate = 0.2; // shots per second
+                this.lastDirection = 'right';
             }
             
             update(deltaTime) {
@@ -536,119 +723,157 @@
                 
                 const input = this.game.getSystem('input');
                 const physics = this.getComponent(PhysicsComponent);
+                const animation = this.getComponent(AnimationComponent);
+                const sprite = this.getComponent(SpriteComponent);
                 
                 // Movement
                 physics.velocity.set(0, 0);
+                let moving = false;
                 
                 if (input.isKeyPressed('ArrowUp')) {
                     physics.velocity.y = -this.moveSpeed;
+                    moving = true;
                 }
                 if (input.isKeyPressed('ArrowDown')) {
                     physics.velocity.y = this.moveSpeed;
+                    moving = true;
                 }
                 if (input.isKeyPressed('ArrowLeft')) {
                     physics.velocity.x = -this.moveSpeed;
+                    sprite.flipX = true;
+                    this.lastDirection = 'left';
+                    moving = true;
                 }
                 if (input.isKeyPressed('ArrowRight')) {
                     physics.velocity.x = this.moveSpeed;
+                    sprite.flipX = false;
+                    this.lastDirection = 'right';
+                    moving = true;
                 }
                 
-                // Keep player on screen
-                this.x = MathUtils.clamp(this.x, 0, 800 - this.width);
-                this.y = MathUtils.clamp(this.y, 0, 600 - this.height);
+                // Keep on screen
+                this.x = Math.max(0, Math.min(800 - this.width, this.x));
+                this.y = Math.max(0, Math.min(600 - this.height, this.y));
+                
+                // Animation
+                if (moving) {
+                    animation.play('walk');
+                } else {
+                    animation.play('idle');
+                }
                 
                 // Shooting
                 this.shootCooldown -= deltaTime;
                 if (input.isKeyPressed('Space') && this.shootCooldown <= 0) {
                     this.shoot();
-                    this.shootCooldown = this.shootRate;
+                    this.shootCooldown = 0.15;
+                }
+                
+                // Invulnerability effect
+                const health = this.getComponent(HealthComponent);
+                if (health.invulnerable) {
+                    sprite.opacity = 0.5 + 0.5 * Math.sin(performance.now() * 0.02);
+                } else {
+                    sprite.opacity = 1;
                 }
             }
             
             shoot() {
-                const bullet = new PlayerBullet(this.x + this.width, this.y + this.height / 2);
+                const bullet = new PlayerBullet(
+                    this.x + (this.lastDirection === 'right' ? this.width : 0),
+                    this.y + this.height / 2,
+                    this.lastDirection === 'right' ? 1 : -1
+                );
                 this.game.addEntity(bullet);
             }
         }
 
         class PlayerBullet extends BaseEntity {
-            constructor(x, y) {
-                super({
-                    x: x,
-                    y: y,
-                    width: 8,
-                    height: 4,
-                    type: 'playerBullet'
-                });
+            constructor(x, y, direction = 1) {
+                super({ x, y, width: 12, height: 4, type: 'playerBullet' });
                 
-                this.addComponent(new PhysicsComponent({ vx: 500 }));
-                this.addComponent(new SpriteComponent({ color: '#ffff00' }));
-                this.addComponent(new CollisionComponent({ layer: 'playerBullet', mask: ['enemy'] }));
+                this.addComponent(new PhysicsComponent({ vx: 500 * direction }));
+                this.addComponent(new CollisionComponent({ 
+                    width: 12, height: 4,
+                    layer: 'playerBullet', mask: ['enemy'] 
+                }));
                 
                 this.damage = 25;
+                this.direction = direction;
             }
             
             update(deltaTime) {
                 super.update(deltaTime);
-                
-                // Remove if off screen
-                if (this.x > 820) {
+                if (this.x < -20 || this.x > 820) {
                     this.game.removeEntity(this);
                 }
+            }
+            
+            render(context) {
+                const renderer = this.game.getSystem('renderer');
+                
+                // Draw energy bullet
+                context.save();
+                context.shadowColor = '#00ffff';
+                context.shadowBlur = 10;
+                
+                const gradient = context.createLinearGradient(0, 0, this.width, 0);
+                gradient.addColorStop(0, this.direction > 0 ? '#ffffff' : '#00ffff');
+                gradient.addColorStop(1, '#00ffff');
+                
+                context.fillStyle = gradient;
+                context.fillRect(0, 0, this.width, this.height);
+                context.restore();
             }
         }
 
         class Enemy extends BaseEntity {
-            constructor(x, y, type = 'basic') {
-                super({
-                    x: x,
-                    y: y,
-                    width: 24,
-                    height: 24,
-                    type: 'enemy'
-                });
+            constructor(x, y, enemyType = 'basic') {
+                super({ x, y, width: 32, height: 32, type: 'enemy' });
                 
-                this.enemyType = type;
+                this.enemyType = enemyType;
                 this.addComponent(new PhysicsComponent({ vx: -100 }));
-                this.addComponent(new SpriteComponent({ color: '#ff0000' }));
                 this.addComponent(new HealthComponent({ maxHealth: 50 }));
-                this.addComponent(new CollisionComponent({ layer: 'enemy', mask: ['player', 'playerBullet'] }));
+                this.addComponent(new CollisionComponent({ 
+                    width: 28, height: 28,
+                    layer: 'enemy', mask: ['player', 'playerBullet'] 
+                }));
                 
-                this.shootTimer = Random.range(1, 3);
+                this.shootTimer = Math.random() * 3 + 1;
                 this.points = 100;
+                this.waveOffset = Math.random() * Math.PI * 2;
                 
-                if (type === 'fast') {
+                if (enemyType === 'fast') {
                     this.getComponent(PhysicsComponent).velocity.x = -200;
-                    this.getComponent(SpriteComponent).color = '#ff8800';
                     this.points = 150;
-                } else if (type === 'heavy') {
+                } else if (enemyType === 'heavy') {
                     this.getComponent(HealthComponent).maxHealth = 100;
                     this.getComponent(HealthComponent).health = 100;
-                    this.getComponent(SpriteComponent).color = '#8800ff';
-                    this.width = 32;
-                    this.height = 32;
-                    this.points = 200;
+                    this.width = 48;
+                    this.height = 48;
+                    this.points = 250;
                 }
             }
             
             update(deltaTime) {
                 super.update(deltaTime);
                 
-                // Shooting
-                this.shootTimer -= deltaTime;
-                if (this.shootTimer <= 0) {
-                    this.shoot();
-                    this.shootTimer = Random.range(2, 4);
+                // Sine wave movement for variety
+                if (this.enemyType === 'fast') {
+                    this.y += Math.sin(performance.now() * 0.005 + this.waveOffset) * 2;
                 }
                 
                 // Remove if off screen
                 if (this.x < -50) {
                     this.game.removeEntity(this);
+                    return;
                 }
                 
-                // Sine wave movement for some enemies
-                if (this.enemyType === 'fast') {
-                    this.y += Math.sin(performance.now() * 0.005) * 2;
+                // Shooting
+                this.shootTimer -= deltaTime;
+                if (this.shootTimer <= 0 && this.x < 700) {
+                    this.shoot();
+                    this.shootTimer = Math.random() * 3 + 2;
                 }
             }
             
@@ -656,111 +881,224 @@
                 const bullet = new EnemyBullet(this.x, this.y + this.height / 2);
                 this.game.addEntity(bullet);
             }
+            
+            render(context) {
+                const renderer = this.game.getSystem('renderer');
+                
+                // Draw enemy based on type
+                let color = '#ff4444';
+                if (this.enemyType === 'fast') color = '#ff8800';
+                if (this.enemyType === 'heavy') color = '#8800ff';
+                
+                context.save();
+                context.shadowColor = color;
+                context.shadowBlur = 8;
+                
+                renderer.drawRect(0, 0, this.width, this.height, color);
+                
+                // Health bar
+                const health = this.getComponent(HealthComponent);
+                const healthPercent = health.getHealthPercent();
+                if (healthPercent < 1) {
+                    renderer.drawRect(0, -8, this.width, 4, '#333333');
+                    renderer.drawRect(0, -8, this.width * healthPercent, 4, '#00ff00');
+                }
+                
+                context.restore();
+            }
         }
 
         class EnemyBullet extends BaseEntity {
             constructor(x, y) {
-                super({
-                    x: x,
-                    y: y,
-                    width: 6,
-                    height: 6,
-                    type: 'enemyBullet'
-                });
+                super({ x, y, width: 8, height: 8, type: 'enemyBullet' });
                 
-                this.addComponent(new PhysicsComponent({ vx: -300 }));
-                this.addComponent(new SpriteComponent({ color: '#ff4444', shape: 'circle' }));
-                this.addComponent(new CollisionComponent({ layer: 'enemyBullet', mask: ['player'] }));
+                this.addComponent(new PhysicsComponent({ vx: -250 }));
+                this.addComponent(new CollisionComponent({ 
+                    width: 8, height: 8,
+                    layer: 'enemyBullet', mask: ['player'] 
+                }));
                 
-                this.damage = 20;
+                this.damage = 15;
             }
             
             update(deltaTime) {
                 super.update(deltaTime);
-                
                 if (this.x < -20) {
                     this.game.removeEntity(this);
                 }
             }
+            
+            render(context) {
+                const renderer = this.game.getSystem('renderer');
+                
+                context.save();
+                context.shadowColor = '#ff4444';
+                context.shadowBlur = 6;
+                renderer.drawCircle(this.width/2, this.height/2, this.width/2, '#ff4444');
+                context.restore();
+            }
         }
 
-        // Game Scene
-        class RTypeScene {
+        class Explosion extends BaseEntity {
+            constructor(x, y) {
+                super({ x, y, width: 48, height: 48, type: 'effect' });
+                
+                this.lifetime = 0.5;
+                this.maxLifetime = 0.5;
+            }
+            
+            update(deltaTime) {
+                this.lifetime -= deltaTime;
+                if (this.lifetime <= 0) {
+                    this.game.removeEntity(this);
+                }
+            }
+            
+            render(context) {
+                const alpha = this.lifetime / this.maxLifetime;
+                const size = (1 - alpha) * this.width;
+                
+                context.save();
+                context.globalAlpha = alpha;
+                context.shadowColor = '#ffaa00';
+                context.shadowBlur = 20;
+                
+                const gradient = context.createRadialGradient(
+                    this.width/2, this.height/2, 0,
+                    this.width/2, this.height/2, size/2
+                );
+                gradient.addColorStop(0, '#ffffff');
+                gradient.addColorStop(0.3, '#ffaa00');
+                gradient.addColorStop(1, '#ff4400');
+                
+                context.fillStyle = gradient;
+                context.beginPath();
+                context.arc(this.width/2, this.height/2, size/2, 0, Math.PI * 2);
+                context.fill();
+                
+                context.restore();
+            }
+        }
+
+        // ========== GAME LOGIC ==========
+
+        class RTypeGame {
             constructor() {
                 this.score = 0;
                 this.lives = 3;
                 this.level = 1;
+                this.gameOver = false;
+                this.paused = false;
+                this.player = null;
+                
                 this.enemySpawnTimer = 0;
                 this.enemySpawnRate = 2;
-                this.gameOver = false;
-                this.player = null;
+                this.difficultyTimer = 0;
+                
+                this.backgroundScroll = 0;
             }
             
-            initialize(game) {
-                this.game = game;
-                
-                // Create player
-                this.player = new NinjaPlayer(50, 300);
-                game.addEntity(this.player);
+            async initialize() {
+                this.game = new GameFramework();
+                await this.game.initialize('gameCanvas');
                 
                 // Setup event listeners
-                game.events.on('entity:death', (entity) => {
+                this.setupEventListeners();
+                
+                // Load ninja sprite
+                this.showLoadingProgress('Loading ninja sprite...');
+                try {
+                    await this.game.loadSprite('ninja', 'ninjamand.json');
+                    this.showLoadingProgress('Ninja loaded! Starting game...');
+                } catch (error) {
+                    console.error('Failed to load ninja sprite:', error);
+                    this.showLoadingProgress('Failed to load ninja sprite. Using fallback...');
+                }
+                
+                this.startGame();
+            }
+            
+            showLoadingProgress(text) {
+                document.getElementById('loadingText').textContent = text;
+            }
+            
+            setupEventListeners() {
+                this.game.events.on('entity:death', (entity) => {
                     if (entity.type === 'player') {
-                        this.lives--;
-                        if (this.lives <= 0) {
-                            this.gameOver = true;
-                        } else {
-                            // Respawn player
-                            setTimeout(() => {
-                                this.player = new NinjaPlayer(50, 300);
-                                game.addEntity(this.player);
-                            }, 1000);
-                        }
+                        this.playerDied();
                     } else if (entity.type === 'enemy') {
-                        this.score += entity.points || 100;
+                        this.enemyDestroyed(entity);
                     }
                 });
                 
-                this.updateUI();
+                // Keyboard events for game control
+                window.addEventListener('keydown', (e) => {
+                    if (e.code === 'KeyP') {
+                        this.togglePause();
+                    } else if (e.code === 'KeyR') {
+                        if (this.gameOver) {
+                            this.restart();
+                        }
+                    }
+                });
             }
             
-            update(deltaTime) {
-                if (this.gameOver) {
-                    const input = this.game.getSystem('input');
-                    if (input.isKeyJustPressed('KeyR')) {
-                        this.restart();
-                    }
-                    return;
-                }
+            startGame() {
+                document.getElementById('loadingScreen').classList.add('hidden');
+                
+                // Create player
+                this.createPlayer();
+                
+                // Start game loop
+                this.game.start();
+                
+                // Start update loop
+                this.updateGame();
+            }
+            
+            createPlayer() {
+                this.player = new NinjaPlayer(50, 300);
+                this.game.addEntity(this.player);
+            }
+            
+            updateGame() {
+                if (!this.game.running) return;
+                
+                requestAnimationFrame(() => this.updateGame());
+                
+                if (this.paused || this.gameOver) return;
+                
+                const deltaTime = 1/60; // Simplified
                 
                 // Spawn enemies
                 this.enemySpawnTimer += deltaTime;
                 if (this.enemySpawnTimer >= this.enemySpawnRate) {
                     this.spawnEnemy();
                     this.enemySpawnTimer = 0;
-                    
-                    // Increase difficulty over time
-                    this.enemySpawnRate = Math.max(0.5, this.enemySpawnRate - 0.01);
+                }
+                
+                // Increase difficulty
+                this.difficultyTimer += deltaTime;
+                if (this.difficultyTimer >= 10) { // Every 10 seconds
+                    this.enemySpawnRate = Math.max(0.5, this.enemySpawnRate - 0.1);
+                    this.difficultyTimer = 0;
+                    this.level++;
                 }
                 
                 // Check collisions
                 this.checkCollisions();
                 
-                // Update level
-                if (this.score > this.level * 1000) {
-                    this.level++;
-                }
-                
+                // Update UI
                 this.updateUI();
             }
             
             spawnEnemy() {
-                const y = Random.range(50, 550);
+                const y = Math.random() * (600 - 100) + 50;
                 let enemyType = 'basic';
                 
-                if (this.level > 2 && Random.chance(0.3)) {
+                if (this.level > 2 && Math.random() < 0.3) {
                     enemyType = 'fast';
-                } else if (this.level > 3 && Random.chance(0.2)) {
+                } else if (this.level > 3 && Math.random() < 0.2) {
                     enemyType = 'heavy';
                 }
                 
@@ -782,7 +1120,11 @@
                             health.takeDamage(bullet.damage);
                             this.game.removeEntity(bullet);
                             
-                            if (health.isDead()) {
+                            // Create explosion
+                            const explosion = new Explosion(enemy.x, enemy.y);
+                            this.game.addEntity(explosion);
+                            
+                            if (health.health <= 0) {
                                 this.score += enemy.points;
                                 this.game.removeEntity(enemy);
                             }
@@ -797,6 +1139,9 @@
                             const health = player.getComponent(HealthComponent);
                             health.takeDamage(bullet.damage);
                             this.game.removeEntity(bullet);
+                            
+                            const explosion = new Explosion(bullet.x, bullet.y);
+                            this.game.addEntity(explosion);
                         }
                     });
                     
@@ -806,6 +1151,9 @@
                             const health = player.getComponent(HealthComponent);
                             health.takeDamage(30);
                             this.game.removeEntity(enemy);
+                            
+                            const explosion = new Explosion(enemy.x, enemy.y);
+                            this.game.addEntity(explosion);
                         }
                     });
                 });
@@ -818,52 +1166,68 @@
                        a.y + a.height > b.y;
             }
             
-            updateUI() {
-                document.getElementById('score').textContent = this.score;
-                document.getElementById('lives').textContent = this.lives;
-                document.getElementById('level').textContent = this.level;
+            playerDied() {
+                this.lives--;
+                if (this.lives <= 0) {
+                    this.gameOver = true;
+                    document.getElementById('gameOverScreen').style.display = 'block';
+                } else {
+                    // Respawn player after delay
+                    setTimeout(() => {
+                        if (!this.gameOver) {
+                            this.createPlayer();
+                        }
+                    }, 2000);
+                }
+            }
+            
+            enemyDestroyed(enemy) {
+                this.score += enemy.points || 100;
+            }
+            
+            togglePause() {
+                this.paused = !this.paused;
             }
             
             restart() {
                 this.score = 0;
                 this.lives = 3;
                 this.level = 1;
-                this.enemySpawnRate = 2;
                 this.gameOver = false;
+                this.paused = false;
+                this.enemySpawnRate = 2;
+                this.difficultyTimer = 0;
                 
                 // Clear all entities
                 this.game.getAllEntities().forEach(entity => {
                     this.game.removeEntity(entity);
                 });
                 
-                // Recreate player
-                this.player = new NinjaPlayer(50, 300);
-                this.game.addEntity(this.player);
+                // Hide game over screen
+                document.getElementById('gameOverScreen').style.display = 'none';
                 
-                this.updateUI();
+                // Recreate player
+                this.createPlayer();
+            }
+            
+            updateUI() {
+                document.getElementById('score').textContent = this.score;
+                document.getElementById('lives').textContent = this.lives;
+                document.getElementById('level').textContent = this.level;
+                
+                if (this.player) {
+                    const health = this.player.getComponent(HealthComponent);
+                    document.getElementById('health').textContent = Math.round(health.health);
+                }
             }
         }
 
-        // Initialize and start the game
-        async function startGame() {
-            const game = new GameFramework();
-            await game.initialize('gameCanvas');
-            
-            const scene = new RTypeScene();
-            scene.initialize(game);
-            
-            // Game loop with scene updates
-            const originalUpdate = game.update.bind(game);
-            game.update = function(deltaTime) {
-                originalUpdate(deltaTime);
-                scene.update(deltaTime);
-            };
-            
-            game.start();
-        }
-
-        // Start the game when page loads
-        window.addEventListener('load', startGame);
+        // ========== START GAME ==========
+        
+        window.addEventListener('load', async () => {
+            const game = new RTypeGame();
+            await game.initialize();
+        });
     </script>
 </body>
 </html>
