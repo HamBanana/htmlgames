@@ -162,17 +162,30 @@ class UIManager {
     }
     
     updateDebugStats(stats) {
+        // Update FPS
+        if (this.elements.fps) {
+            this.elements.fps.textContent = stats.fps || 0;
+        }
+        
+        // Update entity counts
         if (this.elements.entityCount) {
             this.elements.entityCount.textContent = stats.entities || 0;
         }
         if (this.elements.particleCount) {
             this.elements.particleCount.textContent = stats.particles || 0;
         }
+        
+        // Update player position
         if (this.elements.playerX) {
             this.elements.playerX.textContent = Math.floor(stats.playerX || 0);
         }
         if (this.elements.playerY) {
             this.elements.playerY.textContent = Math.floor(stats.playerY || 0);
+        }
+        
+        // Show debug stats panel if FPS is being shown
+        if (stats.fps && this.elements.debugStats) {
+            this.elements.debugStats.style.display = 'block';
         }
     }
     

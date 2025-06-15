@@ -357,7 +357,11 @@ class GameManager {
             this.uiManager.updateDebugStats({
                 fps: stats.fps,
                 frameTime: stats.avgFrameTime,
-                breakdown: stats.breakdown
+                breakdown: stats.breakdown,
+                entities: this.enemies.length + (this.boss ? 1 : 0) + this.pickups.length,
+                particles: this.particleSystem.getParticleCount(),
+                playerX: this.player ? this.player.x : 0,
+                playerY: this.player ? this.player.y : 0
             });
         }
 
