@@ -10,9 +10,9 @@ const loadFramework = async () => {
     const scripts = [
         'framework-config.js',
         'framework-utils.js',
-        'framework-systems.js',
+        'game-framework.js',  // Must come before components/systems that use BaseEntity
         'framework-components.js',
-        'game-framework.js',
+        'framework-systems.js',
         'framework-prefabs.js',
         'framework-behaviors.js',
         'framework-ui.js',

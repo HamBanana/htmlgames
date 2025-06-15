@@ -41,11 +41,21 @@
             font-size: 14px;
             opacity: 0.8;
         }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: 24px;
+        }
     </style>
 </head>
 <body>
     <canvas id="gameCanvas" width="800" height="600"></canvas>
-    <div class="game-ui">
+    <div class="loading" id="loading">Loading GameFramework...</div>
+    <div class="game-ui" style="display: none;" id="gameUI">
         <div id="score">Score: 0</div>
         <div id="lives">Lives: 3</div>
         <div id="level">Level: 1</div>
@@ -54,963 +64,509 @@
         WASD / Arrow Keys: Move | Space: Shoot | P: Pause
     </div>
 
+    <!-- Only include the framework index -->
+    <script src="/GameFramework/index.js"></script>
+
     <script>
-        // GameFramework Core
-        class Vector2 {
-            constructor(x = 0, y = 0) {
-                this.x = x;
-                this.y = y;
+        // Wait for framework to load
+        window.addEventListener('load', async () => {
+            // Wait for GameFramework to be available
+            while (typeof GameFramework === 'undefined') {
+                await new Promise(resolve => setTimeout(resolve, 100));
             }
-            
-            add(other) {
-                this.x += other.x;
-                this.y += other.y;
-                return this;
-            }
-            
-            multiply(scalar) {
-                this.x *= scalar;
-                this.y *= scalar;
-                return this;
-            }
-            
-            normalize() {
-                const length = Math.sqrt(this.x * this.x + this.y * this.y);
-                if (length > 0) {
-                    this.x /= length;
-                    this.y /= length;
-                }
-                return this;
-            }
-            
-            distance(other) {
-                const dx = this.x - other.x;
-                const dy = this.y - other.y;
-                return Math.sqrt(dx * dx + dy * dy);
-            }
-            
-            clone() {
-                return new Vector2(this.x, this.y);
-            }
-        }
 
-        class Component {
-            constructor(config = {}) {
-                Object.assign(this, config);
-                this.entity = null;
-            }
-            
-            initialize() {}
-            update(deltaTime) {}
-            render(context) {}
-            destroy() {}
-        }
+            // Hide loading, show UI
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('gameUI').style.display = 'block';
 
-        class TransformComponent extends Component {
-            constructor(config = {}) {
-                super(config);
-                this.x = config.x || 0;
-                this.y = config.y || 0;
-                this.rotation = config.rotation || 0;
-                this.scaleX = config.scaleX || 1;
-                this.scaleY = config.scaleY || 1;
-            }
-        }
-
-        class PhysicsComponent extends Component {
-            constructor(config = {}) {
-                super(config);
-                this.velocity = new Vector2(config.velocityX || 0, config.velocityY || 0);
-                this.acceleration = new Vector2(0, 0);
-                this.mass = config.mass || 1;
-                this.drag = config.drag || 0;
-                this.useGravity = config.useGravity || false;
-                this.gravityScale = config.gravityScale || 1;
-                this.maxVelocityX = config.maxVelocityX || Infinity;
-                this.maxVelocityY = config.maxVelocityY || Infinity;
-            }
-            
-            addForce(force) {
-                this.acceleration.add(new Vector2(force.x / this.mass, force.y / this.mass));
-            }
-            
-            update(deltaTime) {
-                if (this.useGravity) {
-                    this.velocity.y += 0.5 * this.gravityScale * deltaTime;
-                }
-                
-                this.velocity.add(new Vector2(this.acceleration.x * deltaTime, this.acceleration.y * deltaTime));
-                
-                // Apply drag
-                this.velocity.multiply(1 - this.drag * deltaTime);
-                
-                // Clamp velocity
-                this.velocity.x = Math.max(-this.maxVelocityX, Math.min(this.maxVelocityX, this.velocity.x));
-                this.velocity.y = Math.max(-this.maxVelocityY, Math.min(this.maxVelocityY, this.velocity.y));
-                
-                // Update position
-                if (this.entity) {
-                    this.entity.x += this.velocity.x * deltaTime;
-                    this.entity.y += this.velocity.y * deltaTime;
-                }
-                
-                // Reset acceleration
-                this.acceleration.x = 0;
-                this.acceleration.y = 0;
-            }
-        }
-
-        class CollisionComponent extends Component {
-            constructor(config = {}) {
-                super(config);
-                this.width = config.width || 32;
-                this.height = config.height || 32;
-                this.offsetX = config.offsetX || 0;
-                this.offsetY = config.offsetY || 0;
-                this.layer = config.layer || 'default';
-                this.mask = config.mask || [];
-            }
-            
-            getBounds() {
-                return {
-                    x: this.entity.x + this.offsetX,
-                    y: this.entity.y + this.offsetY,
-                    width: this.width,
-                    height: this.height
-                };
-            }
-        }
-
-        class HealthComponent extends Component {
-            constructor(config = {}) {
-                super(config);
-                this.maxHealth = config.maxHealth || 100;
-                this.health = config.health || this.maxHealth;
-                this.invulnerable = false;
-                this.invulnerabilityTime = config.invulnerabilityTime || 0;
-                this.invulnerabilityTimer = 0;
-            }
-            
-            takeDamage(amount) {
-                if (this.invulnerable) return false;
-                
-                this.health -= amount;
-                if (this.invulnerabilityTime > 0) {
-                    this.invulnerable = true;
-                    this.invulnerabilityTimer = this.invulnerabilityTime;
-                }
-                
-                if (this.health <= 0) {
-                    this.health = 0;
-                    if (this.entity && this.entity.onDeath) {
-                        this.entity.onDeath();
-                    }
-                    return true; // Entity died
-                }
-                return false;
-            }
-            
-            update(deltaTime) {
-                if (this.invulnerable) {
-                    this.invulnerabilityTimer -= deltaTime;
-                    if (this.invulnerabilityTimer <= 0) {
-                        this.invulnerable = false;
-                    }
-                }
-            }
-        }
-
-        class WeaponComponent extends Component {
-            constructor(config = {}) {
-                super(config);
-                this.damage = config.damage || 10;
-                this.fireRate = config.fireRate || 5; // shots per second
-                this.projectileSpeed = config.projectileSpeed || 400;
-                this.lastFireTime = 0;
-                this.offsetX = config.offsetX || 0;
-                this.offsetY = config.offsetY || 0;
-            }
-            
-            canFire(currentTime) {
-                return currentTime - this.lastFireTime >= (1000 / this.fireRate);
-            }
-            
-            fire(currentTime) {
-                if (!this.canFire(currentTime)) return null;
-                
-                this.lastFireTime = currentTime;
-                
-                const bullet = new Bullet(
-                    this.entity.x + this.entity.width + this.offsetX,
-                    this.entity.y + this.entity.height / 2 + this.offsetY,
-                    this.projectileSpeed,
-                    0,
-                    this.damage,
-                    this.entity.type
-                );
-                
-                return bullet;
-            }
-        }
-
-        class BaseEntity {
-            constructor(config = {}) {
-                this.x = config.x || 0;
-                this.y = config.y || 0;
-                this.width = config.width || 32;
-                this.height = config.height || 32;
-                this.type = config.type || 'entity';
-                this.active = true;
-                this.components = new Map();
-                this.game = null;
-            }
-            
-            addComponent(component) {
-                component.entity = this;
-                this.components.set(component.constructor, component);
-                if (component.initialize) {
-                    component.initialize();
-                }
-                return component;
-            }
-            
-            getComponent(ComponentClass) {
-                return this.components.get(ComponentClass);
-            }
-            
-            hasComponent(ComponentClass) {
-                return this.components.has(ComponentClass);
-            }
-            
-            update(deltaTime) {
-                for (const component of this.components.values()) {
-                    if (component.update) {
-                        component.update(deltaTime);
-                    }
-                }
-            }
-            
-            render(context) {
-                context.save();
-                context.translate(this.x, this.y);
-                
-                for (const component of this.components.values()) {
-                    if (component.render) {
-                        component.render(context);
-                    }
-                }
-                
-                context.restore();
-            }
-            
-            destroy() {
-                for (const component of this.components.values()) {
-                    if (component.destroy) {
-                        component.destroy();
-                    }
-                }
-                this.components.clear();
-            }
-            
-            onDeath() {
-                this.active = false;
-            }
-        }
-
-        // Game Entities
-        class Player extends BaseEntity {
-            constructor(x, y) {
-                super({
-                    x: x,
-                    y: y,
-                    width: 48,
-                    height: 32,
-                    type: 'player'
-                });
-                
-                this.addComponent(new PhysicsComponent({
-                    drag: 8,
-                    maxVelocityX: 300,
-                    maxVelocityY: 300
-                }));
-                
-                this.addComponent(new CollisionComponent({
-                    width: 40,
-                    height: 24,
-                    offsetX: 4,
-                    offsetY: 4,
-                    layer: 'player'
-                }));
-                
-                this.addComponent(new HealthComponent({
-                    maxHealth: 1,
-                    invulnerabilityTime: 2000
-                }));
-                
-                this.addComponent(new WeaponComponent({
-                    damage: 20,
-                    fireRate: 8,
-                    projectileSpeed: 500,
-                    offsetX: 10,
-                    offsetY: -8
-                }));
-                
-                this.moveSpeed = 250;
-                this.lives = 3;
-            }
-            
-            update(deltaTime) {
-                super.update(deltaTime);
-                
-                const input = this.game.getSystem('input');
-                const physics = this.getComponent(PhysicsComponent);
-                
-                // Movement
-                let moveX = 0, moveY = 0;
-                
-                if (input.isActionPressed('left')) moveX -= 1;
-                if (input.isActionPressed('right')) moveX += 1;
-                if (input.isActionPressed('up')) moveY -= 1;
-                if (input.isActionPressed('down')) moveY += 1;
-                
-                physics.velocity.x = moveX * this.moveSpeed;
-                physics.velocity.y = moveY * this.moveSpeed;
-                
-                // Keep player on screen
-                this.x = Math.max(0, Math.min(this.game.width - this.width, this.x));
-                this.y = Math.max(0, Math.min(this.game.height - this.height, this.y));
-                
-                // Shooting
-                if (input.isActionPressed('shoot')) {
-                    const weapon = this.getComponent(WeaponComponent);
-                    const bullet = weapon.fire(this.game.time);
-                    if (bullet) {
-                        this.game.addEntity(bullet);
-                    }
-                }
-            }
-            
-            render(context) {
-                const health = this.getComponent(HealthComponent);
-                
-                // Flicker during invulnerability
-                if (health.invulnerable && Math.floor(this.game.time / 100) % 2) {
-                    return;
-                }
-                
-                // Draw player ship
-                context.fillStyle = '#00ff00';
-                context.fillRect(0, 0, this.width, this.height);
-                
-                // Draw ship details
-                context.fillStyle = '#ffffff';
-                context.fillRect(this.width - 8, 8, 8, 16);
-                context.fillStyle = '#ffff00';
-                context.fillRect(this.width - 12, 12, 4, 8);
-            }
-            
-            onDeath() {
-                this.lives--;
-                if (this.lives > 0) {
-                    // Respawn
-                    this.x = 50;
-                    this.y = this.game.height / 2;
-                    const health = this.getComponent(HealthComponent);
-                    health.health = health.maxHealth;
-                    health.invulnerable = true;
-                    health.invulnerabilityTimer = 3000;
-                } else {
-                    // Game over
-                    this.game.gameOver = true;
-                    super.onDeath();
-                }
-            }
-        }
-
-        class Enemy extends BaseEntity {
-            constructor(x, y, type = 'basic') {
-                super({
-                    x: x,
-                    y: y,
-                    width: 32,
-                    height: 32,
-                    type: 'enemy'
-                });
-                
-                this.enemyType = type;
-                this.scoreValue = 100;
-                
-                this.addComponent(new PhysicsComponent({
-                    velocityX: -100,
-                    drag: 0
-                }));
-                
-                this.addComponent(new CollisionComponent({
-                    width: 28,
-                    height: 28,
-                    offsetX: 2,
-                    offsetY: 2,
-                    layer: 'enemy'
-                }));
-                
-                this.addComponent(new HealthComponent({
-                    maxHealth: this.getHealthForType(type)
-                }));
-                
-                if (type === 'shooter') {
-                    this.addComponent(new WeaponComponent({
-                        damage: 1,
-                        fireRate: 1,
-                        projectileSpeed: -200,
-                        offsetX: -10,
-                        offsetY: 0
+            // Game-specific entities
+            class Player extends GameFramework.BaseEntity {
+                constructor(x, y) {
+                    super({
+                        x: x,
+                        y: y,
+                        width: 48,
+                        height: 32,
+                        type: 'player'
+                    });
+                    
+                    this.addComponent(new GameFramework.Components.Physics({
+                        drag: 8,
+                        maxVelocityX: 300,
+                        maxVelocityY: 300,
+                        useGravity: false
                     }));
-                    this.lastShot = 0;
-                    this.scoreValue = 200;
+                    
+                    this.addComponent(new GameFramework.Components.Collision({
+                        width: 40,
+                        height: 24,
+                        offsetX: 4,
+                        offsetY: 4,
+                        layer: 'player'
+                    }));
+                    
+                    this.addComponent(new GameFramework.Components.Health({
+                        maxHealth: 1,
+                        invulnerabilityTime: 2
+                    }));
+                    
+                    this.addComponent(new GameFramework.Components.Weapon({
+                        damage: 20,
+                        fireRate: 8,
+                        projectileSpeed: 500,
+                        projectileSize: { width: 12, height: 4 }
+                    }));
+                    
+                    this.addComponent(new GameFramework.Components.Input());
+                    
+                    this.moveSpeed = 250;
+                    this.lives = 3;
                 }
                 
-                this.movePattern = this.getMovePattern(type);
-                this.patternTime = 0;
-            }
-            
-            getHealthForType(type) {
-                switch (type) {
-                    case 'basic': return 1;
-                    case 'heavy': return 3;
-                    case 'shooter': return 2;
-                    case 'boss': return 10;
-                    default: return 1;
-                }
-            }
-            
-            getMovePattern(type) {
-                switch (type) {
-                    case 'basic': return 'straight';
-                    case 'heavy': return 'straight';
-                    case 'shooter': return 'sine';
-                    case 'boss': return 'complex';
-                    default: return 'straight';
-                }
-            }
-            
-            update(deltaTime) {
-                super.update(deltaTime);
-                
-                this.patternTime += deltaTime;
-                this.updateMovement(deltaTime);
-                
-                // Shooting for shooter enemies
-                if (this.enemyType === 'shooter') {
-                    if (this.game.time - this.lastShot > 2000) {
-                        const weapon = this.getComponent(WeaponComponent);
-                        const bullet = weapon.fire(this.game.time);
-                        if (bullet) {
-                            bullet.velocity.x = -200; // Override to shoot left
-                            this.game.addEntity(bullet);
-                            this.lastShot = this.game.time;
+                update(deltaTime) {
+                    super.update(deltaTime);
+                    
+                    const input = this.getComponent(GameFramework.Components.Input);
+                    const physics = this.getComponent(GameFramework.Components.Physics);
+                    
+                    // Movement
+                    const moveVector = input.getMovementVector();
+                    physics.velocity.x = moveVector.x * this.moveSpeed;
+                    physics.velocity.y = moveVector.y * this.moveSpeed;
+                    
+                    // Keep player on screen
+                    this.x = Math.max(0, Math.min(this.game.canvas.width - this.width, this.x));
+                    this.y = Math.max(0, Math.min(this.game.canvas.height - this.height, this.y));
+                    
+                    // Shooting
+                    if (input.isActionPressed('shoot')) {
+                        const weapon = this.getComponent(GameFramework.Components.Weapon);
+                        const projectile = weapon.fire(new GameFramework.Vector2(1, 0));
+                        if (projectile) {
+                            this.game.addEntity(new PlayerBullet(
+                                this.x + this.width,
+                                this.y + this.height / 2,
+                                weapon.projectileSpeed,
+                                weapon.damage
+                            ));
                         }
                     }
                 }
                 
-                // Remove if off screen
-                if (this.x < -this.width - 50) {
-                    this.active = false;
+                render(context) {
+                    const health = this.getComponent(GameFramework.Components.Health);
+                    
+                    // Flicker during invulnerability
+                    if (health.invulnerable && Math.floor(Date.now() / 100) % 2) {
+                        return;
+                    }
+                    
+                    super.render(context);
+                    
+                    // Draw player ship
+                    context.fillStyle = '#00ff00';
+                    context.fillRect(0, 0, this.width, this.height);
+                    
+                    // Draw ship details
+                    context.fillStyle = '#ffffff';
+                    context.fillRect(this.width - 8, 8, 8, 16);
+                    context.fillStyle = '#ffff00';
+                    context.fillRect(this.width - 12, 12, 4, 8);
+                }
+                
+                destroy() {
+                    this.lives--;
+                    if (this.lives > 0) {
+                        // Respawn
+                        this.x = 50;
+                        this.y = this.game.canvas.height / 2;
+                        const health = this.getComponent(GameFramework.Components.Health);
+                        health.health = health.maxHealth;
+                        health.invulnerable = true;
+                        health.invulnerabilityTimer = health.invulnerabilityTime;
+                    } else {
+                        // Game over
+                        this.game.events.emit('game:over');
+                        super.destroy();
+                    }
                 }
             }
-            
-            updateMovement(deltaTime) {
-                const physics = this.getComponent(PhysicsComponent);
-                
-                switch (this.movePattern) {
-                    case 'straight':
-                        // Already set in physics component
-                        break;
-                        
-                    case 'sine':
-                        physics.velocity.y = Math.sin(this.patternTime * 0.003) * 100;
-                        break;
-                        
-                    case 'complex':
-                        physics.velocity.y = Math.sin(this.patternTime * 0.002) * 50;
-                        if (this.patternTime > 3000) {
-                            physics.velocity.x = -50; // Slow down
-                        }
-                        break;
-                }
-            }
-            
-            render(context) {
-                const colors = {
-                    basic: '#ff0000',
-                    heavy: '#ff6600',
-                    shooter: '#ff00ff',
-                    boss: '#ffff00'
-                };
-                
-                context.fillStyle = colors[this.enemyType] || '#ff0000';
-                context.fillRect(0, 0, this.width, this.height);
-                
-                // Enemy details
-                context.fillStyle = '#ffffff';
-                context.fillRect(2, 8, 4, 16);
-                
-                if (this.enemyType === 'heavy') {
-                    context.fillStyle = '#333333';
-                    context.fillRect(6, 6, 20, 20);
-                }
-            }
-            
-            onDeath() {
-                // Add score
-                this.game.score += this.scoreValue;
-                
-                // Create explosion effect
-                this.game.createExplosion(this.x + this.width/2, this.y + this.height/2);
-                
-                super.onDeath();
-            }
-        }
 
-        class Bullet extends BaseEntity {
-            constructor(x, y, velocityX, velocityY, damage, owner) {
-                super({
-                    x: x,
-                    y: y,
-                    width: 8,
-                    height: 4,
-                    type: 'bullet'
-                });
-                
-                this.addComponent(new PhysicsComponent({
-                    velocityX: velocityX,
-                    velocityY: velocityY,
-                    drag: 0
-                }));
-                
-                this.addComponent(new CollisionComponent({
-                    width: 8,
-                    height: 4,
-                    layer: 'bullet'
-                }));
-                
-                this.damage = damage;
-                this.owner = owner;
-                this.lifetime = 3000; // 3 seconds
-                this.age = 0;
-            }
-            
-            update(deltaTime) {
-                super.update(deltaTime);
-                
-                this.age += deltaTime;
-                
-                // Remove if off screen or too old
-                if (this.x > this.game.width + 50 || this.x < -50 || 
-                    this.y > this.game.height + 50 || this.y < -50 || 
-                    this.age > this.lifetime) {
-                    this.active = false;
+            class Enemy extends GameFramework.BaseEntity {
+                constructor(x, y, type = 'basic') {
+                    super({
+                        x: x,
+                        y: y,
+                        width: 32,
+                        height: 32,
+                        type: 'enemy'
+                    });
+                    
+                    this.enemyType = type;
+                    this.scoreValue = type === 'shooter' ? 200 : 100;
+                    
+                    this.addComponent(new GameFramework.Components.Physics({
+                        vx: -100,
+                        drag: 0,
+                        useGravity: false
+                    }));
+                    
+                    this.addComponent(new GameFramework.Components.Collision({
+                        width: 28,
+                        height: 28,
+                        offsetX: 2,
+                        offsetY: 2,
+                        layer: 'enemy'
+                    }));
+                    
+                    this.addComponent(new GameFramework.Components.Health({
+                        maxHealth: this.getHealthForType(type),
+                        onDeath: () => this.onDeath()
+                    }));
+                    
+                    if (type === 'shooter') {
+                        this.addComponent(new GameFramework.Components.Weapon({
+                            damage: 10,
+                            fireRate: 0.5,
+                            projectileSpeed: 200
+                        }));
+                        this.shootTimer = 0;
+                    }
+                    
+                    this.movePattern = type === 'shooter' ? 'sine' : 'straight';
+                    this.patternTime = 0;
                 }
-            }
-            
-            render(context) {
-                context.fillStyle = this.owner === 'player' ? '#00ffff' : '#ff4444';
-                context.fillRect(0, 0, this.width, this.height);
-            }
-        }
-
-        class Particle extends BaseEntity {
-            constructor(x, y, velocityX, velocityY, color, size, lifetime) {
-                super({
-                    x: x,
-                    y: y,
-                    width: size,
-                    height: size,
-                    type: 'particle'
-                });
                 
-                this.addComponent(new PhysicsComponent({
-                    velocityX: velocityX,
-                    velocityY: velocityY,
-                    drag: 2
-                }));
-                
-                this.color = color;
-                this.maxLifetime = lifetime;
-                this.lifetime = lifetime;
-            }
-            
-            update(deltaTime) {
-                super.update(deltaTime);
-                
-                this.lifetime -= deltaTime;
-                if (this.lifetime <= 0) {
-                    this.active = false;
+                getHealthForType(type) {
+                    switch (type) {
+                        case 'basic': return 20;
+                        case 'heavy': return 60;
+                        case 'shooter': return 40;
+                        default: return 20;
+                    }
                 }
-            }
-            
-            render(context) {
-                const alpha = this.lifetime / this.maxLifetime;
-                context.fillStyle = this.color;
-                context.globalAlpha = alpha;
-                context.fillRect(0, 0, this.width, this.height);
-                context.globalAlpha = 1;
-            }
-        }
-
-        // Systems
-        class InputSystem {
-            constructor(config = {}) {
-                this.keys = {};
-                this.previousKeys = {};
-                this.actions = config.keyboard || {};
                 
-                this.setupEventListeners();
-            }
-            
-            setupEventListeners() {
-                window.addEventListener('keydown', (e) => {
-                    this.keys[e.code] = true;
-                    e.preventDefault();
-                });
-                
-                window.addEventListener('keyup', (e) => {
-                    this.keys[e.code] = false;
-                    e.preventDefault();
-                });
-            }
-            
-            update() {
-                this.previousKeys = { ...this.keys };
-            }
-            
-            isKeyPressed(key) {
-                return !!this.keys[key];
-            }
-            
-            isKeyJustPressed(key) {
-                return !!this.keys[key] && !this.previousKeys[key];
-            }
-            
-            isActionPressed(action) {
-                const keys = this.actions[action] || [];
-                return keys.some(key => this.isKeyPressed(key));
-            }
-            
-            isActionJustPressed(action) {
-                const keys = this.actions[action] || [];
-                return keys.some(key => this.isKeyJustPressed(key));
-            }
-        }
-
-        class CollisionSystem {
-            constructor() {
-                this.collisions = [];
-            }
-            
-            update(entities) {
-                this.collisions = [];
-                
-                const collidableEntities = entities.filter(e => 
-                    e.active && e.hasComponent(CollisionComponent)
-                );
-                
-                for (let i = 0; i < collidableEntities.length; i++) {
-                    for (let j = i + 1; j < collidableEntities.length; j++) {
-                        const entityA = collidableEntities[i];
-                        const entityB = collidableEntities[j];
-                        
-                        if (this.checkCollision(entityA, entityB)) {
-                            this.collisions.push({ entityA, entityB });
-                            this.handleCollision(entityA, entityB);
+                update(deltaTime) {
+                    super.update(deltaTime);
+                    
+                    this.patternTime += deltaTime;
+                    const physics = this.getComponent(GameFramework.Components.Physics);
+                    
+                    // Movement patterns
+                    if (this.movePattern === 'sine') {
+                        physics.velocity.y = Math.sin(this.patternTime * 3) * 100;
+                    }
+                    
+                    // Shooting for shooter enemies
+                    if (this.enemyType === 'shooter') {
+                        this.shootTimer -= deltaTime;
+                        if (this.shootTimer <= 0) {
+                            const weapon = this.getComponent(GameFramework.Components.Weapon);
+                            if (weapon.fire(new GameFramework.Vector2(-1, 0))) {
+                                this.game.addEntity(new EnemyBullet(
+                                    this.x - 10,
+                                    this.y + this.height / 2,
+                                    -weapon.projectileSpeed,
+                                    weapon.damage
+                                ));
+                                this.shootTimer = 2; // 2 seconds between shots
+                            }
                         }
                     }
-                }
-            }
-            
-            checkCollision(entityA, entityB) {
-                const boundsA = entityA.getComponent(CollisionComponent).getBounds();
-                const boundsB = entityB.getComponent(CollisionComponent).getBounds();
-                
-                return boundsA.x < boundsB.x + boundsB.width &&
-                       boundsA.x + boundsA.width > boundsB.x &&
-                       boundsA.y < boundsB.y + boundsB.height &&
-                       boundsA.y + boundsA.height > boundsB.y;
-            }
-            
-            handleCollision(entityA, entityB) {
-                // Player vs Enemy
-                if ((entityA.type === 'player' && entityB.type === 'enemy') ||
-                    (entityA.type === 'enemy' && entityB.type === 'player')) {
                     
-                    const player = entityA.type === 'player' ? entityA : entityB;
-                    const enemy = entityA.type === 'player' ? entityB : entityA;
-                    
-                    const playerHealth = player.getComponent(HealthComponent);
-                    if (playerHealth && !playerHealth.invulnerable) {
-                        playerHealth.takeDamage(1);
-                        enemy.active = false;
+                    // Remove if off screen
+                    if (this.x < -this.width - 50) {
+                        this.destroy();
                     }
                 }
                 
-                // Bullet vs Enemy/Player
-                if (entityA.type === 'bullet' || entityB.type === 'bullet') {
-                    const bullet = entityA.type === 'bullet' ? entityA : entityB;
-                    const target = entityA.type === 'bullet' ? entityB : entityA;
+                render(context) {
+                    super.render(context);
                     
-                    // Don't hit owner
-                    if (bullet.owner === target.type) return;
+                    const colors = {
+                        basic: '#ff0000',
+                        heavy: '#ff6600',
+                        shooter: '#ff00ff'
+                    };
                     
-                    if (target.type === 'enemy' && bullet.owner === 'player') {
-                        const health = target.getComponent(HealthComponent);
-                        if (health) {
-                            health.takeDamage(bullet.damage);
-                        }
-                        bullet.active = false;
-                    } else if (target.type === 'player' && bullet.owner === 'enemy') {
-                        const health = target.getComponent(HealthComponent);
-                        if (health && !health.invulnerable) {
-                            health.takeDamage(bullet.damage);
-                        }
-                        bullet.active = false;
+                    context.fillStyle = colors[this.enemyType] || '#ff0000';
+                    context.fillRect(0, 0, this.width, this.height);
+                    
+                    // Enemy details
+                    context.fillStyle = '#ffffff';
+                    context.fillRect(2, 8, 4, 16);
+                    
+                    if (this.enemyType === 'heavy') {
+                        context.fillStyle = '#333333';
+                        context.fillRect(6, 6, 20, 20);
                     }
                 }
+                
+                onDeath() {
+                    // Add score
+                    this.game.events.emit('score:add', this.scoreValue);
+                    
+                    // Create explosion effect
+                    const particles = this.game.getSystem('particles');
+                    if (particles) {
+                        particles.createEffect('explosion', this.x + this.width/2, this.y + this.height/2);
+                    }
+                    
+                    this.destroy();
+                }
             }
-        }
 
-        // Main Game Framework
-        class GameFramework {
-            constructor(config = {}) {
-                this.config = config;
-                this.canvas = null;
-                this.context = null;
-                this.width = config.game?.width || 800;
-                this.height = config.game?.height || 600;
-                this.backgroundColor = config.game?.backgroundColor || '#000000';
-                
-                this.entities = [];
-                this.systems = new Map();
-                this.running = false;
-                this.paused = false;
-                this.time = 0;
-                this.deltaTime = 0;
-                this.lastTime = 0;
-                
-                // Game state
-                this.score = 0;
-                this.level = 1;
-                this.gameOver = false;
-                this.enemySpawnTimer = 0;
-                this.levelTimer = 0;
-                
-                this.setupSystems();
-            }
-            
-            setupSystems() {
-                this.systems.set('input', new InputSystem(this.config.input));
-                this.systems.set('collision', new CollisionSystem());
-            }
-            
-            getSystem(name) {
-                return this.systems.get(name);
-            }
-            
-            async initialize(canvasId) {
-                this.canvas = document.getElementById(canvasId);
-                this.context = this.canvas.getContext('2d');
-                
-                this.canvas.width = this.width;
-                this.canvas.height = this.height;
-                
-                // Initialize game
-                this.initializeGame();
-                
-                return Promise.resolve();
-            }
-            
-            initializeGame() {
-                // Create player
-                const player = new Player(50, this.height / 2 - 16);
-                player.game = this;
-                this.addEntity(player);
-                
-                // Initial enemy spawn
-                this.spawnWave();
-            }
-            
-            start() {
-                this.running = true;
-                this.lastTime = performance.now();
-                this.gameLoop();
-            }
-            
-            gameLoop() {
-                if (!this.running) return;
-                
-                const currentTime = performance.now();
-                this.deltaTime = Math.min(currentTime - this.lastTime, 16.67); // Cap at 60 FPS
-                this.time = currentTime;
-                this.lastTime = currentTime;
-                
-                if (!this.paused && !this.gameOver) {
-                    this.update(this.deltaTime);
+            class PlayerBullet extends GameFramework.BaseEntity {
+                constructor(x, y, speed, damage) {
+                    super({
+                        x: x,
+                        y: y,
+                        width: 12,
+                        height: 4,
+                        type: 'playerBullet'
+                    });
+                    
+                    this.addComponent(new GameFramework.Components.Physics({
+                        vx: speed,
+                        drag: 0,
+                        useGravity: false
+                    }));
+                    
+                    this.addComponent(new GameFramework.Components.Collision({
+                        width: 12,
+                        height: 4,
+                        layer: 'playerProjectile'
+                    }));
+                    
+                    this.damage = damage;
                 }
                 
-                this.render();
-                this.updateUI();
-                
-                requestAnimationFrame(() => this.gameLoop());
-            }
-            
-            update(deltaTime) {
-                // Update systems
-                this.getSystem('input').update();
-                
-                // Handle pause
-                if (this.getSystem('input').isKeyJustPressed('KeyP')) {
-                    this.paused = !this.paused;
-                    return;
-                }
-                
-                // Update entities
-                this.entities.forEach(entity => {
-                    if (entity.active) {
-                        entity.update(deltaTime);
+                update(deltaTime) {
+                    super.update(deltaTime);
+                    
+                    // Remove if off screen
+                    if (this.x > this.game.canvas.width + 50) {
+                        this.destroy();
                     }
-                });
+                }
                 
-                // Update collision system
-                this.getSystem('collision').update(this.entities);
-                
-                // Remove inactive entities
-                this.entities = this.entities.filter(entity => entity.active);
-                
-                // Spawn enemies
-                this.updateEnemySpawning(deltaTime);
-                
-                // Level progression
-                this.levelTimer += deltaTime;
-                if (this.levelTimer > 30000) { // 30 seconds per level
-                    this.level++;
-                    this.levelTimer = 0;
-                    this.spawnWave();
+                render(context) {
+                    super.render(context);
+                    context.fillStyle = '#00ffff';
+                    context.fillRect(0, 0, this.width, this.height);
                 }
             }
-            
-            render() {
-                // Clear screen
-                this.context.fillStyle = this.backgroundColor;
-                this.context.fillRect(0, 0, this.width, this.height);
+
+            class EnemyBullet extends GameFramework.BaseEntity {
+                constructor(x, y, speed, damage) {
+                    super({
+                        x: x,
+                        y: y,
+                        width: 8,
+                        height: 8,
+                        type: 'enemyBullet'
+                    });
+                    
+                    this.addComponent(new GameFramework.Components.Physics({
+                        vx: speed,
+                        drag: 0,
+                        useGravity: false
+                    }));
+                    
+                    this.addComponent(new GameFramework.Components.Collision({
+                        width: 8,
+                        height: 8,
+                        layer: 'enemyProjectile'
+                    }));
+                    
+                    this.damage = damage;
+                }
                 
-                // Render entities
-                this.entities.forEach(entity => {
-                    if (entity.active) {
-                        entity.render(this.context);
+                update(deltaTime) {
+                    super.update(deltaTime);
+                    
+                    // Remove if off screen
+                    if (this.x < -50) {
+                        this.destroy();
                     }
-                });
-                
-                // Render pause overlay
-                if (this.paused) {
-                    this.context.fillStyle = 'rgba(0, 0, 0, 0.7)';
-                    this.context.fillRect(0, 0, this.width, this.height);
-                    
-                    this.context.fillStyle = '#ffffff';
-                    this.context.font = '48px Arial';
-                    this.context.textAlign = 'center';
-                    this.context.fillText('PAUSED', this.width / 2, this.height / 2);
-                    this.context.font = '24px Arial';
-                    this.context.fillText('Press P to resume', this.width / 2, this.height / 2 + 50);
                 }
                 
-                // Render game over screen
-                if (this.gameOver) {
-                    this.context.fillStyle = 'rgba(0, 0, 0, 0.8)';
-                    this.context.fillRect(0, 0, this.width, this.height);
-                    
-                    this.context.fillStyle = '#ff0000';
-                    this.context.font = '48px Arial';
-                    this.context.textAlign = 'center';
-                    this.context.fillText('GAME OVER', this.width / 2, this.height / 2);
-                    
-                    this.context.fillStyle = '#ffffff';
-                    this.context.font = '24px Arial';
-                    this.context.fillText(`Final Score: ${this.score}`, this.width / 2, this.height / 2 + 50);
-                    this.context.fillText('Refresh to play again', this.width / 2, this.height / 2 + 80);
+                render(context) {
+                    super.render(context);
+                    context.fillStyle = '#ff4444';
+                    context.beginPath();
+                    context.arc(this.width/2, this.height/2, this.width/2, 0, Math.PI * 2);
+                    context.fill();
                 }
             }
-            
-            updateUI() {
-                const player = this.entities.find(e => e.type === 'player');
-                const lives = player ? player.lives : 0;
-                
-                document.getElementById('score').textContent = `Score: ${this.score}`;
-                document.getElementById('lives').textContent = `Lives: ${lives}`;
-                document.getElementById('level').textContent = `Level: ${this.level}`;
-            }
-            
-            updateEnemySpawning(deltaTime) {
-                this.enemySpawnTimer += deltaTime;
-                
-                const spawnRate = Math.max(500, 2000 - (this.level * 100)); // Faster spawning each level
-                
-                if (this.enemySpawnTimer > spawnRate) {
-                    this.spawnEnemy();
+
+            // Main game scene
+            class GameScene extends GameFramework.Scene {
+                constructor() {
+                    super('game');
+                    this.score = 0;
+                    this.level = 1;
                     this.enemySpawnTimer = 0;
+                    this.levelTimer = 0;
+                    this.gameOver = false;
+                    this.player = null;
                 }
-            }
-            
-            spawnEnemy() {
-                const types = ['basic', 'basic', 'heavy', 'shooter'];
-                const type = types[Math.floor(Math.random() * types.length)];
                 
-                const x = this.width + 50;
-                const y = Math.random() * (this.height - 64) + 32;
+                async onLoad() {
+                    // Create player
+                    this.player = new Player(50, this.game.canvas.height / 2 - 16);
+                    this.game.addEntity(this.player);
+                    
+                    // Set up event handlers
+                    this.game.events.on('score:add', (points) => {
+                        this.score += points;
+                        this.updateUI();
+                    });
+                    
+                    this.game.events.on('game:over', () => {
+                        this.gameOver = true;
+                    });
+                    
+                    // Set up collision handling
+                    this.game.events.on('collision', ({ entity, other }) => {
+                        this.handleCollision(entity, other);
+                    });
+                    
+                    // Initial enemy spawn
+                    this.spawnWave();
+                    
+                    this.updateUI();
+                }
                 
-                const enemy = new Enemy(x, y, type);
-                enemy.game = this;
-                this.addEntity(enemy);
-            }
-            
-            spawnWave() {
-                // Spawn a formation of enemies
-                for (let i = 0; i < 3 + this.level; i++) {
-                    setTimeout(() => {
+                update(deltaTime) {
+                    if (this.gameOver) return;
+                    
+                    // Handle pause
+                    const input = this.game.getSystem('input');
+                    if (input.isActionJustPressed('pause')) {
+                        if (this.game.paused) {
+                            this.game.resume();
+                        } else {
+                            this.game.pause();
+                        }
+                    }
+                    
+                    // Spawn enemies
+                    this.enemySpawnTimer += deltaTime;
+                    const spawnRate = Math.max(0.5, 2 - (this.level * 0.1));
+                    
+                    if (this.enemySpawnTimer > spawnRate) {
                         this.spawnEnemy();
-                    }, i * 300);
+                        this.enemySpawnTimer = 0;
+                    }
+                    
+                    // Level progression
+                    this.levelTimer += deltaTime;
+                    if (this.levelTimer > 30) { // 30 seconds per level
+                        this.level++;
+                        this.levelTimer = 0;
+                        this.spawnWave();
+                        this.updateUI();
+                    }
+                }
+                
+                render(context) {
+                    // Render pause overlay
+                    if (this.game.paused) {
+                        context.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                        context.fillRect(0, 0, this.game.canvas.width, this.game.canvas.height);
+                        
+                        context.fillStyle = '#ffffff';
+                        context.font = '48px Arial';
+                        context.textAlign = 'center';
+                        context.fillText('PAUSED', this.game.canvas.width / 2, this.game.canvas.height / 2);
+                        context.font = '24px Arial';
+                        context.fillText('Press P to resume', this.game.canvas.width / 2, this.game.canvas.height / 2 + 50);
+                    }
+                    
+                    // Render game over screen
+                    if (this.gameOver) {
+                        context.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                        context.fillRect(0, 0, this.game.canvas.width, this.game.canvas.height);
+                        
+                        context.fillStyle = '#ff0000';
+                        context.font = '48px Arial';
+                        context.textAlign = 'center';
+                        context.fillText('GAME OVER', this.game.canvas.width / 2, this.game.canvas.height / 2);
+                        
+                        context.fillStyle = '#ffffff';
+                        context.font = '24px Arial';
+                        context.fillText(`Final Score: ${this.score}`, this.game.canvas.width / 2, this.game.canvas.height / 2 + 50);
+                        context.fillText('Refresh to play again', this.game.canvas.width / 2, this.game.canvas.height / 2 + 80);
+                    }
+                }
+                
+                handleCollision(entity, other) {
+                    // Player bullet vs Enemy
+                    if (entity.type === 'playerBullet' && other.type === 'enemy') {
+                        const health = other.getComponent(GameFramework.Components.Health);
+                        if (health) {
+                            health.takeDamage(entity.damage);
+                        }
+                        entity.destroy();
+                    }
+                    
+                    // Enemy bullet vs Player
+                    if (entity.type === 'enemyBullet' && other.type === 'player') {
+                        const health = other.getComponent(GameFramework.Components.Health);
+                        if (health) {
+                            health.takeDamage(entity.damage);
+                        }
+                        entity.destroy();
+                    }
+                    
+                    // Enemy vs Player
+                    if ((entity.type === 'enemy' && other.type === 'player') ||
+                        (entity.type === 'player' && other.type === 'enemy')) {
+                        const player = entity.type === 'player' ? entity : other;
+                        const enemy = entity.type === 'enemy' ? entity : other;
+                        
+                        const playerHealth = player.getComponent(GameFramework.Components.Health);
+                        if (playerHealth) {
+                            playerHealth.takeDamage(1);
+                        }
+                        enemy.destroy();
+                    }
+                }
+                
+                spawnEnemy() {
+                    const types = ['basic', 'basic', 'heavy', 'shooter'];
+                    const type = types[Math.floor(Math.random() * types.length)];
+                    
+                    const x = this.game.canvas.width + 50;
+                    const y = Math.random() * (this.game.canvas.height - 64) + 32;
+                    
+                    const enemy = new Enemy(x, y, type);
+                    this.game.addEntity(enemy);
+                }
+                
+                spawnWave() {
+                    // Spawn a formation of enemies
+                    for (let i = 0; i < 3 + this.level; i++) {
+                        setTimeout(() => {
+                            this.spawnEnemy();
+                        }, i * 300);
+                    }
+                }
+                
+                updateUI() {
+                    document.getElementById('score').textContent = `Score: ${this.score}`;
+                    document.getElementById('lives').textContent = `Lives: ${this.player ? this.player.lives : 0}`;
+                    document.getElementById('level').textContent = `Level: ${this.level}`;
                 }
             }
-            
-            addEntity(entity) {
-                entity.game = this;
-                this.entities.push(entity);
-            }
-            
-            createExplosion(x, y) {
-                // Create particle explosion
-                for (let i = 0; i < 8; i++) {
-                    const angle = (i / 8) * Math.PI * 2;
-                    const speed = 50 + Math.random() * 100;
-                    const vx = Math.cos(angle) * speed;
-                    const vy = Math.sin(angle) * speed;
-                    
-                    const colors = ['#ff4444', '#ffaa00', '#ffff44'];
-                    const color = colors[Math.floor(Math.random() * colors.length)];
-                    
-                    const particle = new Particle(x, y, vx, vy, color, 4, 500);
-                    particle.game = this;
-                    this.addEntity(particle);
-                }
-            }
-        }
 
-        // Game Configuration
-        const FRAMEWORK_CONFIG = {
-            game: {
+            // Initialize and start the game
+            const game = new GameFramework.Game({
                 width: 800,
                 height: 600,
-                backgroundColor: '#001122'
-            },
-            input: {
-                keyboard: {
+                backgroundColor: '#001122',
+                controls: {
                     left: ['ArrowLeft', 'KeyA'],
                     right: ['ArrowRight', 'KeyD'],
                     up: ['ArrowUp', 'KeyW'],
@@ -1018,13 +574,15 @@
                     shoot: ['Space'],
                     pause: ['KeyP']
                 }
-            }
-        };
+            });
 
-        // Initialize and start the game
-        const game = new GameFramework(FRAMEWORK_CONFIG);
-
-        game.initialize('gameCanvas').then(() => {
+            await game.ready;
+            
+            // Register and load the game scene
+            game.registerScene('game', new GameScene());
+            await game.loadScene('game');
+            
+            // Start the game
             game.start();
         });
     </script>
