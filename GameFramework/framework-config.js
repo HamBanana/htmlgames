@@ -1,44 +1,45 @@
 // framework-config.js - Framework configuration and asset paths
 const FRAMEWORK_CONFIG = {
-    // Asset path configuration (relative to web server root)
+    // Asset path configuration (relative to server root)
+    // All paths should start with '/' to ensure they're relative to server root
     paths: {
         // Base path for all framework assets
-        base: './GameFramework/Assets/',
+        base: '/GameFramework/Assets/',
         
         // Sprite assets - Aseprite JSON format with embedded base64 images
-        sprites: './GameFramework/Assets/Sprites/Aseprite/',
+        sprites: '/GameFramework/Assets/Sprites/Aseprite/',
         
         // Audio assets
         audio: {
-            base: './GameFramework/Assets/Audio/',
-            music: './GameFramework/Assets/Audio/Music/',
-            sfx: './GameFramework/Assets/Audio/SFX/'
+            base: '/GameFramework/Assets/Audio/',
+            music: '/GameFramework/Assets/Audio/Music/',
+            sfx: '/GameFramework/Assets/Audio/SFX/'
         },
         
         // Shader assets
         shaders: {
-            base: './GameFramework/Assets/Shaders/',
-            vertex: './GameFramework/Assets/Shaders/vertex/',
-            fragment: './GameFramework/Assets/Shaders/fragment/'
+            base: '/GameFramework/Assets/Shaders/',
+            vertex: '/GameFramework/Assets/Shaders/vertex/',
+            fragment: '/GameFramework/Assets/Shaders/fragment/'
         },
         
         // Font assets
-        fonts: './GameFramework/Assets/Fonts/',
+        fonts: '/GameFramework/Assets/Fonts/',
         
         // Data files (JSON, XML, etc.)
         data: {
-            base: './GameFramework/Assets/Data/',
-            levels: './GameFramework/Assets/Data/Levels/',
-            configs: './GameFramework/Assets/Data/Configs/',
-            gamedata: './GameFramework/Assets/Data/GameData/',
-            saves: './GameFramework/Assets/Data/Saves/'
+            base: '/GameFramework/Assets/Data/',
+            levels: '/GameFramework/Assets/Data/Levels/',
+            configs: '/GameFramework/Assets/Data/Configs/',
+            gamedata: '/GameFramework/Assets/Data/GameData/',
+            saves: '/GameFramework/Assets/Data/Saves/'
         },
         
         // Texture atlases
-        atlases: './GameFramework/Assets/Atlases/',
+        atlases: '/GameFramework/Assets/Atlases/',
         
         // Video assets
-        videos: './GameFramework/Assets/Videos/'
+        videos: '/GameFramework/Assets/Videos/'
     },
     
     // Asset type configuration

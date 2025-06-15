@@ -95,9 +95,11 @@
                 <strong>Loading Summary:</strong> <span id="summaryText">Waiting to start...</span>
             </div>
             <div style="margin-top: 8px; font-size: 12px; color: #888;">
-                <p><strong>Note:</strong> This demo attempts to load real assets from GameFramework/Assets/. 
+                <p><strong>Path Resolution:</strong> Framework uses absolute paths from server root (starting with '/').</p>
+                <p><strong>Example:</strong> <code>'/GameFramework/Assets/Sprites/Aseprite/karateguy.json'</code> resolves to <code>localhost:8081/GameFramework/Assets/Sprites/Aseprite/karateguy.json</code></p>
+                <p><strong>Note:</strong> This demo attempts to load real assets from /GameFramework/Assets/. 
                 Since these files don't exist in this environment, you'll see actual loading failures.</p>
-                <p>In a real implementation, place your Aseprite JSON files, audio files, etc. in the Assets folder structure.</p>
+                <p>In a real implementation, place your Aseprite JSON files, audio files, etc. in the Assets folder structure at your server root.</p>
             </div>
         </div>
     </div>
@@ -113,13 +115,15 @@
         
         // framework-config.js content would be here
         const FRAMEWORK_CONFIG = {
+            // Asset path configuration (absolute paths from server root)
+            // Leading '/' ensures paths are relative to server root, not current page
             paths: {
-                base: './GameFramework/Assets/',
-                sprites: './GameFramework/Assets/Sprites/Aseprite/',
+                base: '/GameFramework/Assets/',
+                sprites: '/GameFramework/Assets/Sprites/Aseprite/',
                 audio: {
-                    base: './GameFramework/Assets/Audio/',
-                    music: './GameFramework/Assets/Audio/Music/',
-                    sfx: './GameFramework/Assets/Audio/SFX/'
+                    base: '/GameFramework/Assets/Audio/',
+                    music: '/GameFramework/Assets/Audio/Music/',
+                    sfx: '/GameFramework/Assets/Audio/SFX/'
                 }
             },
             assetTypes: {
@@ -844,6 +848,11 @@
             
             async initialize() {
                 console.log('🔧 Framework Asset Loader initialized');
+                console.log('📂 Asset paths configured:');
+                console.log(`  Sprites: ${this.config.paths.sprites}`);
+                console.log(`  Audio SFX: ${this.config.paths.audio.sfx}`);
+                console.log(`  Audio Music: ${this.config.paths.audio.music}`);
+                
                 this.updateAssetStatus('Framework initialized - Ready to load assets');
             }
             
@@ -865,7 +874,8 @@
                     return this.loadingPromises.get(assetId);
                 }
                 
-                this.updateAssetStatus(`<span class="loading">🔄 Attempting to load sprite: ${assetId} from ${fullPath}</span>`);
+                this.updateAssetStatus(`<span class="loading">🔄 Loading sprite: ${assetId}</span>`);
+                this.updateAssetStatus(`<span class="loading">   📍 Full path: ${fullPath}</span>`);
                 
                 const loadPromise = this.doLoadSprite(assetId, fullPath);
                 this.loadingPromises.set(assetId, loadPromise);
@@ -882,6 +892,7 @@
                         type: 'sprite',
                         id: assetId,
                         filename: filename,
+                        fullPath: fullPath,
                         loadTime: loadTime,
                         success: true
                     });
@@ -892,22 +903,16 @@
                     const attempts = (this.loadAttempts.get(assetId) || 0) + 1;
                     this.loadAttempts.set(assetId, attempts);
                     
-                    this.updateAssetStatus(`<span class="error">❌ Failed to load sprite: ${assetId} - ${error.message}</span>`);
+                    this.updateAssetStatus(`<span class="error">❌ Failed to load sprite: ${assetId}</span>`);
+                    this.updateAssetStatus(`<span class="error">   💥 Error: ${error.message}</span>`);
                     
-                    this.framework.events.emit('asset:failed', {
-                        type: 'sprite',
-                        id: assetId,
-                        filename: filename,
-                        error: error.message,
-                        attempts: attempts
-                    });
-                    
-                    console.error(`Failed to load sprite ${assetId}:`, error);
+                    console.error(`Failed to load sprite ${assetId} from ${fullPath}:`, error);
                     
                     // Return a fallback placeholder for demo purposes
                     const fallback = {
                         id: assetId,
                         filename: filename,
+                        fullPath: fullPath,
                         loaded: false,
                         error: error.message,
                         placeholder: true
@@ -1048,7 +1053,8 @@
                     return this.loadedAssets.get(assetId);
                 }
                 
-                this.updateAssetStatus(`<span class="loading">🔄 Attempting to load audio: ${assetId} from ${fullPath}</span>`);
+                this.updateAssetStatus(`<span class="loading">🔄 Loading audio: ${assetId}</span>`);
+                this.updateAssetStatus(`<span class="loading">   📍 Full path: ${fullPath}</span>`);
                 
                 try {
                     const startTime = performance.now();
@@ -1059,6 +1065,7 @@
                         id: assetId,
                         filename: filename,
                         type: type,
+                        fullPath: fullPath,
                         audio: audio,
                         loaded: true
                     };
@@ -1070,6 +1077,7 @@
                         type: 'audio',
                         id: assetId,
                         filename: filename,
+                        fullPath: fullPath,
                         audioType: type,
                         loadTime: loadTime,
                         success: true
@@ -1080,23 +1088,17 @@
                     const attempts = (this.loadAttempts.get(assetId) || 0) + 1;
                     this.loadAttempts.set(assetId, attempts);
                     
-                    this.updateAssetStatus(`<span class="error">❌ Failed to load audio: ${assetId} - ${error.message}</span>`);
+                    this.updateAssetStatus(`<span class="error">❌ Failed to load audio: ${assetId}</span>`);
+                    this.updateAssetStatus(`<span class="error">   💥 Error: ${error.message}</span>`);
                     
-                    this.framework.events.emit('asset:failed', {
-                        type: 'audio',
-                        id: assetId,
-                        filename: filename,
-                        error: error.message,
-                        attempts: attempts
-                    });
-                    
-                    console.error(`Failed to load audio ${assetId}:`, error);
+                    console.error(`Failed to load audio ${assetId} from ${fullPath}:`, error);
                     
                     // Return a fallback for demo purposes
                     return {
                         id: assetId,
                         filename: filename,
                         type: type,
+                        fullPath: fullPath,
                         loaded: false,
                         error: error.message
                     };
