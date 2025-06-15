@@ -1,38 +1,51 @@
-// utils/performance.js - Performance monitoring utilities
+// utils/performance.js - Performance monitoring system
 
 class PerformanceMonitor {
     constructor() {
         this.metrics = new Map();
         this.frameMetrics = {
-            fps: 0,
+            frameCount: 0,
             frameTime: 0,
-            frames: [],
-            maxFrames: 60
+            lastTime: performance.now(),
+            fps: 0,
+            fpsUpdateTime: 0,
+            fpsFrameCount: 0
         };
-        this.measurementCategories = new Map();
-        this.frameStartTime = 0;
+        this.breakdown = {};
     }
     
     startFrame() {
         this.frameStartTime = performance.now();
+        this.frameMetrics.frameCount++;
     }
     
     endFrame() {
-        if (this.frameStartTime === 0) return;
+        const now = performance.now();
+        const frameTime = now - this.frameStartTime;
         
-        const frameTime = performance.now() - this.frameStartTime;
-        this.frameMetrics.frames.push(frameTime);
+        this.frameMetrics.frameTime = frameTime;
         
-        if (this.frameMetrics.frames.length > this.frameMetrics.maxFrames) {
-            this.frameMetrics.frames.shift();
+        // Update FPS counter
+        this.frameMetrics.fpsFrameCount++;
+        const timeSinceLastFPSUpdate = now - this.frameMetrics.fpsUpdateTime;
+        
+        if (timeSinceLastFPSUpdate >= 1000) {
+            this.frameMetrics.fps = Math.round(this.frameMetrics.fpsFrameCount * 1000 / timeSinceLastFPSUpdate);
+            this.frameMetrics.fpsFrameCount = 0;
+            this.frameMetrics.fpsUpdateTime = now;
         }
         
-        // Calculate average frame time and FPS
-        const avgFrameTime = this.frameMetrics.frames.reduce((a, b) => a + b, 0) / this.frameMetrics.frames.length;
-        this.frameMetrics.frameTime = avgFrameTime;
-        this.frameMetrics.fps = Math.round(1000 / avgFrameTime);
+        this.frameMetrics.lastTime = now;
+    }
+    
+    measure(name, fn) {
+        const start = performance.now();
+        const result = fn();
+        const duration = performance.now() - start;
         
-        this.frameStartTime = 0;
+        this.breakdown[name] = duration;
+        
+        return result;
     }
     
     startMeasure(name) {
@@ -40,99 +53,30 @@ class PerformanceMonitor {
     }
     
     endMeasure(name) {
-        const startTime = this.metrics.get(name);
-        if (startTime) {
-            const duration = performance.now() - startTime;
+        const start = this.metrics.get(name);
+        if (start) {
+            const duration = performance.now() - start;
             this.metrics.delete(name);
-            
-            // Store in category for averaging
-            if (!this.measurementCategories.has(name)) {
-                this.measurementCategories.set(name, []);
-            }
-            
-            const category = this.measurementCategories.get(name);
-            category.push(duration);
-            
-            // Keep only recent measurements
-            if (category.length > 60) {
-                category.shift();
-            }
-            
+            this.breakdown[name] = duration;
             return duration;
         }
         return 0;
     }
     
-    measure(name, fn) {
-        this.startMeasure(name);
-        const result = fn();
-        this.endMeasure(name);
-        return result;
-    }
-    
-    getFPS() {
-        return this.frameMetrics.fps;
-    }
-    
-    getFrameTime() {
-        return this.frameMetrics.frameTime;
-    }
-    
     getStats() {
-        const stats = {
+        return {
             fps: this.frameMetrics.fps,
             frameTime: this.frameMetrics.frameTime.toFixed(2),
             avgFrameTime: this.frameMetrics.frameTime.toFixed(2),
-            breakdown: {}
+            breakdown: this.breakdown
         };
-        
-        // Add measurement breakdowns
-        this.measurementCategories.forEach((measurements, name) => {
-            if (measurements.length > 0) {
-                const avg = measurements.reduce((a, b) => a + b, 0) / measurements.length;
-                const max = Math.max(...measurements);
-                stats.breakdown[name] = {
-                    avg: avg.toFixed(2),
-                    max: max.toFixed(2)
-                };
-            }
-        });
-        
-        return stats;
-    }
-    
-    getAverageTime(name) {
-        const measurements = this.measurementCategories.get(name);
-        if (!measurements || measurements.length === 0) return 0;
-        
-        return measurements.reduce((a, b) => a + b, 0) / measurements.length;
     }
     
     reset() {
         this.metrics.clear();
-        this.measurementCategories.clear();
-        this.frameMetrics.frames = [];
-        this.frameMetrics.fps = 0;
-        this.frameMetrics.frameTime = 0;
-    }
-    
-    // Static utility methods for backwards compatibility
-    static startMeasure(name) {
-        if (!window._globalPerformanceMonitor) {
-            window._globalPerformanceMonitor = new PerformanceMonitor();
-        }
-        window._globalPerformanceMonitor.startMeasure(name);
-    }
-    
-    static endMeasure(name) {
-        if (window._globalPerformanceMonitor) {
-            const duration = window._globalPerformanceMonitor.endMeasure(name);
-            console.log(`[PERF] ${name}: ${duration.toFixed(2)}ms`);
-            return duration;
-        }
-        return 0;
+        this.breakdown = {};
     }
 }
 
-// Export as global for backwards compatibility
+// Also keep the old interface for backwards compatibility
 window.PerformanceMonitor = PerformanceMonitor;
