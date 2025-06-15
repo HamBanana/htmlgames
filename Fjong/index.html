@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Pong - Classic Arcade Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            touch-action: none;
+        }
+        
+        #gameContainer {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            max-width: 800px;
+            max-height: 600px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        #gameCanvas {
+            background: #000;
+            border: 2px solid #fff;
+            display: block;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+        }
+        
+        .mobile-controls {
+            position: absolute;
+            bottom: 20px;
+            display: none;
+            gap: 20px;
+            width: 100%;
+            padding: 0 20px;
+            justify-content: space-between;
+        }
+        
+        .joystick {
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            position: relative;
+            touch-action: none;
+        }
+        
+        .joystick-knob {
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+        
+        .game-info {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            font-size: 14px;
+            text-align: center;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+        
+        .instructions {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #888;
+            font-size: 12px;
+            text-align: center;
+        }
+        
+        @media (max-width: 768px) {
+            .mobile-controls {
+                display: flex;
+            }
+            
+            .instructions {
+                display: none;
+            }
+            
+            #gameCanvas {
+                max-width: 100vw;
+                max-height: 80vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div class="game-info">
+            <div>PONG</div>
+        </div>
+        
+        <div class="mobile-controls">
+            <div class="joystick" id="leftJoystick">
+                <div class="joystick-knob"></div>
+            </div>
+            <div class="joystick" id="rightJoystick">
+                <div class="joystick-knob"></div>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            Player 1: W/S | Player 2: ↑/↓ | Space: Start/Pause
+        </div>
+    </div>
+
+    <script>
+        // Inline GameFramework core components for this demo
+        class Vector2 {
+            constructor(x = 0, y = 0) {
+                this.x = x;
+                this.y = y;
+            }
+            
+            set(x, y) {
+                this.x = x;
+                this.y = y;
+                return this;
+            }
+            
+            copy() {
+                return new Vector2(this.x, this.y);
+            }
+            
+            add(v) {
+                return new Vector2(this.x + v.x, this.y + v.y);
+            }
+            
+            subtract(v) {
+                return new Vector2(this.x - v.x, this.y - v.y);
+            }
+            
+            multiply(scalar) {
+                return new Vector2(this.x * scalar, this.y * scalar);
+            }
+            
+            normalize() {
+                const mag = Math.sqrt(this.x * this.x + this.y * this.y);
+                if (mag === 0) return new Vector2(0, 0);
+                return new Vector2(this.x / mag, this.y / mag);
+            }
+        }
+
+        // Game Configuration
+        const GAME_WIDTH = 800;
+        const GAME_HEIGHT = 600;
+        const PADDLE_WIDTH = 15;
+        const PADDLE_HEIGHT = 100;
+        const PADDLE_SPEED = 6;
+        const BALL_SIZE = 15;
+        const INITIAL_BALL_SPEED = 5;
+        const MAX_BALL_SPEED = 12;
+        const WINNING_SCORE = 11;
+
+        // Game State
+        let gameState = 'menu'; // menu, playing, paused, gameOver
+        let player1Score = 0;
+        let player2Score = 0;
+        let winner = null;
+
+        // Mobile joystick state
+        const joystickState = {
+            left: { active: false, y: 0 },
+            right: { active: false, y: 0 }
+        };
+
+        // Paddle class
+        class Paddle {
+            constructor(x, y, isAI = false) {
+                this.x = x;
+                this.y = y;
+                this.width = PADDLE_WIDTH;
+                this.height = PADDLE_HEIGHT;
+                this.velocity = 0;
+                this.isAI = isAI;
+                this.aiReactionTime = 0;
+                this.aiTargetY = y;
+            }
+
+            update(deltaTime, ball = null) {
+                if (this.isAI && ball && gameState === 'playing') {
+                    // AI logic
+                    this.aiReactionTime -= deltaTime;
+                    
+                    if (this.aiReactionTime <= 0) {
+                        // Calculate where the ball will be
+                        const ballDirection = ball.velocity.x > 0 ? 1 : -1;
+                        const isComingTowardsAI = (this.x > GAME_WIDTH / 2 && ballDirection > 0) || 
+                                                 (this.x < GAME_WIDTH / 2 && ballDirection < 0);
+                        
+                        if (isComingTowardsAI) {
+                            // Predict ball position with some error for realism
+                            const error = (Math.random() - 0.5) * 30;
+                            this.aiTargetY = ball.y + error;
+                        }
+                        
+                        // Reset reaction time
+                        this.aiReactionTime = 0.1 + Math.random() * 0.1; // 100-200ms reaction
+                    }
+                    
+                    // Move towards target
+                    const diff = this.aiTargetY - (this.y + this.height / 2);
+                    const aiSpeed = PADDLE_SPEED * 0.85; // Slightly slower than player
+                    
+                    if (Math.abs(diff) > 5) {
+                        this.velocity = Math.sign(diff) * aiSpeed;
+                    } else {
+                        this.velocity = 0;
+                    }
+                } else {
+                    // Use input velocity directly
+                }
+
+                // Apply velocity
+                this.y += this.velocity * deltaTime * 60;
+
+                // Keep paddle on screen
+                this.y = Math.max(0, Math.min(GAME_HEIGHT - this.height, this.y));
+            }
+
+            render(ctx) {
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                // Add glow effect
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#fff';
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                ctx.shadowBlur = 0;
+            }
+
+            reset() {
+                this.y = GAME_HEIGHT / 2 - this.height / 2;
+                this.velocity = 0;
+                this.aiTargetY = this.y;
+                this.aiReactionTime = 0;
+            }
+        }
+
+        // Ball class
+        class Ball {
+            constructor() {
+                this.x = GAME_WIDTH / 2 - BALL_SIZE / 2;
+                this.y = GAME_HEIGHT / 2 - BALL_SIZE / 2;
+                this.size = BALL_SIZE;
+                this.velocity = new Vector2(0, 0);
+                this.trail = [];
+                this.maxTrailLength = 10;
+                this.speed = INITIAL_BALL_SPEED;
+            }
+
+            reset() {
+                this.x = GAME_WIDTH / 2 - this.size / 2;
+                this.y = GAME_HEIGHT / 2 - this.size / 2;
+                this.trail = [];
+                this.speed = INITIAL_BALL_SPEED;
+                
+                // Random initial direction
+                const angle = (Math.random() - 0.5) * Math.PI / 4; // -45 to 45 degrees
+                const direction = Math.random() > 0.5 ? 1 : -1;
+                this.velocity = new Vector2(
+                    Math.cos(angle) * this.speed * direction,
+                    Math.sin(angle) * this.speed
+                );
+            }
+
+            update(deltaTime) {
+                if (gameState !== 'playing') return;
+
+                // Store trail position
+                this.trail.push({ x: this.x, y: this.y });
+                if (this.trail.length > this.maxTrailLength) {
+                    this.trail.shift();
+                }
+
+                // Update position
+                this.x += this.velocity.x * deltaTime * 60;
+                this.y += this.velocity.y * deltaTime * 60;
+
+                // Top and bottom collision
+                if (this.y <= 0 || this.y + this.size >= GAME_HEIGHT) {
+                    this.velocity.y *= -1;
+                    this.y = Math.max(0, Math.min(GAME_HEIGHT - this.size, this.y));
+                    createParticles(this.x + this.size / 2, this.y + this.size / 2, '#fff');
+                    playSound('wallHit');
+                }
+
+                // Score if ball goes off screen
+                if (this.x < -this.size) {
+                    player2Score++;
+                    playSound('score');
+                    checkWinCondition();
+                    this.reset();
+                } else if (this.x > GAME_WIDTH) {
+                    player1Score++;
+                    playSound('score');
+                    checkWinCondition();
+                    this.reset();
+                }
+            }
+
+            checkPaddleCollision(paddle) {
+                // Check if ball collides with paddle
+                if (this.x < paddle.x + paddle.width &&
+                    this.x + this.size > paddle.x &&
+                    this.y < paddle.y + paddle.height &&
+                    this.y + this.size > paddle.y) {
+                    
+                    // Calculate hit position (-1 to 1)
+                    const hitPos = ((this.y + this.size / 2) - (paddle.y + paddle.height / 2)) / (paddle.height / 2);
+                    
+                    // Calculate new angle based on hit position
+                    const maxAngle = Math.PI / 3; // 60 degrees
+                    const angle = hitPos * maxAngle;
+                    
+                    // Determine direction based on which paddle
+                    const direction = paddle.x < GAME_WIDTH / 2 ? 1 : -1;
+                    
+                    // Increase speed slightly
+                    this.speed = Math.min(this.speed * 1.05, MAX_BALL_SPEED);
+                    
+                    // Set new velocity
+                    this.velocity = new Vector2(
+                        Math.cos(angle) * this.speed * direction,
+                        Math.sin(angle) * this.speed
+                    );
+                    
+                    // Move ball out of paddle
+                    if (direction > 0) {
+                        this.x = paddle.x + paddle.width;
+                    } else {
+                        this.x = paddle.x - this.size;
+                    }
+                    
+                    // Create hit effect
+                    createParticles(this.x + this.size / 2, this.y + this.size / 2, '#fff');
+                    playSound('paddleHit');
+                }
+            }
+
+            render(ctx) {
+                // Draw trail
+                this.trail.forEach((pos, index) => {
+                    const alpha = (index / this.trail.length) * 0.5;
+                    ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                    const size = this.size * (index / this.trail.length);
+                    ctx.fillRect(pos.x + (this.size - size) / 2, pos.y + (this.size - size) / 2, size, size);
+                });
+
+                // Draw ball
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(this.x, this.y, this.size, this.size);
+                
+                // Add glow
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#fff';
+                ctx.fillRect(this.x, this.y, this.size, this.size);
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        // Particle system
+        const particles = [];
+
+        function createParticles(x, y, color) {
+            for (let i = 0; i < 10; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: (Math.random() - 0.5) * 4,
+                    life: 1,
+                    color: color
+                });
+            }
+        }
+
+        function updateParticles(deltaTime) {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx * deltaTime * 60;
+                p.y += p.vy * deltaTime * 60;
+                p.life -= deltaTime * 2;
+                
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        function renderParticles(ctx) {
+            particles.forEach(p => {
+                ctx.fillStyle = `rgba(255, 255, 255, ${p.life})`;
+                ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+            });
+        }
+
+        // Sound effects (using Web Audio API)
+        let audioContext;
+        const sounds = {};
+
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playSound(type) {
+            if (!audioContext) return;
+            
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            
+            osc.connect(gain);
+            gain.connect(audioContext.destination);
+            
+            switch(type) {
+                case 'paddleHit':
+                    osc.frequency.value = 220;
+                    osc.type = 'square';
+                    gain.gain.setValueAtTime(0.1, audioContext.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+                    osc.start();
+                    osc.stop(audioContext.currentTime + 0.1);
+                    break;
+                    
+                case 'wallHit':
+                    osc.frequency.value = 110;
+                    osc.type = 'triangle';
+                    gain.gain.setValueAtTime(0.05, audioContext.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.05);
+                    osc.start();
+                    osc.stop(audioContext.currentTime + 0.05);
+                    break;
+                    
+                case 'score':
+                    osc.frequency.value = 440;
+                    osc.type = 'sine';
+                    gain.gain.setValueAtTime(0.1, audioContext.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                    osc.start();
+                    osc.stop(audioContext.currentTime + 0.3);
+                    break;
+            }
+        }
+
+        // Game setup
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        canvas.width = GAME_WIDTH;
+        canvas.height = GAME_HEIGHT;
+
+        // Game objects
+        const player1 = new Paddle(30, GAME_HEIGHT / 2 - PADDLE_HEIGHT / 2, false);
+        const player2 = new Paddle(GAME_WIDTH - 30 - PADDLE_WIDTH, GAME_HEIGHT / 2 - PADDLE_HEIGHT / 2, true);
+        const ball = new Ball();
+
+        // Input handling
+        const keys = {};
+
+        window.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            
+            if (e.key === ' ') {
+                e.preventDefault();
+                handleSpacebar();
+            }
+            
+            // Enable audio on first interaction
+            if (!audioContext) {
+                initAudio();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+
+        function handleSpacebar() {
+            switch(gameState) {
+                case 'menu':
+                    startGame();
+                    break;
+                case 'playing':
+                    gameState = 'paused';
+                    break;
+                case 'paused':
+                    gameState = 'playing';
+                    break;
+                case 'gameOver':
+                    resetGame();
+                    break;
+            }
+        }
+
+        function handleInput() {
+            // Player 1 controls
+            if (keys['w'] || keys['W']) {
+                player1.velocity = -PADDLE_SPEED;
+            } else if (keys['s'] || keys['S']) {
+                player1.velocity = PADDLE_SPEED;
+            } else if (!joystickState.left.active) {
+                player1.velocity = 0;
+            }
+
+            // Player 2 controls (if not AI)
+            if (!player2.isAI) {
+                if (keys['ArrowUp']) {
+                    player2.velocity = -PADDLE_SPEED;
+                } else if (keys['ArrowDown']) {
+                    player2.velocity = PADDLE_SPEED;
+                } else if (!joystickState.right.active) {
+                    player2.velocity = 0;
+                }
+            }
+
+            // Mobile joystick input
+            if (joystickState.left.active) {
+                player1.velocity = joystickState.left.y * PADDLE_SPEED;
+            }
+            
+            if (joystickState.right.active && !player2.isAI) {
+                player2.velocity = joystickState.right.y * PADDLE_SPEED;
+            }
+        }
+
+        // Mobile joystick setup
+        function setupJoystick(element, side) {
+            const knob = element.querySelector('.joystick-knob');
+            
+            function handleStart(e) {
+                e.preventDefault();
+                joystickState[side].active = true;
+                if (!audioContext) initAudio();
+            }
+            
+            function handleMove(e) {
+                e.preventDefault();
+                if (!joystickState[side].active) return;
+                
+                const rect = element.getBoundingClientRect();
+                const centerY = rect.top + rect.height / 2;
+                
+                let clientY;
+                if (e.touches) {
+                    clientY = e.touches[0].clientY;
+                } else {
+                    clientY = e.clientY;
+                }
+                
+                const diffY = clientY - centerY;
+                const maxDist = rect.height / 2 - 20;
+                const clampedY = Math.max(-maxDist, Math.min(maxDist, diffY));
+                
+                joystickState[side].y = clampedY / maxDist;
+                
+                knob.style.transform = `translate(-50%, calc(-50% + ${clampedY}px))`;
+            }
+            
+            function handleEnd(e) {
+                e.preventDefault();
+                joystickState[side].active = false;
+                joystickState[side].y = 0;
+                knob.style.transform = 'translate(-50%, -50%)';
+            }
+            
+            element.addEventListener('touchstart', handleStart);
+            element.addEventListener('touchmove', handleMove);
+            element.addEventListener('touchend', handleEnd);
+            element.addEventListener('touchcancel', handleEnd);
+            
+            element.addEventListener('mousedown', handleStart);
+            window.addEventListener('mousemove', handleMove);
+            window.addEventListener('mouseup', handleEnd);
+        }
+
+        setupJoystick(document.getElementById('leftJoystick'), 'left');
+        setupJoystick(document.getElementById('rightJoystick'), 'right');
+
+        // Game functions
+        function startGame() {
+            gameState = 'playing';
+            player1Score = 0;
+            player2Score = 0;
+            winner = null;
+            ball.reset();
+            player1.reset();
+            player2.reset();
+        }
+
+        function resetGame() {
+            gameState = 'menu';
+            player1Score = 0;
+            player2Score = 0;
+            winner = null;
+            ball.reset();
+            player1.reset();
+            player2.reset();
+        }
+
+        function checkWinCondition() {
+            if (player1Score >= WINNING_SCORE) {
+                winner = 'Player 1';
+                gameState = 'gameOver';
+            } else if (player2Score >= WINNING_SCORE) {
+                winner = player2.isAI ? 'Computer' : 'Player 2';
+                gameState = 'gameOver';
+            }
+        }
+
+        // Render functions
+        function renderCourt(ctx) {
+            // Background
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+            // Center line
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 4;
+            ctx.setLineDash([10, 10]);
+            ctx.beginPath();
+            ctx.moveTo(GAME_WIDTH / 2, 0);
+            ctx.lineTo(GAME_WIDTH / 2, GAME_HEIGHT);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Scores
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.font = 'bold 60px Courier New';
+            ctx.textAlign = 'center';
+            ctx.fillText(player1Score, GAME_WIDTH / 4, 80);
+            ctx.fillText(player2Score, GAME_WIDTH * 3 / 4, 80);
+        }
+
+        function renderMenu(ctx) {
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 60px Courier New';
+            ctx.textAlign = 'center';
+            ctx.fillText('PONG', GAME_WIDTH / 2, GAME_HEIGHT / 3);
+
+            ctx.font = '24px Courier New';
+            ctx.fillText('Press SPACE to Start', GAME_WIDTH / 2, GAME_HEIGHT / 2);
+            
+            ctx.font = '16px Courier New';
+            ctx.fillStyle = '#888';
+            ctx.fillText('First to 11 points wins!', GAME_WIDTH / 2, GAME_HEIGHT / 2 + 40);
+        }
+
+        function renderPaused(ctx) {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 48px Courier New';
+            ctx.textAlign = 'center';
+            ctx.fillText('PAUSED', GAME_WIDTH / 2, GAME_HEIGHT / 2);
+
+            ctx.font = '24px Courier New';
+            ctx.fillText('Press SPACE to Resume', GAME_WIDTH / 2, GAME_HEIGHT / 2 + 50);
+        }
+
+        function renderGameOver(ctx) {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 48px Courier New';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${winner} Wins!`, GAME_WIDTH / 2, GAME_HEIGHT / 2 - 50);
+
+            ctx.font = '32px Courier New';
+            ctx.fillText(`${player1Score} - ${player2Score}`, GAME_WIDTH / 2, GAME_HEIGHT / 2);
+
+            ctx.font = '24px Courier New';
+            ctx.fillText('Press SPACE to Play Again', GAME_WIDTH / 2, GAME_HEIGHT / 2 + 50);
+        }
+
+        // Game loop
+        let lastTime = 0;
+
+        function gameLoop(currentTime) {
+            const deltaTime = (currentTime - lastTime) / 1000;
+            lastTime = currentTime;
+
+            // Handle input
+            handleInput();
+
+            // Update game objects
+            if (gameState === 'playing') {
+                player1.update(deltaTime);
+                player2.update(deltaTime, ball);
+                ball.update(deltaTime);
+                
+                // Check collisions
+                ball.checkPaddleCollision(player1);
+                ball.checkPaddleCollision(player2);
+            }
+
+            updateParticles(deltaTime);
+
+            // Render
+            renderCourt(ctx);
+            
+            if (gameState === 'playing' || gameState === 'paused') {
+                player1.render(ctx);
+                player2.render(ctx);
+                ball.render(ctx);
+            }
+
+            renderParticles(ctx);
+
+            // Render UI based on game state
+            switch(gameState) {
+                case 'menu':
+                    renderMenu(ctx);
+                    break;
+                case 'paused':
+                    renderPaused(ctx);
+                    break;
+                case 'gameOver':
+                    renderGameOver(ctx);
+                    break;
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Start the game
+        ball.reset();
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
