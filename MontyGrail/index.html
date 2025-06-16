@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Monty Python's Quest for the Holy Grail</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: none;
+            user-select: none;
+        }
+        
+        body {
+            background: linear-gradient(180deg, #000 0%, #001122 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            position: relative;
+            background: #000;
+            border: 3px solid #FFD700;
+            border-radius: 10px;
+            box-shadow: 0 0 20px #FFD70050;
+            width: 100vw;
+            height: 100vh;
+            max-width: 800px;
+            max-height: 600px;
+        }
+        
+        #gameCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            image-rendering: pixelated;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #FFD700;
+            font-size: 16px;
+            font-weight: bold;
+            text-shadow: 0 0 5px #FFD700;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            border: 2px solid #FFD700;
+        }
+        
+        #dialogue {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 600px;
+            background: rgba(0, 0, 0, 0.9);
+            border: 3px solid #00FF00;
+            border-radius: 10px;
+            padding: 15px;
+            color: #00FF00;
+            font-size: 14px;
+            text-align: center;
+            display: none;
+            z-index: 20;
+            text-shadow: 0 0 3px #00FF00;
+        }
+        
+        .dialogue-speaker {
+            color: #FFD700;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+            pointer-events: none;
+            z-index: 15;
+        }
+        
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 215, 0, 0.2);
+            border: 2px solid rgba(255, 215, 0, 0.5);
+            border-radius: 50%;
+            color: #FFD700;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: all 0.1s;
+            text-shadow: 0 0 5px #FFD700;
+        }
+        
+        .control-btn:active {
+            background: rgba(255, 215, 0, 0.4);
+            transform: scale(0.95);
+            box-shadow: 0 0 10px #FFD700;
+        }
+        
+        #dpad {
+            display: grid;
+            grid-template-columns: repeat(3, 50px);
+            grid-template-rows: repeat(3, 50px);
+            gap: 5px;
+            pointer-events: auto;
+        }
+        
+        .dpad-btn {
+            background: rgba(0, 255, 0, 0.2);
+            border: 2px solid rgba(0, 255, 0, 0.5);
+            border-radius: 5px;
+            color: #00FF00;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+        
+        .dpad-btn:active {
+            background: rgba(0, 255, 0, 0.4);
+            transform: scale(0.95);
+        }
+        
+        #action-btn {
+            background: rgba(255, 0, 0, 0.3);
+            border-color: rgba(255, 0, 0, 0.6);
+            color: #FF0000;
+        }
+        
+        #instructions {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: #888;
+            font-size: 11px;
+            text-align: right;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 5px;
+            border-radius: 3px;
+        }
+        
+        #resetBtn {
+            position: absolute;
+            top: 60px;
+            right: 10px;
+            padding: 8px 15px;
+            background: rgba(255, 0, 0, 0.2);
+            border: 2px solid #FF0000;
+            color: #FF0000;
+            font-size: 12px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 10;
+            transition: all 0.2s;
+        }
+        
+        #resetBtn:hover {
+            background: rgba(255, 0, 0, 0.4);
+            box-shadow: 0 0 10px #FF0000;
+        }
+        
+        #gameOver, #victory {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #FFD700;
+            text-align: center;
+            z-index: 30;
+        }
+        
+        #gameOver h1 {
+            color: #FF0000;
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px #FF0000;
+        }
+        
+        #victory h1 {
+            color: #00FF00;
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px #00FF00;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .quote {
+            font-size: 20px;
+            margin: 20px;
+            font-style: italic;
+        }
+        
+        .restart-btn {
+            padding: 15px 30px;
+            font-size: 20px;
+            background: #FFD700;
+            color: #000;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .restart-btn:hover {
+            background: #FFA500;
+            transform: scale(1.05);
+            box-shadow: 0 0 15px #FFD700;
+        }
+        
+        @media (max-width: 768px) {
+            #ui { font-size: 14px; padding: 8px; }
+            #dialogue { font-size: 12px; padding: 10px; }
+            .control-btn { width: 50px; height: 50px; font-size: 20px; }
+            .dpad-btn { font-size: 16px; }
+            #dpad { 
+                grid-template-columns: repeat(3, 40px);
+                grid-template-rows: repeat(3, 40px);
+            }
+            #resetBtn { font-size: 11px; padding: 6px 10px; }
+            #instructions { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="ui">
+            <div>COCONUTS: <span id="coconuts">2</span></div>
+            <div>HEALTH: <span id="health">5</span></div>
+            <div>QUEST: <span id="quest">Find the Holy Grail!</span></div>
+            <div style="font-size: 11px; margin-top: 5px; color: #FFD700;">Tip: Use coconuts as weapons!</div>
+        </div>
+        
+        <div id="instructions">
+            WASD/Arrows: Move<br>
+            SPACE: Action/Skip<br>
+            Swipe: Move (Mobile)
+        </div>
+        
+        <button id="resetBtn" onclick="resetGame()">RESET</button>
+        
+        <div id="dialogue">
+            <div class="dialogue-speaker"></div>
+            <div class="dialogue-text"></div>
+        </div>
+        
+        <div id="controls">
+            <div id="dpad">
+                <div></div>
+                <div class="dpad-btn" data-dir="up">↑</div>
+                <div></div>
+                <div class="dpad-btn" data-dir="left">←</div>
+                <div></div>
+                <div class="dpad-btn" data-dir="right">→</div>
+                <div></div>
+                <div class="dpad-btn" data-dir="down">↓</div>
+                <div></div>
+            </div>
+            <button class="control-btn" id="action-btn">⚔</button>
+        </div>
+        
+        <div id="gameOver">
+            <h1>YOU'RE DEAD!</h1>
+            <div class="quote">"I'm not dead yet!"<br>"Yes you are."</div>
+            <button class="restart-btn" onclick="resetGame()">RESPAWN</button>
+        </div>
+        
+        <div id="victory">
+            <h1>QUEST COMPLETE!</h1>
+            <div class="quote">"We've found the Holy Grail!"<br>"Oh, stop groveling!"</div>
+            <button class="restart-btn" onclick="resetGame()">NEW QUEST</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Set canvas size
+        function resizeCanvas() {
+            const container = document.getElementById('gameContainer');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Game state
+        let gameState = 'playing'; // playing, dialogue, combat, gameOver, victory
+        let player = {
+            x: 100,
+            y: 300,
+            width: 40,
+            height: 60,
+            speed: 3,
+            health: 5,
+            coconuts: 2,
+            hasGrail: false,
+            facing: 'right',
+            animFrame: 0
+        };
+        
+        // NPCs and objects
+        let npcs = [
+            {
+                type: 'blackKnight',
+                x: 400,
+                y: 300,
+                width: 50,
+                height: 70,
+                health: 3,
+                alive: true,
+                dialogue: [
+                    { speaker: "Black Knight", text: "None shall pass!" },
+                    { speaker: "Arthur", text: "I must cross this bridge!" },
+                    { speaker: "Black Knight", text: "Then you shall die!" }
+                ],
+                combatQuotes: ["'Tis but a scratch!", "Just a flesh wound!", "I've had worse!", "Come on, you pansy!"]
+            },
+            {
+                type: 'bridgeKeeper',
+                x: 600,
+                y: 200,
+                width: 40,
+                height: 60,
+                alive: true,
+                dialogue: [
+                    { speaker: "Bridge Keeper", text: "STOP! Who would cross the Bridge of Death must answer me these questions three!" },
+                    { speaker: "Arthur", text: "Ask me the questions, bridge keeper. I'm not afraid." },
+                    { speaker: "Bridge Keeper", text: "What... is your quest?" },
+                    { speaker: "Arthur", text: "To seek the Holy Grail!" },
+                    { speaker: "Bridge Keeper", text: "What... is the airspeed velocity of an unladen swallow?" },
+                    { speaker: "Arthur", text: "African or European swallow?" },
+                    { speaker: "Bridge Keeper", text: "I... I don't know that! AAAAAHHH!" }
+                ]
+            },
+            {
+                type: 'rabbit',
+                x: 500,
+                y: 400,
+                width: 30,
+                height: 30,
+                alive: true,
+                aggressive: false,
+                speed: 6,
+                health: 3,
+                hitCooldown: 0,
+                dialogue: [
+                    { speaker: "Tim", text: "That's no ordinary rabbit! That's the most foul, cruel, and bad-tempered rodent you ever set eyes on!" },
+                    { speaker: "Arthur", text: "It's just a harmless little bunny!" },
+                    { speaker: "Tim", text: "It's got huge, sharp... it can leap about... LOOK AT THE BONES!" }
+                ]
+            },
+            {
+                type: 'frenchman',
+                x: 300,
+                y: 100,
+                width: 40,
+                height: 60,
+                alive: true,
+                dialogue: [
+                    { speaker: "French Guard", text: "I don't want to talk to you no more, you empty-headed animal food trough wiper!" },
+                    { speaker: "French Guard", text: "I fart in your general direction! Your mother was a hamster and your father smelt of elderberries!" },
+                    { speaker: "Arthur", text: "Is there someone else up there we could talk to?" },
+                    { speaker: "French Guard", text: "No! Now go away or I shall taunt you a second time!" }
+                ]
+            }
+        ];
+        
+        let coconuts = [
+            { x: 200, y: 250, collected: false },
+            { x: 450, y: 150, collected: false },
+            { x: 650, y: 350, collected: false },
+            { x: 350, y: 400, collected: false },
+            { x: 550, y: 250, collected: false }
+        ];
+        
+        let grail = { x: 700, y: 100, width: 30, height: 40, visible: false };
+        
+        // Input handling
+        const keys = {};
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let currentDialogue = null;
+        let dialogueIndex = 0;
+        
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            
+            if (e.key === ' ') {
+                handleAction();
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+        });
+        
+        // Touch controls
+        canvas.addEventListener('touchstart', (e) => {
+            const touch = e.touches[0];
+            touchStartX = touch.clientX;
+            touchStartY = touch.clientY;
+        });
+        
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const deltaX = touch.clientX - touchStartX;
+            const deltaY = touch.clientY - touchStartY;
+            
+            if (Math.abs(deltaX) > 30) {
+                keys['arrowleft'] = deltaX < 0;
+                keys['arrowright'] = deltaX > 0;
+            }
+            if (Math.abs(deltaY) > 30) {
+                keys['arrowup'] = deltaY < 0;
+                keys['arrowdown'] = deltaY > 0;
+            }
+        });
+        
+        canvas.addEventListener('touchend', () => {
+            keys['arrowleft'] = false;
+            keys['arrowright'] = false;
+            keys['arrowup'] = false;
+            keys['arrowdown'] = false;
+        });
+        
+        // D-pad controls
+        document.querySelectorAll('.dpad-btn').forEach(btn => {
+            ['touchstart', 'mousedown'].forEach(eventType => {
+                btn.addEventListener(eventType, (e) => {
+                    e.preventDefault();
+                    const dir = btn.getAttribute('data-dir');
+                    keys['arrow' + dir] = true;
+                });
+            });
+            
+            ['touchend', 'mouseup'].forEach(eventType => {
+                btn.addEventListener(eventType, (e) => {
+                    e.preventDefault();
+                    const dir = btn.getAttribute('data-dir');
+                    keys['arrow' + dir] = false;
+                });
+            });
+        });
+        
+        // Action button
+        document.getElementById('action-btn').addEventListener('click', handleAction);
+        
+        // Handle action
+        function handleAction() {
+            if (gameState === 'dialogue') {
+                nextDialogue();
+            } else if (gameState === 'playing') {
+                // Check if rabbit is near and aggressive - throw coconut
+                const rabbit = npcs.find(n => n.type === 'rabbit');
+                if (rabbit && rabbit.alive && rabbit.aggressive && getDistance(player, rabbit) < 150 && player.coconuts > 0) {
+                    // Throw coconut at rabbit
+                    player.coconuts--;
+                    updateUI();
+                    
+                    rabbit.health--;
+                    rabbit.hitCooldown = 30;
+                    showDialogue("Take that, you beast!", "Arthur");
+                    
+                    if (rabbit.health <= 0) {
+                        rabbit.alive = false;
+                        updateQuest();
+                        setTimeout(() => {
+                            showDialogue("The rabbit is dead! ...We'd better not risk another frontal assault.", "Arthur");
+                        }, 1000);
+                    }
+                    return;
+                }
+                
+                // Check for nearby NPCs
+                npcs.forEach(npc => {
+                    if (npc.alive && getDistance(player, npc) < 80) {
+                        if (npc.type === 'blackKnight' && npc.health > 0) {
+                            // Combat with Black Knight
+                            npc.health--;
+                            showDialogue(npc.combatQuotes[3 - npc.health], "Black Knight");
+                            
+                            if (npc.health <= 0) {
+                                npc.alive = false;
+                                setTimeout(() => {
+                                    showDialogue("All right, we'll call it a draw.", "Black Knight");
+                                }, 1000);
+                            }
+                        } else if (npc.dialogue && npc.alive) {
+                            startDialogue(npc);
+                        }
+                    }
+                });
+            }
+        }
+        
+        // Dialogue system
+        function startDialogue(npc) {
+            if (npc.type === 'bridgeKeeper' && player.hasGrail) return;
+            
+            gameState = 'dialogue';
+            currentDialogue = npc.dialogue;
+            dialogueIndex = 0;
+            showCurrentDialogue();
+        }
+        
+        function showCurrentDialogue() {
+            if (dialogueIndex < currentDialogue.length) {
+                const line = currentDialogue[dialogueIndex];
+                showDialogue(line.text, line.speaker);
+            } else {
+                endDialogue();
+            }
+        }
+        
+        function nextDialogue() {
+            dialogueIndex++;
+            showCurrentDialogue();
+        }
+        
+        function endDialogue() {
+            gameState = 'playing';
+            document.getElementById('dialogue').style.display = 'none';
+            currentDialogue = null;
+            
+            // Special dialogue endings
+            const bridgeKeeper = npcs.find(n => n.type === 'bridgeKeeper');
+            if (bridgeKeeper && currentDialogue === bridgeKeeper.dialogue) {
+                bridgeKeeper.alive = false;
+                grail.visible = true;
+            }
+        }
+        
+        function showDialogue(text, speaker = "") {
+            const dialogueEl = document.getElementById('dialogue');
+            dialogueEl.style.display = 'block';
+            dialogueEl.querySelector('.dialogue-speaker').textContent = speaker;
+            dialogueEl.querySelector('.dialogue-text').textContent = text;
+        }
+        
+        // Update game
+        function update() {
+            if (gameState !== 'playing') return;
+            
+            // Player movement
+            let dx = 0, dy = 0;
+            if (keys['a'] || keys['arrowleft']) dx = -player.speed;
+            if (keys['d'] || keys['arrowright']) dx = player.speed;
+            if (keys['w'] || keys['arrowup']) dy = -player.speed;
+            if (keys['s'] || keys['arrowdown']) dy = player.speed;
+            
+            // Update position
+            player.x += dx;
+            player.y += dy;
+            
+            // Keep player in bounds
+            player.x = Math.max(20, Math.min(canvas.width - player.width - 20, player.x));
+            player.y = Math.max(20, Math.min(canvas.height - player.height - 20, player.y));
+            
+            // Update facing direction
+            if (dx > 0) player.facing = 'right';
+            if (dx < 0) player.facing = 'left';
+            
+            // Animation
+            if (dx !== 0 || dy !== 0) {
+                player.animFrame = (player.animFrame + 1) % 30;
+            }
+            
+            // Collect coconuts
+            coconuts.forEach(coconut => {
+                if (!coconut.collected && getDistance(player, coconut) < 40) {
+                    coconut.collected = true;
+                    player.coconuts++;
+                    updateUI();
+                }
+            });
+            
+            // Collect grail
+            if (grail.visible && getDistance(player, grail) < 50) {
+                player.hasGrail = true;
+                grail.visible = false;
+                gameState = 'victory';
+                document.getElementById('victory').style.display = 'flex';
+            }
+            
+            // Rabbit AI
+            const rabbit = npcs.find(n => n.type === 'rabbit');
+            if (rabbit && rabbit.alive) {
+                const dist = getDistance(player, rabbit);
+                
+                // Update hit cooldown
+                if (rabbit.hitCooldown > 0) {
+                    rabbit.hitCooldown--;
+                }
+                
+                if (!rabbit.aggressive && dist < 100) {
+                    startDialogue(rabbit);
+                    rabbit.aggressive = true;
+                    updateQuest();
+                }
+                
+                if (rabbit.aggressive && dist < 200 && rabbit.hitCooldown === 0) {
+                    // Chase player
+                    const angle = Math.atan2(player.y - rabbit.y, player.x - rabbit.x);
+                    rabbit.x += Math.cos(angle) * rabbit.speed;
+                    rabbit.y += Math.sin(angle) * rabbit.speed;
+                    
+                    // Attack
+                    if (dist < 40) {
+                        player.health--;
+                        updateUI();
+                        
+                        if (player.health <= 0) {
+                            gameState = 'gameOver';
+                            document.getElementById('gameOver').style.display = 'flex';
+                        }
+                        
+                        // Knockback
+                        player.x += Math.cos(angle) * 50;
+                        player.y += Math.sin(angle) * 50;
+                        rabbit.hitCooldown = 60; // Prevent spam attacks
+                    }
+                } else if (rabbit.aggressive && dist > 300) {
+                    // Stop chasing if too far
+                    rabbit.aggressive = false;
+                    updateQuest();
+                }
+            }
+            
+            // Quest updates
+            updateQuest();
+        }
+        
+        // Update quest text
+        function updateQuest() {
+            let quest = "Find the Holy Grail!";
+            
+            const rabbit = npcs.find(n => n.type === 'rabbit');
+            if (rabbit && rabbit.aggressive && rabbit.alive) {
+                quest = "Defeat the Rabbit! (Use coconuts!)";
+            } else if (!npcs.find(n => n.type === 'blackKnight').alive) {
+                quest = "Cross the Bridge of Death!";
+            } else if (!npcs.find(n => n.type === 'bridgeKeeper').alive) {
+                quest = "The Grail awaits!";
+            }
+            
+            document.getElementById('quest').textContent = quest;
+        }
+        
+        // Render game
+        function render() {
+            // Clear canvas
+            ctx.fillStyle = '#0a1a0a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw ground pattern
+            ctx.strokeStyle = '#1a2a1a';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < canvas.width; i += 40) {
+                for (let j = 0; j < canvas.height; j += 40) {
+                    ctx.strokeRect(i, j, 40, 40);
+                }
+            }
+            
+            // Draw coconuts
+            coconuts.forEach(coconut => {
+                if (!coconut.collected) {
+                    ctx.fillStyle = '#8B4513';
+                    ctx.beginPath();
+                    ctx.arc(coconut.x, coconut.y, 12, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#654321';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+            });
+            
+            // Draw Holy Grail
+            if (grail.visible) {
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(grail.x - 15, grail.y, 30, 25);
+                ctx.fillRect(grail.x - 20, grail.y - 5, 40, 10);
+                ctx.fillRect(grail.x - 10, grail.y + 25, 20, 10);
+                
+                // Glow effect
+                ctx.shadowColor = '#FFD700';
+                ctx.shadowBlur = 20;
+                ctx.fillStyle = '#FFFF00';
+                ctx.fillRect(grail.x - 5, grail.y + 5, 10, 15);
+                ctx.shadowBlur = 0;
+            }
+            
+            // Draw NPCs
+            npcs.forEach(npc => {
+                if (!npc.alive) return;
+                
+                switch(npc.type) {
+                    case 'blackKnight':
+                        // Body
+                        ctx.fillStyle = '#333';
+                        ctx.fillRect(npc.x - npc.width/2, npc.y - npc.height/2, npc.width, npc.height);
+                        // Helmet
+                        ctx.fillStyle = '#222';
+                        ctx.fillRect(npc.x - 20, npc.y - 35, 40, 25);
+                        // Sword
+                        ctx.fillStyle = '#C0C0C0';
+                        ctx.fillRect(npc.x + 20, npc.y - 30, 5, 40);
+                        // Health indicator
+                        if (npc.health < 3) {
+                            ctx.fillStyle = '#FF0000';
+                            ctx.fillText("!", npc.x - 5, npc.y - 45);
+                        }
+                        break;
+                        
+                    case 'bridgeKeeper':
+                        // Robe
+                        ctx.fillStyle = '#4B0082';
+                        ctx.fillRect(npc.x - npc.width/2, npc.y - npc.height/2, npc.width, npc.height);
+                        // Hood
+                        ctx.fillStyle = '#3A0066';
+                        ctx.beginPath();
+                        ctx.arc(npc.x, npc.y - 25, 20, 0, Math.PI * 2);
+                        ctx.fill();
+                        break;
+                        
+                    case 'rabbit':
+                        // Body
+                        ctx.fillStyle = npc.aggressive ? '#FF0000' : '#FFFFFF';
+                        if (npc.hitCooldown > 0 && Math.floor(npc.hitCooldown / 5) % 2) {
+                            ctx.fillStyle = '#FF8888'; // Flash when hit
+                        }
+                        ctx.beginPath();
+                        ctx.ellipse(npc.x, npc.y, 15, 12, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        // Ears
+                        ctx.beginPath();
+                        ctx.ellipse(npc.x - 8, npc.y - 15, 5, 12, -0.3, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.beginPath();
+                        ctx.ellipse(npc.x + 8, npc.y - 15, 5, 12, 0.3, 0, Math.PI * 2);
+                        ctx.fill();
+                        // Evil eyes
+                        if (npc.aggressive) {
+                            ctx.fillStyle = '#FFFF00';
+                            ctx.fillRect(npc.x - 8, npc.y - 5, 4, 2);
+                            ctx.fillRect(npc.x + 4, npc.y - 5, 4, 2);
+                        }
+                        // Health indicator
+                        if (npc.aggressive && npc.health < 3) {
+                            ctx.fillStyle = '#00FF00';
+                            ctx.fillRect(npc.x - 15, npc.y - 25, 10 * npc.health, 3);
+                            ctx.strokeStyle = '#008800';
+                            ctx.strokeRect(npc.x - 15, npc.y - 25, 30, 3);
+                        }
+                        // Show coconut throw hint
+                        if (npc.aggressive && getDistance(player, npc) < 150 && player.coconuts > 0) {
+                            ctx.fillStyle = '#FFD700';
+                            ctx.font = '12px Arial';
+                            ctx.fillText('Press SPACE to throw coconut!', npc.x - 80, npc.y - 40);
+                        }
+                        break;
+                        
+                    case 'frenchman':
+                        // Castle wall
+                        ctx.fillStyle = '#8B7355';
+                        ctx.fillRect(npc.x - 30, npc.y - 40, 60, 50);
+                        // Frenchman
+                        ctx.fillStyle = '#0000FF';
+                        ctx.fillRect(npc.x - 15, npc.y - 30, 30, 40);
+                        // Silly hat
+                        ctx.fillStyle = '#FF0000';
+                        ctx.beginPath();
+                        ctx.moveTo(npc.x - 15, npc.y - 30);
+                        ctx.lineTo(npc.x, npc.y - 50);
+                        ctx.lineTo(npc.x + 15, npc.y - 30);
+                        ctx.fill();
+                        break;
+                }
+            });
+            
+            // Draw player (King Arthur)
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            if (player.facing === 'left') {
+                ctx.scale(-1, 1);
+            }
+            
+            // Body
+            ctx.fillStyle = '#C0C0C0';
+            ctx.fillRect(-player.width/2, -player.height/2, player.width, player.height * 0.7);
+            
+            // Crown
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            ctx.moveTo(-15, -player.height/2);
+            ctx.lineTo(-15, -player.height/2 - 10);
+            ctx.lineTo(-10, -player.height/2 - 15);
+            ctx.lineTo(-5, -player.height/2 - 10);
+            ctx.lineTo(0, -player.height/2 - 15);
+            ctx.lineTo(5, -player.height/2 - 10);
+            ctx.lineTo(10, -player.height/2 - 15);
+            ctx.lineTo(15, -player.height/2 - 10);
+            ctx.lineTo(15, -player.height/2);
+            ctx.fill();
+            
+            // Cape
+            ctx.fillStyle = '#8B0000';
+            ctx.fillRect(-player.width/2 - 5, -player.height/2 + 10, player.width + 10, player.height * 0.6);
+            
+            // Sword
+            ctx.fillStyle = '#C0C0C0';
+            ctx.fillRect(player.width/2, -10, 20, 4);
+            ctx.fillRect(player.width/2 + 15, -15, 4, 14);
+            
+            // Coconut halves (if walking)
+            if (player.animFrame > 15) {
+                ctx.fillStyle = '#8B4513';
+                ctx.beginPath();
+                ctx.arc(-5, player.height/2 - 5, 8, 0, Math.PI);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(5, player.height/2 - 5, 8, 0, Math.PI);
+                ctx.fill();
+            }
+            
+            ctx.restore();
+            
+            // Draw health hearts
+            ctx.fillStyle = '#FF0000';
+            for (let i = 0; i < player.health; i++) {
+                drawHeart(20 + i * 25, 60, 10);
+            }
+        }
+        
+        // Helper functions
+        function drawHeart(x, y, size) {
+            ctx.beginPath();
+            ctx.moveTo(x, y + size / 4);
+            ctx.bezierCurveTo(x, y, x - size / 2, y, x - size / 2, y + size / 4);
+            ctx.bezierCurveTo(x - size / 2, y + size / 2, x, y + size * 3/4, x, y + size);
+            ctx.bezierCurveTo(x, y + size * 3/4, x + size / 2, y + size / 2, x + size / 2, y + size / 4);
+            ctx.bezierCurveTo(x + size / 2, y, x, y, x, y + size / 4);
+            ctx.fill();
+        }
+        
+        function getDistance(a, b) {
+            const dx = a.x - b.x;
+            const dy = a.y - b.y;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+        
+        function updateUI() {
+            document.getElementById('coconuts').textContent = player.coconuts;
+            document.getElementById('health').textContent = player.health;
+        }
+        
+        // Reset game
+        function resetGame() {
+            player = {
+                x: 100,
+                y: 300,
+                width: 40,
+                height: 60,
+                speed: 3,
+                health: 5,
+                coconuts: 2,
+                hasGrail: false,
+                facing: 'right',
+                animFrame: 0
+            };
+            
+            // Reset NPCs
+            npcs.forEach(npc => {
+                npc.alive = true;
+                if (npc.type === 'blackKnight') npc.health = 3;
+                if (npc.type === 'rabbit') {
+                    npc.aggressive = false;
+                    npc.health = 3;
+                    npc.hitCooldown = 0;
+                    npc.x = 500;
+                    npc.y = 400;
+                }
+            });
+            
+            // Reset items
+            coconuts.forEach(c => c.collected = false);
+            grail.visible = false;
+            
+            // Reset UI
+            gameState = 'playing';
+            document.getElementById('gameOver').style.display = 'none';
+            document.getElementById('victory').style.display = 'none';
+            document.getElementById('dialogue').style.display = 'none';
+            updateUI();
+            updateQuest();
+        }
+        
+        // Game loop
+        function gameLoop() {
+            update();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Start game
+        updateUI();
+        gameLoop();
+    </script>
+</body>
+</html>
