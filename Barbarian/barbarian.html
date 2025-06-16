@@ -1,0 +1,1530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>C64 Barbarian</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: none;
+            user-select: none;
+        }
+        
+        body {
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            max-width: 800px;
+            max-height: 600px;
+            background: #352879; /* C64 purple */
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+        }
+        
+        #gameCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 10px;
+            color: #FFFFFF;
+            font-size: 16px;
+            text-shadow: 2px 2px 0 #000;
+            pointer-events: none;
+        }
+        
+        .health-bar {
+            display: inline-block;
+            width: 150px;
+            height: 20px;
+            background: #000;
+            border: 2px solid #FFFFFF;
+            margin: 0 10px;
+        }
+        
+        .health-fill {
+            height: 100%;
+            background: #FF0000;
+            transition: width 0.3s;
+        }
+        
+        #player1-health {
+            float: left;
+        }
+        
+        #player2-health {
+            float: right;
+            text-align: right;
+        }
+        
+        #round-info {
+            text-align: center;
+            font-size: 24px;
+            margin-top: 10px;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            pointer-events: auto;
+        }
+        
+        .control-btn {
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid #FFFFFF;
+            border-radius: 5px;
+            color: #FFFFFF;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+        
+        .control-btn:active {
+            background: rgba(255, 255, 255, 0.4);
+            transform: scale(0.95);
+        }
+        
+        #touch-controls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 40%;
+            pointer-events: auto;
+            display: none;
+        }
+        
+        .touch-zone {
+            position: absolute;
+            width: 50%;
+            height: 100%;
+            opacity: 0;
+            pointer-events: auto;
+        }
+        
+        .touch-zone.left {
+            left: 0;
+        }
+        
+        .touch-zone.right {
+            right: 0;
+        }
+        
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #FFFF00;
+            font-size: 32px;
+            text-align: center;
+            text-shadow: 3px 3px 0 #000;
+            display: none;
+        }
+        
+        #instructions {
+            position: absolute;
+            bottom: 80px;
+            left: 10px;
+            color: #FFFFFF;
+            font-size: 12px;
+            text-shadow: 1px 1px 0 #000;
+        }
+        
+        @media (max-width: 768px) {
+            #controls { display: none; }
+            #touch-controls { display: block; }
+            #instructions { display: none; }
+            #ui { font-size: 14px; }
+            .health-bar { width: 100px; }
+            #message { font-size: 24px; }
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        
+        <div id="ui">
+            <div id="player1-health">
+                PLAYER 1
+                <div class="health-bar">
+                    <div class="health-fill" style="width: 100%"></div>
+                </div>
+            </div>
+            <div id="player2-health">
+                <div class="health-bar">
+                    <div class="health-fill" style="width: 100%"></div>
+                </div>
+                PLAYER 2
+            </div>
+            <div id="round-info">ROUND <span id="round">1</span></div>
+        </div>
+        
+        <div id="controls">
+            <button class="control-btn" data-key="ArrowLeft">←</button>
+            <button class="control-btn" data-key="ArrowRight">→</button>
+            <button class="control-btn" data-key="ArrowUp">↑</button>
+            <button class="control-btn" data-key="ArrowDown">↓</button>
+            <button class="control-btn" data-key=" ">⚔</button>
+            <button class="control-btn" data-key="k">👟</button>
+            <button class="control-btn" data-key="d" style="background: rgba(255, 0, 0, 0.3); border-color: #FF0000; color: #FF0000;" title="Decapitate (when enemy is weak)">💀</button>
+        </div>
+        
+        <div id="touch-controls">
+            <div class="touch-zone left"></div>
+            <div class="touch-zone right"></div>
+            <button class="control-btn" data-key="d" style="position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); background: rgba(255, 0, 0, 0.4); border-color: #FF0000; color: #FF0000; width: 80px; height: 80px; font-size: 32px; z-index: 10; pointer-events: auto;">💀</button>
+        </div>
+        
+        <div id="instructions">
+            ARROWS: Move/Block | SPACE: Attack | K: Kick | D: Decapitate | Mobile: Swipe/Long-press
+        </div>
+        
+        <div id="message"></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+        
+        // Game state
+        let gameState = 'playing'; // playing, roundEnd, gameOver
+        let round = 1;
+        let player1Wins = 0;
+        let player2Wins = 0;
+        
+        // Input state
+        const keys = {};
+        let touchStart = null;
+        let touchZone = null;
+        let lastTapTime = 0;
+        
+        // Characters
+        class Barbarian {
+            constructor(x, facing, isPlayer1) {
+                this.x = x;
+                this.y = 350;
+                this.width = 60;
+                this.height = 100;
+                this.facing = facing; // 1 = right, -1 = left
+                this.isPlayer1 = isPlayer1;
+                
+                // Combat state
+                this.health = 100;
+                this.maxHealth = 100;
+                this.state = 'idle'; // idle, walk, attack, block, hurt, dead
+                this.attackType = 'mid'; // high, mid, low
+                this.animFrame = 0;
+                this.animTimer = 0;
+                this.stateTimer = 0;
+                
+                // Movement
+                this.vx = 0;
+                this.moveSpeed = 3;
+                
+                // Colors (C64 style)
+                this.skinColor = isPlayer1 ? '#D2B48C' : '#8B7355';
+                this.clothColor = isPlayer1 ? '#FF0000' : '#0000FF';
+                this.hairColor = '#000000';
+                this.decapitated = false;
+                this.deathTimer = 0;
+            }
+            
+            update() {
+                // Animation
+                this.animTimer++;
+                if (this.animTimer > 8) {
+                    this.animTimer = 0;
+                    this.animFrame = (this.animFrame + 1) % 4;
+                }
+                
+                // State timer
+                if (this.stateTimer > 0) {
+                    this.stateTimer--;
+                    if (this.stateTimer === 0 && (this.state === 'attack' || this.state === 'kick')) {
+                        this.state = 'idle';
+                    }
+                    if (this.stateTimer === 0 && this.state === 'hurt') {
+                        this.state = 'idle';
+                    }
+                }
+                
+                // Death timer for blood spurts
+                if (this.state === 'dead' && this.decapitated) {
+                    this.deathTimer++;
+                    if (this.deathTimer < 60 && this.deathTimer % 4 === 0) {
+                        // Blood spurts from neck
+                        particles.push({
+                            x: this.x + (Math.random() - 0.5) * 10,
+                            y: this.y - 10,
+                            vx: (Math.random() - 0.5) * 3,
+                            vy: -Math.random() * 4 - 2,
+                            color: '#8B0000',
+                            life: 30
+                        });
+                    }
+                }
+                
+                // Movement
+                if (this.state === 'idle' || this.state === 'walk') {
+                    this.x += this.vx;
+                    this.x = Math.max(50, Math.min(canvas.width - 50, this.x));
+                }
+                
+                // Knockback bounds check
+                this.x = Math.max(50, Math.min(canvas.width - 50, this.x));
+                
+                // Face opponent
+                const opponent = this.isPlayer1 ? player2 : player1;
+                if (opponent && this.state !== 'dead') {
+                    this.facing = this.x < opponent.x ? 1 : -1;
+                }
+            }
+            
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.scale(this.facing, 1);
+                
+                // Draw based on state
+                switch (this.state) {
+                    case 'idle':
+                    case 'walk':
+                        this.drawIdle();
+                        break;
+                    case 'attack':
+                        this.drawAttack();
+                        break;
+                    case 'kick':
+                        this.drawKick();
+                        break;
+                    case 'block':
+                        this.drawBlock();
+                        break;
+                    case 'hurt':
+                        this.drawHurt();
+                        break;
+                    case 'dead':
+                        this.drawDead();
+                        break;
+                }
+                
+                // Draw sword
+                if (this.state !== 'dead' && this.state !== 'kick') {
+                    this.drawSword();
+                }
+                
+                ctx.restore();
+                
+                // Draw skull indicator when decapitation is possible
+                if (this.health <= 50 && this.health > 0 && this.state !== 'dead') {
+                    ctx.save();
+                    ctx.fillStyle = '#FF0000';
+                    ctx.font = '20px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('💀', this.x, this.y - 120);
+                    ctx.restore();
+                }
+            }
+            
+            drawIdle() {
+                // Slight wobble when low health
+                if (this.health <= 50 && this.health > 0) {
+                    ctx.save();
+                    ctx.translate(Math.sin(this.animFrame * 0.3) * 2, 0);
+                }
+                
+                // Body
+                ctx.fillStyle = this.skinColor;
+                ctx.fillRect(-15, -80, 30, 40);
+                
+                // Loincloth
+                ctx.fillStyle = this.clothColor;
+                ctx.fillRect(-15, -40, 30, 20);
+                
+                // Legs
+                ctx.fillStyle = this.skinColor;
+                const legOffset = this.state === 'walk' ? Math.sin(this.animFrame * Math.PI / 2) * 5 : 0;
+                ctx.fillRect(-10, -20, 8, 20);
+                ctx.fillRect(2, -20 + legOffset, 8, 20);
+                
+                // Arms
+                ctx.fillRect(-20, -70, 8, 25);
+                ctx.fillRect(12, -70, 8, 25);
+                
+                // Head
+                ctx.fillRect(-10, -100, 20, 20);
+                
+                // Hair
+                ctx.fillStyle = this.hairColor;
+                ctx.fillRect(-12, -102, 24, 8);
+                
+                // Eyes
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(-6, -95, 3, 3);
+                ctx.fillRect(3, -95, 3, 3);
+                
+                if (this.health <= 50 && this.health > 0) {
+                    ctx.restore();
+                }
+            }
+            
+            drawAttack() {
+                const attackAngle = this.attackType === 'high' ? -45 : 
+                                  this.attackType === 'low' ? 45 : 0;
+                
+                // Body
+                ctx.fillStyle = this.skinColor;
+                ctx.fillRect(-15, -80, 30, 40);
+                
+                // Loincloth
+                ctx.fillStyle = this.clothColor;
+                ctx.fillRect(-15, -40, 30, 20);
+                
+                // Legs
+                ctx.fillStyle = this.skinColor;
+                ctx.fillRect(-10, -20, 8, 20);
+                ctx.fillRect(2, -20, 8, 20);
+                
+                // Attacking arm extended
+                ctx.save();
+                ctx.translate(12, -70);
+                ctx.rotate(attackAngle * Math.PI / 180);
+                ctx.fillRect(0, 0, 30, 8);
+                ctx.restore();
+                
+                // Other arm
+                ctx.fillRect(-20, -70, 8, 25);
+                
+                // Head
+                ctx.fillRect(-10, -100, 20, 20);
+                
+                // Hair
+                ctx.fillStyle = this.hairColor;
+                ctx.fillRect(-12, -102, 24, 8);
+            }
+            
+            drawKick() {
+                // Body leaning back
+                ctx.save();
+                ctx.translate(0, 0);
+                ctx.rotate(-10 * Math.PI / 180);
+                
+                // Body
+                ctx.fillStyle = this.skinColor;
+                ctx.fillRect(-15, -80, 30, 40);
+                
+                // Loincloth
+                ctx.fillStyle = this.clothColor;
+                ctx.fillRect(-15, -40, 30, 20);
+                
+                // Standing leg
+                ctx.fillStyle = this.skinColor;
+                ctx.fillRect(-10, -20, 8, 20);
+                
+                // Head
+                ctx.fillRect(-10, -100, 20, 20);
+                
+                // Hair
+                ctx.fillStyle = this.hairColor;
+                ctx.fillRect(-12, -102, 24, 8);
+                
+                // Arms for balance
+                ctx.fillStyle = this.skinColor;
+                ctx.fillRect(-25, -70, 8, 25);
+                ctx.fillRect(17, -70, 8, 25);
+                
+                ctx.restore();
+                
+                // Kicking leg extended
+                ctx.fillStyle = this.skinColor;
+                ctx.save();
+                ctx.translate(2, -40);
+                ctx.rotate(70 * Math.PI / 180);
+                ctx.fillRect(0, 0, 8, 30);
+                // Foot
+                ctx.fillRect(-2, 30, 12, 6);
+                ctx.restore();
+            }
+            
+            drawBlock() {
+                // Body
+                ctx.fillStyle = this.skinColor;
+                ctx.fillRect(-15, -80, 30, 40);
+                
+                // Loincloth
+                ctx.fillStyle = this.clothColor;
+                ctx.fillRect(-15, -40, 30, 20);
+                
+                // Legs
+                ctx.fillStyle = this.skinColor;
+                ctx.fillRect(-10, -20, 8, 20);
+                ctx.fillRect(2, -20, 8, 20);
+                
+                // Arms in defensive position
+                ctx.fillRect(-5, -75, 8, 30);
+                ctx.fillRect(12, -75, 8, 30);
+                
+                // Head
+                ctx.fillRect(-10, -100, 20, 20);
+            }
+            
+            drawHurt() {
+                ctx.save();
+                
+                // Extra wobble when can be decapitated
+                if (this.health <= 50) {
+                    ctx.translate(Math.sin(this.stateTimer * 0.8) * 3, Math.sin(this.stateTimer * 0.5) * 5);
+                } else {
+                    ctx.translate(0, Math.sin(this.stateTimer * 0.5) * 5);
+                }
+                
+                this.drawIdle();
+                ctx.restore();
+            }
+            
+            drawDead() {
+                // Lying on ground
+                ctx.fillStyle = this.skinColor;
+                ctx.fillRect(-40, -10, 40, 15);
+                ctx.fillRect(-10, -10, 20, 10);
+                
+                // Blood pool
+                ctx.fillStyle = '#8B0000';
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 50, 15, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Don't show head if decapitated
+                if (!this.decapitated) {
+                    // Head still attached
+                    ctx.fillStyle = this.skinColor;
+                    ctx.fillRect(-10, -15, 15, 15);
+                    ctx.fillStyle = this.hairColor;
+                    ctx.fillRect(-12, -17, 19, 5);
+                } else {
+                    // Blood gushing from neck
+                    ctx.fillStyle = '#8B0000';
+                    ctx.fillRect(-8, -15, 16, 8);
+                    // Extra blood spurts
+                    for (let i = 0; i < 3; i++) {
+                        ctx.fillRect(-5 + i * 5, -18 - i * 2, 3, 6);
+                    }
+                }
+            }
+            
+            drawSword() {
+                ctx.fillStyle = '#C0C0C0';
+                
+                if (this.state === 'attack') {
+                    const attackAngle = this.attackType === 'high' ? -45 : 
+                                      this.attackType === 'low' ? 45 : 0;
+                    
+                    // Special animation for decapitation
+                    if (this.stateTimer > 20) {
+                        // Decapitation swing - wider arc
+                        ctx.save();
+                        ctx.translate(25, -65);
+                        ctx.rotate(-60 * Math.PI / 180);
+                        ctx.fillRect(0, -2, 50, 4);
+                        // Blade tip
+                        ctx.beginPath();
+                        ctx.moveTo(50, -2);
+                        ctx.lineTo(55, 0);
+                        ctx.lineTo(50, 2);
+                        ctx.fill();
+                        // Blade glow effect
+                        ctx.strokeStyle = '#FF0000';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(0, -2, 50, 4);
+                        ctx.restore();
+                    } else {
+                        // Regular attack
+                        ctx.save();
+                        ctx.translate(25, -65);
+                        ctx.rotate(attackAngle * Math.PI / 180);
+                        ctx.fillRect(0, -2, 40, 4);
+                        // Blade tip
+                        ctx.beginPath();
+                        ctx.moveTo(40, -2);
+                        ctx.lineTo(45, 0);
+                        ctx.lineTo(40, 2);
+                        ctx.fill();
+                        ctx.restore();
+                    }
+                } else if (this.state === 'block') {
+                    // Sword in defensive position
+                    ctx.fillRect(15, -80, 4, 40);
+                } else {
+                    // Sword at side
+                    ctx.fillRect(20, -70, 4, 35);
+                }
+            }
+            
+            attack(type) {
+                if (this.state !== 'idle' && this.state !== 'walk') return;
+                
+                this.state = 'attack';
+                this.attackType = type;
+                this.stateTimer = 20;
+                
+                // Check hit
+                const opponent = this.isPlayer1 ? player2 : player1;
+                if (this.checkHit(opponent)) {
+                    if (opponent.state === 'block' && this.attackType === 'mid') {
+                        // Blocked
+                        createSpark(opponent.x, opponent.y - 60);
+                    } else {
+                        // Hit
+                        let damage = 20;
+                        if (this.attackType === opponent.state && opponent.state === 'block') {
+                            damage = 10; // Partial block
+                        }
+                        
+                        opponent.takeDamage(damage);
+                    }
+                }
+            }
+            
+            decapitate() {
+                if (this.state !== 'idle' && this.state !== 'walk') return;
+                
+                const opponent = this.isPlayer1 ? player2 : player1;
+                
+                // Can only decapitate if opponent is hurt or low health and close
+                if (opponent.health <= 40 && opponent.health > 0 && this.checkHit(opponent) && opponent.state !== 'dead') {
+                    this.state = 'attack';
+                    this.attackType = 'high';
+                    this.stateTimer = 35; // Longer animation for decapitation
+                    
+                    // Instant kill with decapitation
+                    opponent.health = -100;
+                    opponent.decapitated = true;
+                    opponent.state = 'dead';
+                    
+                    showMessage("DECAPITATION!");
+                    
+                    // Screen flash effect
+                    flashScreen();
+                    
+                    // Create severed head at exact head position
+                    severedHead = {
+                        x: opponent.x,
+                        y: opponent.y - 90, // Exact head height
+                        vx: this.facing * 2, // Slight horizontal movement
+                        vy: -3, // Small pop up
+                        rotation: 0,
+                        rotSpeed: 0.2,
+                        skinColor: opponent.skinColor,
+                        hairColor: opponent.hairColor
+                    };
+                    
+                    // Extra blood gush effect
+                    for (let i = 0; i < 30; i++) {
+                        particles.push({
+                            x: opponent.x,
+                            y: opponent.y - 90,
+                            vx: (Math.random() - 0.5) * 12,
+                            vy: -Math.random() * 15 - 5,
+                            color: '#8B0000',
+                            life: 50 + Math.random() * 30
+                        });
+                    }
+                } else {
+                    // Miss animation if can't decapitate
+                    this.state = 'attack';
+                    this.attackType = 'high';
+                    this.stateTimer = 20;
+                    
+                    // Show why it failed
+                    if (opponent.state === 'dead') {
+                        // Already dead
+                    } else if (opponent.health > 40) {
+                        showMessage("TOO HEALTHY!");
+                    } else if (!this.checkHit(opponent)) {
+                        showMessage("TOO FAR!");
+                    }
+                }
+            }
+            
+            kick() {
+                if (this.state !== 'idle' && this.state !== 'walk') return;
+                
+                this.state = 'kick';
+                this.stateTimer = 25;
+                
+                // Check hit
+                const opponent = this.isPlayer1 ? player2 : player1;
+                if (this.checkHit(opponent)) {
+                    if (opponent.state === 'block') {
+                        // Kick breaks through block partially
+                        opponent.takeDamage(10);
+                        opponent.x += this.facing * 20; // Knockback
+                    } else {
+                        opponent.takeDamage(15);
+                        opponent.x += this.facing * 30; // Stronger knockback
+                    }
+                }
+            }
+            
+            checkHit(opponent) {
+                if (opponent.state === 'dead') return false;
+                
+                const distance = Math.abs(this.x - opponent.x);
+                return distance < 90; // Slightly more generous for decapitation
+            }
+            
+            takeDamage(amount) {
+                if (this.state === 'dead') return;
+                
+                this.health -= amount;
+                
+                if (this.health <= 0) {
+                    this.state = 'dead';
+                    this.health = Math.min(0, this.health);
+                } else {
+                    this.state = 'hurt';
+                    this.stateTimer = 15;
+                    
+                    // Show decapitation possibility
+                    if (this.health <= 50 && this.health + amount > 50) {
+                        showMessage("FINISH HIM!");
+                    }
+                }
+                
+                // Blood effect
+                for (let i = 0; i < 5; i++) {
+                    particles.push({
+                        x: this.x + (Math.random() - 0.5) * 20,
+                        y: this.y - 60 + (Math.random() - 0.5) * 20,
+                        vx: (Math.random() - 0.5) * 5,
+                        vy: -Math.random() * 5,
+                        color: '#8B0000',
+                        life: 30
+                    });
+                }
+            }
+            
+            block() {
+                if (this.state !== 'idle' && this.state !== 'walk') return;
+                this.state = 'block';
+            }
+            
+            stopBlock() {
+                if (this.state === 'block') {
+                    this.state = 'idle';
+                }
+            }
+        }
+        
+        // Goblin character
+        class Goblin {
+            constructor() {
+                this.x = -50;
+                this.y = 380;
+                this.active = false;
+                this.hasKicked = false;
+                this.animFrame = 0;
+                this.animTimer = 0;
+                this.walkSpeed = 3;
+            }
+            
+            activate() {
+                this.active = true;
+                this.hasKicked = false;
+                this.x = -50;
+                this.walkSpeed = 3;
+            }
+            
+            update() {
+                if (!this.active) return;
+                
+                this.animTimer++;
+                if (this.animTimer > 6) {
+                    this.animTimer = 0;
+                    this.animFrame = (this.animFrame + 1) % 4;
+                }
+                
+                // Walk across stage
+                this.x += this.walkSpeed;
+                
+                // Check if near the head and haven't kicked yet
+                if (severedHead && !this.hasKicked && severedHead.y >= 380) {
+                    const headDistance = Math.abs(this.x - severedHead.x);
+                    if (headDistance < 30) {
+                        // Kick the head!
+                        this.hasKicked = true;
+                        
+                        // Strong kick sends head flying
+                        severedHead.vx = 15 + Math.random() * 5;
+                        severedHead.vy = -12 - Math.random() * 4;
+                        severedHead.rotSpeed = 0.8;
+                        
+                        showMessage("BOOT!");
+                        
+                        // Kick impact particles
+                        for (let i = 0; i < 8; i++) {
+                            particles.push({
+                                x: severedHead.x,
+                                y: severedHead.y,
+                                vx: Math.random() * 8,
+                                vy: -Math.random() * 6,
+                                color: i % 2 ? '#FFFF00' : '#00FF00',
+                                life: 20
+                            });
+                        }
+                        
+                        // Small kick animation pause
+                        this.walkSpeed = 0;
+                        setTimeout(() => {
+                            this.walkSpeed = 3;
+                            showMessage("HEH HEH HEH!");
+                        }, 300);
+                    }
+                }
+                
+                // Deactivate when off screen
+                if (this.x > canvas.width + 100) {
+                    this.active = false;
+                }
+            }
+            
+            draw() {
+                if (!this.active) return;
+                
+                // Shadow
+                ctx.save();
+                ctx.globalAlpha = 0.3;
+                ctx.fillStyle = '#000000';
+                ctx.beginPath();
+                ctx.ellipse(this.x, this.y, 15, 5, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+                
+                // Green goblin
+                ctx.fillStyle = '#228B22';
+                
+                // Body
+                ctx.fillRect(this.x - 10, this.y - 30, 20, 20);
+                
+                // Head (bobbing animation)
+                const headBob = Math.sin(this.animFrame * 0.5) * 2;
+                ctx.fillRect(this.x - 8, this.y - 45 + headBob, 16, 15);
+                
+                // Legs with walk animation
+                const legOffset = Math.sin(this.animFrame * Math.PI / 2) * 4;
+                
+                if (this.walkSpeed > 0) {
+                    // Walking with exaggerated steps
+                    ctx.fillRect(this.x - 6, this.y - 10 - Math.abs(legOffset), 5, 10 + Math.abs(legOffset));
+                    ctx.fillRect(this.x + 1, this.y - 10 + legOffset, 5, 10 - legOffset);
+                } else {
+                    // Kicking pose
+                    ctx.fillRect(this.x - 6, this.y - 10, 5, 10);
+                    // Kicking leg extended
+                    ctx.save();
+                    ctx.translate(this.x + 3, this.y - 10);
+                    ctx.rotate(-60 * Math.PI / 180);
+                    ctx.fillRect(0, 0, 5, 14);
+                    // Foot
+                    ctx.fillRect(-2, 14, 9, 4);
+                    ctx.restore();
+                }
+                
+                // Arms
+                if (this.walkSpeed === 0) {
+                    // Victory pose arms
+                    ctx.save();
+                    ctx.translate(this.x, this.y - 25);
+                    ctx.rotate(-45 * Math.PI / 180);
+                    ctx.fillRect(-20, -2, 15, 5);
+                    ctx.rotate(90 * Math.PI / 180);
+                    ctx.fillRect(5, -2, 15, 5);
+                    ctx.restore();
+                } else {
+                    // Normal walking arms
+                    ctx.fillRect(this.x - 15, this.y - 25, 5, 15);
+                    ctx.fillRect(this.x + 10, this.y - 25, 5, 15);
+                }
+                
+                // Eyes (glowing when kicking)
+                ctx.fillStyle = this.walkSpeed === 0 ? '#FFFF00' : '#FF0000';
+                ctx.fillRect(this.x - 5, this.y - 40 + headBob, 2, 2);
+                ctx.fillRect(this.x + 3, this.y - 40 + headBob, 2, 2);
+                
+                // Evil grin when kicking
+                if (this.walkSpeed === 0) {
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(this.x - 4, this.y - 35 + headBob, 8, 1);
+                }
+            }
+        }
+        
+        // Game objects
+        let player1 = new Barbarian(200, 1, true);
+        let player2 = new Barbarian(600, -1, false);
+        let goblin = new Goblin();
+        let particles = [];
+        let severedHead = null;
+        let bloodPools = [];
+        
+        // Princess in background
+        function drawPrincess() {
+            const x = canvas.width / 2;
+            const y = 200;
+            
+            // Throne
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(x - 30, y - 20, 60, 50);
+            
+            // Princess
+            ctx.fillStyle = '#FFB6C1';
+            ctx.fillRect(x - 10, y - 60, 20, 30); // Dress
+            
+            ctx.fillStyle = '#FDBCB4';
+            ctx.fillRect(x - 8, y - 80, 16, 20); // Body
+            ctx.fillRect(x - 5, y - 95, 10, 15); // Head
+            
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(x - 7, y - 97, 14, 5); // Hair
+            
+            // Crown
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            ctx.moveTo(x - 5, y - 97);
+            ctx.lineTo(x - 7, y - 102);
+            ctx.lineTo(x, y - 105);
+            ctx.lineTo(x + 7, y - 102);
+            ctx.lineTo(x + 5, y - 97);
+            ctx.fill();
+            
+            // Hands covering eyes during decapitation
+            if (severedHead && gameState === 'roundEnd') {
+                ctx.fillStyle = '#FDBCB4';
+                // Hands over face
+                ctx.fillRect(x - 12, y - 92, 8, 12);
+                ctx.fillRect(x + 4, y - 92, 8, 12);
+            }
+        }
+        
+        // Background
+        function drawBackground() {
+            // Sky gradient (C64 style with limited colors)
+            ctx.fillStyle = '#352879';
+            ctx.fillRect(0, 0, canvas.width, canvas.height / 2);
+            
+            ctx.fillStyle = '#1D0E4B';
+            ctx.fillRect(0, canvas.height / 2, canvas.width, canvas.height / 2);
+            
+            // Ground
+            ctx.fillStyle = '#8B7355';
+            ctx.fillRect(0, 400, canvas.width, 200);
+            
+            // Ground texture
+            ctx.strokeStyle = '#654321';
+            ctx.lineWidth = 2;
+            for (let x = 0; x < canvas.width; x += 40) {
+                ctx.beginPath();
+                ctx.moveTo(x, 400);
+                ctx.lineTo(x + 20, 420);
+                ctx.stroke();
+            }
+            
+            // Pillars
+            ctx.fillStyle = '#696969';
+            ctx.fillRect(50, 200, 40, 200);
+            ctx.fillRect(canvas.width - 90, 200, 40, 200);
+            
+            // Draw princess
+            drawPrincess();
+        }
+        
+        // Effects
+        function createSpark(x, y) {
+            for (let i = 0; i < 8; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8,
+                    color: '#FFFF00',
+                    life: 15
+                });
+            }
+        }
+        
+        function updateSeveredHead() {
+            if (!severedHead) return;
+            
+            const prevY = severedHead.y;
+            
+            // Physics
+            severedHead.x += severedHead.vx;
+            severedHead.y += severedHead.vy;
+            severedHead.vy += 0.5; // Gravity
+            severedHead.rotation += severedHead.rotSpeed || 0.2;
+            
+            // Bounce on ground
+            if (severedHead.y > 385) {
+                severedHead.y = 385;
+                
+                // Create blood splatter on first ground hit
+                if (prevY <= 385 && severedHead.vy > 5) {
+                    bloodPools.push({
+                        x: severedHead.x,
+                        y: 395,
+                        size: 20 + Math.random() * 10,
+                        alpha: 1.0
+                    });
+                    
+                    // Blood splash particles
+                    for (let i = 0; i < 8; i++) {
+                        particles.push({
+                            x: severedHead.x,
+                            y: 385,
+                            vx: (Math.random() - 0.5) * 4,
+                            vy: -Math.random() * 3,
+                            color: '#8B0000',
+                            life: 25
+                        });
+                    }
+                }
+                
+                if (Math.abs(severedHead.vy) > 1) {
+                    // Bounce with energy loss
+                    severedHead.vy = -severedHead.vy * 0.6;
+                    severedHead.vx *= 0.9; // Friction on bounce
+                } else {
+                    // Stop bouncing when velocity is low
+                    severedHead.vy = 0;
+                    severedHead.vx *= 0.95; // Rolling friction
+                    severedHead.rotSpeed = severedHead.vx * 0.1; // Roll with movement
+                    
+                    // Leave small blood trail when rolling
+                    if (Math.abs(severedHead.vx) > 0.5 && Math.random() < 0.2) {
+                        bloodPools.push({
+                            x: severedHead.x,
+                            y: 395,
+                            size: 5 + Math.random() * 3,
+                            alpha: 0.5
+                        });
+                    }
+                }
+            }
+            
+            // Off screen check
+            if (severedHead.x > canvas.width + 100 || severedHead.x < -100) {
+                severedHead = null;
+            }
+        }
+        
+        function drawSeveredHead() {
+            if (!severedHead) return;
+            
+            ctx.save();
+            ctx.translate(severedHead.x, severedHead.y);
+            ctx.rotate(severedHead.rotation);
+            
+            // Wobble effect when rolling
+            if (Math.abs(severedHead.vx) > 1) {
+                ctx.scale(1 + Math.sin(severedHead.rotation * 2) * 0.1, 1);
+            }
+            
+            // Head
+            ctx.fillStyle = severedHead.skinColor;
+            ctx.fillRect(-10, -10, 20, 20);
+            
+            // Hair
+            ctx.fillStyle = severedHead.hairColor;
+            ctx.fillRect(-12, -12, 24, 8);
+            
+            // Blood at neck
+            ctx.fillStyle = '#8B0000';
+            ctx.fillRect(-5, 10, 10, 5);
+            
+            // Dead eyes (X's)
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 2;
+            // Left eye X
+            ctx.beginPath();
+            ctx.moveTo(-6, -5);
+            ctx.lineTo(-3, -2);
+            ctx.moveTo(-6, -2);
+            ctx.lineTo(-3, -5);
+            ctx.stroke();
+            // Right eye X
+            ctx.beginPath();
+            ctx.moveTo(3, -5);
+            ctx.lineTo(6, -2);
+            ctx.moveTo(3, -2);
+            ctx.lineTo(6, -5);
+            ctx.stroke();
+            
+            // Tongue sticking out
+            ctx.fillStyle = '#FF69B4';
+            ctx.fillRect(0, 3, 6, 8);
+            
+            ctx.restore();
+            
+            // Blood trail drops when bouncing
+            if (Math.abs(severedHead.vy) > 2 && Math.random() < 0.3) {
+                particles.push({
+                    x: severedHead.x,
+                    y: severedHead.y + 10,
+                    vx: (Math.random() - 0.5) * 2,
+                    vy: Math.random() * 2,
+                    color: '#8B0000',
+                    life: 20
+                });
+            }
+        }
+        
+        function updateParticles() {
+            particles = particles.filter(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.5;
+                p.life--;
+                return p.life > 0;
+            });
+        }
+        
+        function drawParticles() {
+            particles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life / 30;
+                ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+                ctx.globalAlpha = 1;
+            });
+        }
+        
+        function drawBloodPools() {
+            bloodPools.forEach(pool => {
+                ctx.save();
+                ctx.globalAlpha = pool.alpha;
+                ctx.fillStyle = '#8B0000';
+                ctx.beginPath();
+                ctx.ellipse(pool.x, pool.y, pool.size, pool.size * 0.3, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+                
+                // Slowly fade blood pools
+                pool.alpha *= 0.998;
+            });
+            
+            // Remove very faded pools
+            bloodPools = bloodPools.filter(pool => pool.alpha > 0.1);
+        }
+        
+        // UI functions
+        function updateUI() {
+            // Health bars
+            const p1Health = Math.max(0, player1.health);
+            const p2Health = Math.max(0, player2.health);
+            
+            document.querySelector('#player1-health .health-fill').style.width = 
+                (p1Health / player1.maxHealth * 100) + '%';
+            document.querySelector('#player2-health .health-fill').style.width = 
+                (p2Health / player2.maxHealth * 100) + '%';
+            
+            // Flash health bar when low (decapitation possible)
+            if (p1Health <= 50 && p1Health > 0) {
+                document.querySelector('#player1-health .health-fill').style.background = 
+                    Math.sin(Date.now() * 0.01) > 0 ? '#FF0000' : '#880000';
+            }
+            if (p2Health <= 50 && p2Health > 0) {
+                document.querySelector('#player2-health .health-fill').style.background = 
+                    Math.sin(Date.now() * 0.01) > 0 ? '#FF0000' : '#880000';
+            }
+            
+            document.getElementById('round').textContent = round;
+        }
+        
+        function showMessage(text) {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.style.display = 'block';
+            setTimeout(() => {
+                msg.style.display = 'none';
+            }, 2000);
+        }
+        
+        function flashScreen() {
+            const flash = document.createElement('div');
+            flash.style.position = 'absolute';
+            flash.style.top = '0';
+            flash.style.left = '0';
+            flash.style.width = '100%';
+            flash.style.height = '100%';
+            flash.style.backgroundColor = 'rgba(255, 0, 0, 0.5)';
+            flash.style.pointerEvents = 'none';
+            flash.style.zIndex = '999';
+            document.getElementById('gameContainer').appendChild(flash);
+            
+            setTimeout(() => {
+                flash.remove();
+            }, 100);
+        }
+        
+        // Game loop
+        function update() {
+            if (gameState !== 'playing') return;
+            
+            // Player 1 controls
+            if (keys['ArrowLeft']) {
+                player1.vx = -player1.moveSpeed;
+                player1.state = player1.state === 'idle' ? 'walk' : player1.state;
+            } else if (keys['ArrowRight']) {
+                player1.vx = player1.moveSpeed;
+                player1.state = player1.state === 'idle' ? 'walk' : player1.state;
+            } else {
+                player1.vx = 0;
+                if (player1.state === 'walk') player1.state = 'idle';
+            }
+            
+            if (keys['ArrowDown']) {
+                player1.block();
+            } else {
+                player1.stopBlock();
+            }
+            
+            // Basic AI for player 2
+            updateAI();
+            
+            // Update characters
+            player1.update();
+            player2.update();
+            goblin.update();
+            
+            // Update effects
+            updateParticles();
+            updateSeveredHead();
+            
+            // Check round end
+            if (player1.state === 'dead' || player2.state === 'dead') {
+                gameState = 'roundEnd';
+                
+                // Activate goblin after decapitation
+                if (severedHead) {
+                    setTimeout(() => {
+                        goblin.activate();
+                    }, 2000); // Wait for head to settle
+                }
+                
+                setTimeout(() => {
+                    endRound();
+                }, severedHead ? 5000 : 3000); // More time if decapitation
+            }
+            
+            // Update UI
+            updateUI();
+            
+            // Update decapitation button visual
+            document.querySelectorAll('[data-key="d"]').forEach(decapBtn => {
+                if (player2.health <= 50 && player2.health > 0 && 
+                    Math.abs(player1.x - player2.x) < 90) {
+                    decapBtn.style.animation = 'pulse 0.5s infinite';
+                    decapBtn.style.boxShadow = '0 0 20px #FF0000';
+                } else {
+                    decapBtn.style.animation = '';
+                    decapBtn.style.boxShadow = '';
+                }
+            });
+        }
+        
+        // Simple AI
+        function updateAI() {
+            if (player2.state === 'dead' || player2.state === 'hurt') return;
+            
+            const distance = Math.abs(player2.x - player1.x);
+            
+            // Move towards player
+            if (distance > 100) {
+                if (player2.x > player1.x) {
+                    player2.vx = -player2.moveSpeed;
+                    player2.state = 'walk';
+                } else {
+                    player2.vx = player2.moveSpeed;
+                    player2.state = 'walk';
+                }
+            } else {
+                player2.vx = 0;
+                if (player2.state === 'walk') player2.state = 'idle';
+                
+                // Attack or block
+                if (Math.random() < 0.02) {
+                    const action = Math.random();
+                    
+                    // Check if can decapitate
+                    if (player1.health <= 50 && distance < 90 && action < 0.3) {
+                        player2.decapitate();
+                    } else if (action < 0.5) {
+                        // Attack
+                        const types = ['high', 'mid', 'low'];
+                        player2.attack(types[Math.floor(Math.random() * types.length)]);
+                    } else if (action < 0.7) {
+                        // Kick
+                        player2.kick();
+                    } else {
+                        // Block
+                        player2.block();
+                        setTimeout(() => player2.stopBlock(), 500);
+                    }
+                }
+            }
+        }
+        
+        function endRound() {
+            if (player1.state === 'dead') {
+                player2Wins++;
+                showMessage("PLAYER 2 WINS!");
+            } else {
+                player1Wins++;
+                showMessage("PLAYER 1 WINS!");
+            }
+            
+            if (player1Wins >= 3 || player2Wins >= 3) {
+                gameState = 'gameOver';
+                showMessage(player1Wins >= 3 ? "PLAYER 1 WINS THE MATCH!" : "PLAYER 2 WINS THE MATCH!");
+                setTimeout(resetGame, 3000);
+            } else {
+                round++;
+                resetRound();
+            }
+        }
+        
+        function resetRound() {
+            player1 = new Barbarian(200, 1, true);
+            player2 = new Barbarian(600, -1, false);
+            goblin = new Goblin();
+            particles = [];
+            severedHead = null;
+            bloodPools = [];
+            gameState = 'playing';
+        }
+        
+        function resetGame() {
+            round = 1;
+            player1Wins = 0;
+            player2Wins = 0;
+            resetRound();
+        }
+        
+        // Main game loop
+        function gameLoop() {
+            // Clear
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw
+            drawBackground();
+            drawBloodPools();
+            goblin.draw();
+            player1.draw();
+            player2.draw();
+            drawSeveredHead();
+            drawParticles();
+            
+            // Update
+            update();
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Input handlers
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            
+            // Attack on space
+            if (e.key === ' ' && player1.state === 'idle') {
+                if (keys['ArrowUp']) {
+                    player1.attack('high');
+                } else if (keys['ArrowDown']) {
+                    player1.attack('low');
+                } else {
+                    player1.attack('mid');
+                }
+            }
+            
+            // Kick on K key
+            if (e.key.toLowerCase() === 'k' && player1.state === 'idle') {
+                player1.kick();
+            }
+            
+            // Decapitation on D key
+            if (e.key.toLowerCase() === 'd' && player1.state === 'idle') {
+                player1.decapitate();
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+        
+        // Touch controls
+        const leftZone = document.querySelector('.touch-zone.left');
+        const rightZone = document.querySelector('.touch-zone.right');
+        
+        function handleTouchStart(e, zone) {
+            touchStart = {
+                x: e.touches[0].clientX,
+                y: e.touches[0].clientY,
+                time: Date.now()
+            };
+            touchZone = zone;
+        }
+        
+        function handleTouchEnd(e) {
+            if (!touchStart) return;
+            
+            const touchEnd = {
+                x: e.changedTouches[0].clientX,
+                y: e.changedTouches[0].clientY,
+                time: Date.now()
+            };
+            
+            const dx = touchEnd.x - touchStart.x;
+            const dy = touchEnd.y - touchStart.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const duration = touchEnd.time - touchStart.time;
+            
+            if (touchZone === 'left') {
+                // Movement zone
+                if (distance < 50) {
+                    // Tap = block
+                    player1.block();
+                    setTimeout(() => player1.stopBlock(), 300);
+                } else if (Math.abs(dx) > Math.abs(dy)) {
+                    // Horizontal swipe = move
+                    if (dx > 0) {
+                        player1.x += 30;
+                    } else {
+                        player1.x -= 30;
+                    }
+                }
+            } else {
+                // Attack zone
+                if (distance < 50) {
+                    // Check for double tap (kick)
+                    const now = Date.now();
+                    if (lastTapTime && now - lastTapTime < 300) {
+                        // Double tap = kick
+                        player1.kick();
+                        lastTapTime = 0;
+                    } else {
+                        // Single tap = mid attack
+                        player1.attack('mid');
+                        lastTapTime = now;
+                    }
+                } else if (dy < -50) {
+                    // Swipe up = high attack
+                    player1.attack('high');
+                } else if (dy > 50) {
+                    // Swipe down = low attack
+                    player1.attack('low');
+                } else {
+                    // Horizontal swipe = mid attack
+                    player1.attack('mid');
+                }
+            }
+            
+            touchStart = null;
+            touchZone = null;
+        }
+        
+        leftZone.addEventListener('touchstart', (e) => handleTouchStart(e, 'left'));
+        rightZone.addEventListener('touchstart', (e) => handleTouchStart(e, 'right'));
+        leftZone.addEventListener('touchend', handleTouchEnd);
+        rightZone.addEventListener('touchend', handleTouchEnd);
+        
+        // Button controls
+        document.querySelectorAll('.control-btn').forEach(btn => {
+            ['mousedown', 'touchstart'].forEach(eventType => {
+                btn.addEventListener(eventType, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const key = btn.getAttribute('data-key');
+                    keys[key] = true;
+                    
+                    if (key === ' ') {
+                        if (keys['ArrowUp']) {
+                            player1.attack('high');
+                        } else if (keys['ArrowDown']) {
+                            player1.attack('low');
+                        } else {
+                            player1.attack('mid');
+                        }
+                    } else if (key.toLowerCase() === 'k') {
+                        player1.kick();
+                    } else if (key.toLowerCase() === 'd') {
+                        player1.decapitate();
+                    }
+                });
+            });
+            
+            ['mouseup', 'touchend'].forEach(eventType => {
+                btn.addEventListener(eventType, (e) => {
+                    e.preventDefault();
+                    const key = btn.getAttribute('data-key');
+                    keys[key] = false;
+                });
+            });
+        });
+        
+        // Prevent context menu
+        document.addEventListener('contextmenu', e => e.preventDefault());
+        
+        // Start game
+        showMessage("FIGHT!");
+        setTimeout(() => {
+            const isMobile = window.innerWidth <= 768;
+            if (isMobile) {
+                showMessage("Tap 💀 button for DECAPITATION!");
+            } else {
+                showMessage("Press D for DECAPITATION when opponent is weak!");
+            }
+        }, 2000);
+        gameLoop();
+    </script>
+</body>
+</html>
