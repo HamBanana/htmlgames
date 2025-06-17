@@ -1,0 +1,1260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Beast Busters - Rail Shooter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+            cursor: crosshair;
+        }
+        
+        #gameCanvas {
+            display: block;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+            position: relative;
+            z-index: 1;
+        }
+        
+        #loadingScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            color: #0f0;
+            font-size: 24px;
+        }
+        
+        .loading-text {
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px #0f0;
+        }
+        
+        .loading-bar {
+            width: 300px;
+            height: 20px;
+            border: 2px solid #0f0;
+            background: #000;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .loading-fill {
+            height: 100%;
+            background: #0f0;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        #ui > * {
+            pointer-events: auto;
+        }
+        
+        #hud {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            height: 80px;
+            background: linear-gradient(to bottom, #000 0%, #111 50%, #000 100%);
+            border: 3px solid #444;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 20px;
+            color: #0f0;
+            font-size: 16px;
+            font-weight: bold;
+            text-shadow: 0 0 5px #0f0;
+            pointer-events: none;
+        }
+        
+        .hud-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .hud-label {
+            font-size: 12px;
+            color: #090;
+            margin-bottom: 5px;
+        }
+        
+        .hud-value {
+            font-size: 20px;
+            color: #0f0;
+        }
+        
+        #health-bar {
+            width: 150px;
+            height: 20px;
+            background: #222;
+            border: 2px solid #444;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        #health-fill {
+            height: 100%;
+            background: linear-gradient(to right, #f00, #ff0);
+            transition: width 0.3s;
+        }
+        
+        #score {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 24px;
+            color: #ff0;
+            text-shadow: 2px 2px 0 #000, 0 0 10px #ff0;
+            pointer-events: none;
+        }
+        
+        #weapon-select {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .weapon-btn {
+            width: 50px;
+            height: 50px;
+            background: #222;
+            border: 3px solid #444;
+            border-radius: 5px;
+            color: #888;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .weapon-btn.active {
+            border-color: #0f0;
+            color: #0f0;
+            box-shadow: 0 0 10px #0f0;
+        }
+        
+        #crosshair {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+        }
+        
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            border: 3px solid #f00;
+            padding: 30px;
+            text-align: center;
+            display: none;
+            color: #f00;
+            font-size: 24px;
+            border-radius: 10px;
+            z-index: 100;
+        }
+        
+        #gameOver h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px #f00;
+        }
+        
+        #gameOver button {
+            margin-top: 20px;
+            padding: 10px 30px;
+            font-size: 20px;
+            background: #f00;
+            color: #000;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        
+        #gameOver button:hover {
+            background: #ff0;
+            transform: scale(1.1);
+        }
+        
+        #instructions {
+            position: absolute;
+            top: 70px;
+            left: 10px;
+            color: #888;
+            font-size: 12px;
+            text-shadow: 1px 1px 0 #000;
+            pointer-events: none;
+        }
+        
+        @media (max-width: 768px) {
+            #hud {
+                height: 60px;
+                padding: 5px 10px;
+            }
+            
+            .hud-label {
+                font-size: 10px;
+            }
+            
+            .hud-value {
+                font-size: 16px;
+            }
+            
+            #weapon-select {
+                top: auto;
+                bottom: 100px;
+            }
+            
+            .weapon-btn {
+                width: 40px;
+                height: 40px;
+                font-size: 20px;
+            }
+            
+            #instructions {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="loadingScreen">
+        <div class="loading-text">LOADING BEAST BUSTERS...</div>
+        <div class="loading-bar">
+            <div class="loading-fill" id="loadingFill"></div>
+        </div>
+        <div id="loadingStatus" style="margin-top: 10px; font-size: 14px;">Initializing...</div>
+    </div>
+    
+    <div id="ui">
+        <div id="score">SCORE: 0</div>
+        
+        <div id="weapon-select">
+            <div class="weapon-btn active" data-weapon="pistol">🔫</div>
+            <div class="weapon-btn" data-weapon="machinegun">🔥</div>
+            <div class="weapon-btn" data-weapon="grenade">💣</div>
+        </div>
+        
+        <div id="instructions">
+            MOUSE/TOUCH: Aim & Shoot<br>
+            1-3: Change Weapon<br>
+            SPACE: Quick Fire
+        </div>
+        
+        <div id="hud">
+            <div class="hud-section">
+                <div class="hud-label">HEALTH</div>
+                <div id="health-bar">
+                    <div id="health-fill" style="width: 100%"></div>
+                </div>
+            </div>
+            
+            <div class="hud-section">
+                <div class="hud-label">AMMO</div>
+                <div id="ammo-display">
+                    <div class="hud-value" id="ammo-count">∞</div>
+                </div>
+            </div>
+            
+            <div class="hud-section">
+                <div class="hud-label">STAGE</div>
+                <div class="hud-value" id="stage">1-1</div>
+            </div>
+        </div>
+        
+        <div id="crosshair">
+            <svg width="40" height="40">
+                <circle cx="20" cy="20" r="18" fill="none" stroke="#0f0" stroke-width="2" opacity="0.8"/>
+                <line x1="20" y1="5" x2="20" y2="35" stroke="#0f0" stroke-width="2"/>
+                <line x1="5" y1="20" x2="35" y2="20" stroke="#0f0" stroke-width="2"/>
+                <circle cx="20" cy="20" r="3" fill="#f00"/>
+            </svg>
+        </div>
+        
+        <div id="gameOver">
+            <h1>GAME OVER</h1>
+            <div>Final Score: <span id="finalScore">0</span></div>
+            <button id="continueBtn">CONTINUE?</button>
+        </div>
+    </div>
+
+    <script src="../GameFramework/index.js"></script>
+    <script>
+        // Define all classes first, before any event listeners
+        
+        // Components for the game
+        class Pseudo3DComponent extends Component {
+            constructor(config = {}) {
+                super(config);
+                this.worldX = config.worldX || 0;
+                this.worldY = config.worldY || 0;
+                this.worldZ = config.worldZ || -400;
+                this.scale = 1;
+            }
+            
+            update(deltaTime) {
+                // Calculate screen position based on world position
+                const fov = 1000;
+                if (this.worldZ >= -50 || this.worldZ < -1000) {
+                    this.entity.visible = false;
+                    return;
+                }
+                
+                this.scale = fov / -this.worldZ;
+                this.entity.x = this.entity.game.canvas.width / 2 + this.worldX * this.scale;
+                this.entity.y = this.entity.game.canvas.height / 2 - this.worldY * this.scale;
+                
+                // Update sprite scale
+                const sprite = this.entity.getComponent(SpriteComponent);
+                if (sprite) {
+                    this.entity.scale.x = this.scale * 0.5;
+                    this.entity.scale.y = this.scale * 0.5;
+                }
+                
+                // Check if on screen
+                const margin = 100;
+                if (this.entity.x < -margin || this.entity.x > this.entity.game.canvas.width + margin ||
+                    this.entity.y < -margin || this.entity.y > this.entity.game.canvas.height + margin) {
+                    this.entity.visible = false;
+                } else {
+                    this.entity.visible = true;
+                }
+            }
+        }
+
+        class RailShooterInputComponent extends Component {
+            constructor(config = {}) {
+                super(config);
+                this.mouseX = 0;
+                this.mouseY = 0;
+                this.shooting = false;
+                this.currentWeapon = 'pistol';
+                this.fireTimer = 0;
+                
+                this.weapons = {
+                    pistol: { damage: 25, fireRate: 5, ammo: Infinity, spread: 0 },
+                    machinegun: { damage: 10, fireRate: 15, ammo: 200, spread: 0.1 },
+                    grenade: { damage: 100, fireRate: 1, ammo: 10, spread: 0, radius: 100 }
+                };
+                
+                this.ammo = { machinegun: 200, grenade: 10 };
+            }
+            
+            initialize() {
+                const canvas = this.game.canvas;
+                
+                // Mouse events
+                canvas.addEventListener('mousemove', (e) => {
+                    const rect = canvas.getBoundingClientRect();
+                    this.mouseX = e.clientX - rect.left;
+                    this.mouseY = e.clientY - rect.top;
+                });
+                
+                canvas.addEventListener('mousedown', () => this.shooting = true);
+                canvas.addEventListener('mouseup', () => this.shooting = false);
+                
+                // Touch events
+                canvas.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    this.shooting = true;
+                    this.handleTouch(e);
+                });
+                
+                canvas.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    this.handleTouch(e);
+                });
+                
+                canvas.addEventListener('touchend', () => this.shooting = false);
+                
+                // Weapon selection
+                document.querySelectorAll('.weapon-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.selectWeapon(btn.dataset.weapon);
+                    });
+                });
+                
+                // Update crosshair
+                document.addEventListener('mousemove', (e) => {
+                    const crosshair = document.getElementById('crosshair');
+                    crosshair.style.left = e.clientX - 20 + 'px';
+                    crosshair.style.top = e.clientY - 20 + 'px';
+                });
+                
+                document.getElementById('crosshair').style.display = 'block';
+            }
+            
+            handleTouch(e) {
+                const rect = this.game.canvas.getBoundingClientRect();
+                const touch = e.touches[0];
+                this.mouseX = touch.clientX - rect.left;
+                this.mouseY = touch.clientY - rect.top;
+                
+                // Update crosshair
+                const crosshair = document.getElementById('crosshair');
+                crosshair.style.left = touch.clientX - 20 + 'px';
+                crosshair.style.top = touch.clientY - 20 + 'px';
+            }
+            
+            selectWeapon(weapon) {
+                if (weapon === 'machinegun' && this.ammo.machinegun <= 0) return;
+                if (weapon === 'grenade' && this.ammo.grenade <= 0) return;
+                
+                this.currentWeapon = weapon;
+                document.querySelectorAll('.weapon-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.weapon === weapon);
+                });
+                this.updateAmmoDisplay();
+            }
+            
+            updateAmmoDisplay() {
+                const ammoCount = document.getElementById('ammo-count');
+                if (this.currentWeapon === 'pistol') {
+                    ammoCount.textContent = '∞';
+                } else {
+                    ammoCount.textContent = this.ammo[this.currentWeapon];
+                }
+            }
+            
+            update(deltaTime) {
+                const input = this.game.getSystem('input');
+                
+                // Keyboard weapon selection
+                if (input.isKeyJustPressed('Digit1')) this.selectWeapon('pistol');
+                if (input.isKeyJustPressed('Digit2')) this.selectWeapon('machinegun');
+                if (input.isKeyJustPressed('Digit3')) this.selectWeapon('grenade');
+                
+                // Shooting
+                if (this.fireTimer > 0) {
+                    this.fireTimer -= deltaTime;
+                }
+                
+                if ((this.shooting || input.isKeyPressed('Space')) && this.fireTimer <= 0) {
+                    this.fire();
+                }
+            }
+            
+            fire() {
+                const weapon = this.weapons[this.currentWeapon];
+                
+                // Check ammo
+                if (this.currentWeapon !== 'pistol' && this.ammo[this.currentWeapon] <= 0) {
+                    this.selectWeapon('pistol');
+                    return;
+                }
+                
+                this.fireTimer = 1 / weapon.fireRate;
+                
+                // Calculate aim direction
+                const aimX = (this.mouseX - this.game.canvas.width / 2);
+                const aimY = (this.mouseY - this.game.canvas.height / 2);
+                
+                // Create projectile
+                const projectile = this.createProjectile(aimX, aimY, weapon);
+                this.game.addEntity(projectile);
+                
+                // Consume ammo
+                if (this.currentWeapon !== 'pistol') {
+                    this.ammo[this.currentWeapon]--;
+                    this.updateAmmoDisplay();
+                }
+                
+                // Effects
+                this.game.createParticleEffect('muzzleFlash', this.entity.x, this.entity.y);
+                if (this.currentWeapon === 'grenade') {
+                    this.game.shake(10, 0.3);
+                } else {
+                    this.game.shake(3, 0.1);
+                }
+            }
+            
+            createProjectile(aimX, aimY, weapon) {
+                const projectile = new BaseEntity({
+                    type: 'projectile',
+                    x: this.game.canvas.width / 2,
+                    y: this.game.canvas.height / 2
+                });
+                
+                const p3d = new Pseudo3DComponent({
+                    worldX: 0,
+                    worldY: 0,
+                    worldZ: -100
+                });
+                projectile.addComponent(p3d);
+                
+                // Add spread
+                const spreadX = (Math.random() - 0.5) * weapon.spread * 100;
+                const spreadY = (Math.random() - 0.5) * weapon.spread * 100;
+                
+                if (this.currentWeapon === 'grenade') {
+                    projectile.addComponent(new GrenadeComponent({
+                        targetX: (aimX + spreadX) * 0.5,
+                        targetY: (aimY + spreadY) * 0.5,
+                        targetZ: -400,
+                        damage: weapon.damage,
+                        radius: weapon.radius
+                    }));
+                } else {
+                    projectile.addComponent(new BulletComponent({
+                        vx: (aimX + spreadX) / 200,
+                        vy: (aimY + spreadY) / 200,
+                        vz: -20,
+                        damage: weapon.damage,
+                        color: this.currentWeapon === 'machinegun' ? '#ff0' : '#0f0'
+                    }));
+                }
+                
+                return projectile;
+            }
+        }
+
+        class BulletComponent extends Component {
+            constructor(config = {}) {
+                super(config);
+                this.vx = config.vx || 0;
+                this.vy = config.vy || 0;
+                this.vz = config.vz || -20;
+                this.damage = config.damage || 25;
+                this.color = config.color || '#0f0';
+                this.lifetime = 2;
+            }
+            
+            update(deltaTime) {
+                const p3d = this.entity.getComponent(Pseudo3DComponent);
+                if (!p3d) return;
+                
+                p3d.worldX += this.vx;
+                p3d.worldY += this.vy;
+                p3d.worldZ += this.vz;
+                
+                this.lifetime -= deltaTime;
+                if (this.lifetime <= 0 || p3d.worldZ < -1000 || p3d.worldZ > 100) {
+                    this.entity.destroy();
+                    return;
+                }
+                
+                // Check enemy hits
+                const enemies = this.game.getEntitiesByType('enemy');
+                for (let enemy of enemies) {
+                    const ep3d = enemy.getComponent(Pseudo3DComponent);
+                    if (!ep3d) continue;
+                    
+                    const dx = p3d.worldX - ep3d.worldX;
+                    const dy = p3d.worldY - ep3d.worldY;
+                    const dz = p3d.worldZ - ep3d.worldZ;
+                    const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                    
+                    if (dist < 60) {
+                        const health = enemy.getComponent(HealthComponent);
+                        if (health) {
+                            health.takeDamage(this.damage);
+                        }
+                        this.game.createParticleEffect('hit', enemy.x, enemy.y);
+                        this.entity.destroy();
+                        return;
+                    }
+                }
+            }
+            
+            render(context) {
+                context.fillStyle = this.color;
+                context.fillRect(-2, -2, 4, 4);
+            }
+        }
+
+        class GrenadeComponent extends Component {
+            constructor(config = {}) {
+                super(config);
+                this.targetX = config.targetX || 0;
+                this.targetY = config.targetY || 0;
+                this.targetZ = config.targetZ || -400;
+                this.damage = config.damage || 100;
+                this.radius = config.radius || 100;
+                this.speed = 10;
+            }
+            
+            update(deltaTime) {
+                const p3d = this.entity.getComponent(Pseudo3DComponent);
+                if (!p3d) return;
+                
+                const dx = this.targetX - p3d.worldX;
+                const dy = this.targetY - p3d.worldY;
+                const dz = this.targetZ - p3d.worldZ;
+                const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                
+                if (dist < this.speed) {
+                    // Explode
+                    this.explode();
+                    this.entity.destroy();
+                    return;
+                }
+                
+                p3d.worldX += dx / dist * this.speed;
+                p3d.worldY += dy / dist * this.speed;
+                p3d.worldZ += dz / dist * this.speed;
+            }
+            
+            explode() {
+                const p3d = this.entity.getComponent(Pseudo3DComponent);
+                this.game.createParticleEffect('explosion', this.entity.x, this.entity.y);
+                
+                // Damage nearby enemies
+                const enemies = this.game.getEntitiesByType('enemy');
+                enemies.forEach(enemy => {
+                    const ep3d = enemy.getComponent(Pseudo3DComponent);
+                    if (!ep3d) return;
+                    
+                    const dx = ep3d.worldX - p3d.worldX;
+                    const dy = ep3d.worldY - p3d.worldY;
+                    const dz = ep3d.worldZ - p3d.worldZ;
+                    const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                    
+                    if (dist < this.radius * 2) {
+                        const health = enemy.getComponent(HealthComponent);
+                        if (health) {
+                            const damage = this.damage * (1 - dist / (this.radius * 2));
+                            health.takeDamage(damage);
+                        }
+                    }
+                });
+                
+                this.game.shake(20, 0.5);
+            }
+            
+            render(context) {
+                context.fillStyle = '#080';
+                context.beginPath();
+                context.arc(0, 0, 8, 0, Math.PI * 2);
+                context.fill();
+                context.strokeStyle = '#0f0';
+                context.stroke();
+            }
+        }
+
+        class EnemyAIComponent extends Component {
+            constructor(config = {}) {
+                super(config);
+                this.speed = config.speed || 0.5;
+                this.attackRange = config.attackRange || 200;
+                this.attackDamage = config.damage || 5;
+                this.attackCooldown = 3;
+                this.attackTimer = 0;
+                this.flying = config.flying || false;
+                this.bobOffset = Math.random() * Math.PI * 2;
+            }
+            
+            update(deltaTime) {
+                const p3d = this.entity.getComponent(Pseudo3DComponent);
+                if (!p3d) return;
+                
+                // Move towards player position
+                const targetX = 0;
+                const targetY = 0;
+                const targetZ = -200;
+                
+                const dx = targetX - p3d.worldX;
+                const dy = targetY - p3d.worldY;
+                const dz = targetZ - p3d.worldZ;
+                const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                
+                if (dist > this.attackRange) {
+                    p3d.worldX += dx / dist * this.speed;
+                    p3d.worldY += dy / dist * this.speed;
+                    p3d.worldZ += dz / dist * this.speed;
+                    
+                    // Keep in bounds
+                    const maxX = 400;
+                    const maxY = 200;
+                    p3d.worldX = Math.max(-maxX, Math.min(maxX, p3d.worldX));
+                    
+                    if (!this.flying) {
+                        p3d.worldY = 0;
+                    } else {
+                        p3d.worldY = Math.max(-maxY, Math.min(maxY, p3d.worldY));
+                        // Flying bob
+                        p3d.worldY += Math.sin(this.game.performanceMonitor.frameCount * 0.05 + this.bobOffset) * 2;
+                    }
+                    
+                    p3d.worldZ = Math.max(-800, Math.min(-100, p3d.worldZ));
+                } else {
+                    // Attack
+                    this.attackTimer += deltaTime;
+                    if (this.attackTimer >= this.attackCooldown) {
+                        this.attackTimer = 0;
+                        this.attack();
+                    }
+                }
+            }
+            
+            attack() {
+                // Get player
+                const players = this.game.getEntitiesByType('player');
+                if (players.length > 0) {
+                    const player = players[0];
+                    const health = player.getComponent(HealthComponent);
+                    if (health) {
+                        health.takeDamage(this.attackDamage);
+                    }
+                    
+                    // Attack effect
+                    this.game.createParticleEffect('enemyAttack', this.entity.x, this.entity.y);
+                }
+            }
+        }
+
+        class PickupComponent extends Component {
+            constructor(config = {}) {
+                super(config);
+                this.pickupType = config.pickupType || 'health';
+                this.bobOffset = 0;
+            }
+            
+            update(deltaTime) {
+                const p3d = this.entity.getComponent(Pseudo3DComponent);
+                if (!p3d) return;
+                
+                // Bob up and down
+                this.bobOffset += deltaTime * 3;
+                const baseY = p3d.worldY;
+                p3d.worldY = baseY + Math.sin(this.bobOffset) * 10;
+                
+                // Move forward
+                p3d.worldZ += 2;
+                
+                // Check collection
+                if (p3d.worldZ > -150) {
+                    const dist = Math.sqrt(p3d.worldX * p3d.worldX + p3d.worldY * p3d.worldY);
+                    if (dist < 100) {
+                        this.collect();
+                        this.entity.destroy();
+                        return;
+                    }
+                }
+                
+                // Remove if past player
+                if (p3d.worldZ > -50) {
+                    this.entity.destroy();
+                }
+            }
+            
+            collect() {
+                const players = this.game.getEntitiesByType('player');
+                if (players.length === 0) return;
+                
+                const player = players[0];
+                const input = player.getComponent(RailShooterInputComponent);
+                
+                switch (this.pickupType) {
+                    case 'health':
+                        const health = player.getComponent(HealthComponent);
+                        if (health) {
+                            health.heal(35);
+                        }
+                        break;
+                    case 'machinegun':
+                        if (input) {
+                            input.ammo.machinegun = Math.min(200, input.ammo.machinegun + 50);
+                            input.updateAmmoDisplay();
+                        }
+                        break;
+                    case 'grenade':
+                        if (input) {
+                            input.ammo.grenade = Math.min(10, input.ammo.grenade + 3);
+                            input.updateAmmoDisplay();
+                        }
+                        break;
+                }
+                
+                this.game.createParticleEffect('pickup', this.entity.x, this.entity.y);
+            }
+            
+            render(context) {
+                const size = 20;
+                
+                context.fillStyle = this.pickupType === 'health' ? '#0f0' : '#ff0';
+                context.strokeStyle = '#fff';
+                context.lineWidth = 2;
+                
+                if (this.pickupType === 'health') {
+                    // Draw cross
+                    context.fillRect(-size/2, -size/6, size, size/3);
+                    context.fillRect(-size/6, -size/2, size/3, size);
+                } else {
+                    // Draw box
+                    context.fillRect(-size/2, -size/2, size, size);
+                    context.strokeRect(-size/2, -size/2, size, size);
+                }
+            }
+        }
+
+        class HealthComponent extends Component {
+            constructor(config = {}) {
+                super(config);
+                this.maxHealth = config.maxHealth || 100;
+                this.health = config.health || this.maxHealth;
+                this.onDamage = config.onDamage;
+                this.onDeath = config.onDeath;
+                this.invulnerabilityTime = 0;
+            }
+            
+            takeDamage(amount) {
+                if (this.invulnerabilityTime > 0) return;
+                
+                this.health -= amount;
+                this.health = Math.max(0, this.health);
+                
+                if (this.onDamage) {
+                    this.onDamage(amount);
+                }
+                
+                if (this.entity.type === 'player') {
+                    document.getElementById('health-fill').style.width = (this.health / this.maxHealth * 100) + '%';
+                    this.game.shake(15, 0.3);
+                }
+                
+                if (this.health <= 0 && this.onDeath) {
+                    this.onDeath();
+                    this.entity.destroy();
+                }
+            }
+            
+            heal(amount) {
+                this.health = Math.min(this.maxHealth, this.health + amount);
+                
+                if (this.entity.type === 'player') {
+                    document.getElementById('health-fill').style.width = (this.health / this.maxHealth * 100) + '%';
+                }
+            }
+            
+            update(deltaTime) {
+                if (this.invulnerabilityTime > 0) {
+                    this.invulnerabilityTime -= deltaTime;
+                }
+            }
+        }
+
+        class RailMovementSystem extends System {
+            constructor(config = {}) {
+                super(config);
+                this.railTimer = 30;
+                this.currentWaypoint = 0;
+                this.waveSpawned = false;
+                this.stage = 1;
+                this.substage = 1;
+                
+                this.waves = [
+                    ['zombie', 'zombie'],
+                    ['zombie', 'bat', 'zombie'],
+                    ['demon', 'zombie', 'bat'],
+                    ['boss1'],
+                    ['zombie', 'demon', 'zombie'],
+                    ['bat', 'bat', 'demon'],
+                    ['boss2']
+                ];
+                
+                this.enemyTypes = {
+                    zombie: {
+                        sprite: 'karateguy',
+                        health: 50,
+                        speed: 0.5,
+                        damage: 5,
+                        score: 100,
+                        attackRange: 150
+                    },
+                    bat: {
+                        sprite: 'ninjamand',
+                        health: 25,
+                        speed: 1.5,
+                        damage: 3,
+                        score: 150,
+                        flying: true,
+                        attackRange: 100
+                    },
+                    demon: {
+                        sprite: 'karateguy',
+                        health: 100,
+                        speed: 1,
+                        damage: 10,
+                        score: 300,
+                        attackRange: 200
+                    },
+                    boss1: {
+                        sprite: 'karateguy',
+                        health: 500,
+                        speed: 0.3,
+                        damage: 15,
+                        score: 1000,
+                        boss: true,
+                        attackRange: 250
+                    },
+                    boss2: {
+                        sprite: 'ninjamand',
+                        health: 800,
+                        speed: 0.5,
+                        damage: 20,
+                        score: 2000,
+                        boss: true,
+                        attackRange: 300
+                    }
+                };
+            }
+            
+            update(deltaTime) {
+                this.railTimer += deltaTime;
+                
+                // Move between waypoints every 20 seconds
+                if (this.railTimer > 20) {
+                    this.railTimer = 0;
+                    this.currentWaypoint++;
+                    this.waveSpawned = false;
+                    
+                    // Check if stage complete
+                    if (this.currentWaypoint >= this.waves.length) {
+                        this.nextStage();
+                    }
+                }
+                
+                // Spawn wave at beginning of each waypoint
+                if (!this.waveSpawned && this.railTimer >= 1) {
+                    this.waveSpawned = true;
+                    if (this.currentWaypoint < this.waves.length) {
+                        this.spawnWave(this.currentWaypoint);
+                    }
+                }
+            }
+            
+            spawnWave(waveIndex) {
+                if (waveIndex >= this.waves.length) return;
+                
+                const enemyList = this.waves[waveIndex];
+                enemyList.forEach((type, index) => {
+                    setTimeout(() => {
+                        if (this.game.running) {
+                            this.spawnEnemy(type);
+                        }
+                    }, index * 500);
+                });
+            }
+            
+            spawnEnemy(type) {
+                const config = this.enemyTypes[type];
+                
+                const maxX = 300;
+                const maxY = 150;
+                
+                const enemy = new BaseEntity({
+                    type: 'enemy',
+                    name: type
+                });
+                
+                const p3d = new Pseudo3DComponent({
+                    worldX: (Math.random() - 0.5) * maxX * 2,
+                    worldY: config.flying ? (Math.random() - 0.5) * maxY : 0,
+                    worldZ: -400 - Math.random() * 200
+                });
+                enemy.addComponent(p3d);
+                
+                enemy.addComponent(new SpriteComponent(config.sprite));
+                enemy.addComponent(new AnimationComponent());
+                
+                enemy.addComponent(new HealthComponent({
+                    maxHealth: config.health,
+                    health: config.health,
+                    onDeath: () => {
+                        this.game.events.emit('enemy:killed', {
+                            enemy: enemy,
+                            score: config.score
+                        });
+                        
+                        // Drop pickup chance
+                        if (Math.random() < 0.4) {
+                            this.dropPickup(p3d.worldX, p3d.worldY, p3d.worldZ);
+                        }
+                    }
+                }));
+                
+                enemy.addComponent(new EnemyAIComponent({
+                    speed: config.speed,
+                    damage: config.damage,
+                    flying: config.flying,
+                    attackRange: config.attackRange
+                }));
+                
+                this.game.addEntity(enemy);
+            }
+            
+            dropPickup(x, y, z) {
+                const types = ['health', 'machinegun', 'grenade'];
+                const type = types[Math.floor(Math.random() * types.length)];
+                
+                const pickup = new BaseEntity({
+                    type: 'pickup',
+                    name: type
+                });
+                
+                pickup.addComponent(new Pseudo3DComponent({
+                    worldX: x,
+                    worldY: y,
+                    worldZ: Math.max(-600, Math.min(-200, z))
+                }));
+                
+                pickup.addComponent(new PickupComponent({ pickupType: type }));
+                
+                this.game.addEntity(pickup);
+            }
+            
+            nextStage() {
+                this.substage++;
+                if (this.substage > 2) {
+                    this.stage++;
+                    this.substage = 1;
+                }
+                
+                document.getElementById('stage').textContent = `${this.stage}-${this.substage}`;
+                
+                // Clear remaining enemies
+                this.game.getEntitiesByType('enemy').forEach(e => e.destroy());
+                
+                // Reset for next stage
+                this.currentWaypoint = 0;
+                this.railTimer = 30;
+                this.waveSpawned = false;
+                
+                // Increase difficulty
+                Object.values(this.enemyTypes).forEach(type => {
+                    type.health *= 1.2;
+                    type.speed = Math.min(type.speed * 1.1, 5);
+                    type.damage *= 1.1;
+                });
+            }
+        }
+
+        // Main game initialization
+        async function initGame() {
+            updateLoadingBar(40, 'Creating game instance...');
+            
+            const game = new GameFramework.Game({
+                width: window.innerWidth,
+                height: window.innerHeight,
+                backgroundColor: '#000',
+                pixelated: true,
+                gravity: 0 // No gravity for this game
+            });
+            
+            updateLoadingBar(50, 'Loading sprites...');
+            
+            // Load sprites
+            try {
+                await game.loadSprite('karateguy', 'karateguy.json');
+                await game.loadSprite('ninjamand', 'ninjamand.json');
+                updateLoadingBar(70, 'Sprites loaded!');
+            } catch (error) {
+                console.error('Error loading sprites:', error);
+                updateLoadingBar(70, 'Using placeholder graphics...');
+            }
+            
+            updateLoadingBar(80, 'Setting up game...');
+            
+            // Register custom particle effects
+            const particles = game.getSystem('particles');
+            if (particles) {
+                particles.registerEffect('muzzleFlash', {
+                    count: 5,
+                    lifetime: 0.2,
+                    speed: { min: 50, max: 150 },
+                    spread: Math.PI * 2,
+                    size: { min: 3, max: 8 },
+                    color: ['#ff0', '#fff'],
+                    gravity: 0
+                });
+                
+                particles.registerEffect('enemyAttack', {
+                    count: 1,
+                    lifetime: 0.5,
+                    speed: { min: 200, max: 300 },
+                    spread: 0,
+                    size: { min: 10, max: 15 },
+                    color: '#f0f',
+                    gravity: 0
+                });
+                
+                particles.registerEffect('pickup', {
+                    count: 10,
+                    lifetime: 0.5,
+                    speed: { min: 50, max: 100 },
+                    spread: Math.PI * 2,
+                    size: { min: 2, max: 5 },
+                    color: ['#0f0', '#ff0', '#fff'],
+                    gravity: -100
+                });
+            }
+            
+            // Add rail movement system
+            game.registerSystem('railMovement', new RailMovementSystem());
+            
+            // Create player entity
+            const player = new BaseEntity({ type: 'player' });
+            player.addComponent(new RailShooterInputComponent());
+            player.addComponent(new HealthComponent({
+                maxHealth: 100,
+                health: 100,
+                onDeath: () => {
+                    document.getElementById('finalScore').textContent = game.score || 0;
+                    document.getElementById('gameOver').style.display = 'block';
+                    game.pause();
+                }
+            }));
+            game.addEntity(player);
+            
+            // Score tracking
+            game.score = 0;
+            game.events.on('enemy:killed', (data) => {
+                game.score += data.score;
+                document.getElementById('score').textContent = `SCORE: ${game.score}`;
+                game.createParticleEffect('explosion', data.enemy.x, data.enemy.y);
+            });
+            
+            // Continue button
+            document.getElementById('continueBtn').addEventListener('click', () => {
+                location.reload();
+            });
+            
+            // Custom render for background
+            const renderer = game.getSystem('renderer');
+            if (renderer) {
+                const originalRender = renderer.render.bind(renderer);
+                renderer.render = function(context) {
+                    // Draw environment first
+                    drawEnvironment(context, game);
+                    originalRender(context);
+                };
+            }
+            
+            updateLoadingBar(100, 'Starting game!');
+            
+            // Hide loading screen and start game
+            setTimeout(() => {
+                document.getElementById('loadingScreen').style.display = 'none';
+                game.start();
+            }, 500);
+            
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                game.canvas.width = window.innerWidth;
+                game.canvas.height = window.innerHeight;
+            });
+        }
+
+        function drawEnvironment(ctx, game) {
+            const canvas = game.canvas;
+            const frameCount = game.performanceMonitor.frameCount;
+            
+            // Draw fog/mist
+            for (let i = 0; i < 5; i++) {
+                const alpha = 0.05 + Math.sin(frameCount * 0.01 + i) * 0.02;
+                ctx.fillStyle = `rgba(128, 128, 128, ${alpha})`;
+                ctx.fillRect(
+                    0,
+                    canvas.height * (0.6 + i * 0.1),
+                    canvas.width,
+                    canvas.height * 0.1
+                );
+            }
+            
+            // Draw ground grid
+            ctx.strokeStyle = 'rgba(0, 255, 0, 0.1)';
+            ctx.lineWidth = 1;
+            const gridSize = 80;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height * 0.7;
+            
+            // Vertical lines
+            for (let x = -8; x <= 8; x++) {
+                const screenX = centerX + x * gridSize;
+                ctx.beginPath();
+                ctx.moveTo(screenX, centerY);
+                ctx.lineTo(screenX - x * 20, canvas.height);
+                ctx.stroke();
+            }
+            
+            // Horizontal lines for depth
+            for (let z = 0; z < 8; z++) {
+                const y = centerY + z * z * 5;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+        }
+
+        // Now set up event listeners and initialization AFTER all classes are defined
+        let loadingProgress = 0;
+        const updateLoadingBar = (progress, status) => {
+            loadingProgress = Math.min(100, progress);
+            document.getElementById('loadingFill').style.width = loadingProgress + '%';
+            if (status) {
+                document.getElementById('loadingStatus').textContent = status;
+            }
+        };
+
+        window.addEventListener('gameframework:ready', async () => {
+            console.log('Framework ready, initializing game...');
+            updateLoadingBar(30, 'Framework loaded...');
+            await initGame();
+        });
+
+        window.addEventListener('gameframework:error', (e) => {
+            console.error('Framework loading error:', e.detail.error);
+            document.getElementById('loadingStatus').textContent = 'Error loading framework!';
+            document.getElementById('loadingStatus').style.color = '#f00';
+        });
+    </script>
+</body>
+</html>
