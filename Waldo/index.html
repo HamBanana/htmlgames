@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Waldo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: none;
+            user-select: none;
+        }
+        
+        body {
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: #001122;
+            border: 2px solid #00ff00;
+            overflow: hidden;
+        }
+        
+        #gameCanvas {
+            position: absolute;
+            cursor: move;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #00ff00;
+            font-size: 16px;
+            font-weight: bold;
+            text-shadow: 0 0 5px #00ff00;
+            pointer-events: none;
+            z-index: 100;
+        }
+        
+        #timer {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: #00ff00;
+            font-size: 20px;
+            font-weight: bold;
+            text-shadow: 0 0 10px #00ff00;
+            z-index: 100;
+        }
+        
+        #crosshair {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border: 2px solid #00ff00;
+            border-radius: 50%;
+            pointer-events: none;
+            display: none;
+            z-index: 50;
+            box-shadow: 0 0 10px #00ff00;
+        }
+        
+        #crosshair::before,
+        #crosshair::after {
+            content: '';
+            position: absolute;
+            background: #00ff00;
+        }
+        
+        #crosshair::before {
+            width: 2px;
+            height: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        #crosshair::after {
+            height: 2px;
+            width: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        #instructions {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            color: #00ff00;
+            font-size: 12px;
+            opacity: 0.8;
+            z-index: 100;
+        }
+        
+        #zoomIndicator {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            color: #00ff00;
+            font-size: 14px;
+            font-weight: bold;
+            text-shadow: 0 0 5px #00ff00;
+            z-index: 100;
+        }
+        
+        .found-flash {
+            position: absolute;
+            border: 3px solid #00ff00;
+            background: rgba(0, 255, 0, 0.2);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: foundPulse 1s ease-out;
+            z-index: 60;
+        }
+        
+        @keyframes foundPulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(3);
+                opacity: 0;
+            }
+        }
+        
+        .wrong-flash {
+            position: absolute;
+            border: 3px solid #ff0000;
+            background: rgba(255, 0, 0, 0.2);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: wrongPulse 0.5s ease-out;
+            z-index: 60;
+        }
+        
+        @keyframes wrongPulse {
+            0%, 100% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.2); opacity: 1; }
+        }
+        
+        #winScreen, #menuScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #00ff00;
+            text-align: center;
+            z-index: 200;
+        }
+        
+        #winScreen h1, #menuScreen h1 {
+            font-size: 48px;
+            margin: 20px 0;
+            text-shadow: 0 0 20px #00ff00;
+            animation: glow 2s ease-in-out infinite;
+        }
+        
+        @keyframes glow {
+            0%, 100% { text-shadow: 0 0 20px #00ff00; }
+            50% { text-shadow: 0 0 30px #00ff00, 0 0 40px #00ff00; }
+        }
+        
+        .btn {
+            background: transparent;
+            border: 2px solid #00ff00;
+            color: #00ff00;
+            padding: 15px 30px;
+            font-size: 18px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s;
+            text-transform: uppercase;
+        }
+        
+        .btn:hover {
+            background: #00ff00;
+            color: #000;
+            box-shadow: 0 0 20px #00ff00;
+        }
+        
+        #targetPreview {
+            margin: 20px 0;
+            padding: 10px;
+            border: 2px solid #00ff00;
+            background: rgba(0, 255, 0, 0.1);
+        }
+        
+        #targetPreview canvas {
+            display: block;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+        
+        @media (max-width: 768px) {
+            #ui { font-size: 14px; }
+            #timer { font-size: 18px; }
+            #instructions { font-size: 11px; }
+            .btn { padding: 12px 20px; font-size: 16px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="ui">
+            <div>LEVEL: <span id="level">1</span></div>
+            <div>SCORE: <span id="score">0</span></div>
+            <div>TARGETS: <span id="targetsLeft">1</span></div>
+        </div>
+        
+        <div id="timer">60</div>
+        
+        <div id="crosshair"></div>
+        
+        <div id="instructions">
+            Drag to pan | Scroll/Pinch to zoom | Click/Tap to select
+        </div>
+        
+        <div id="zoomIndicator">ZOOM: 100%</div>
+        
+        <div id="menuScreen">
+            <h1>NEON WALDO</h1>
+            <div id="targetPreview">
+                <div style="margin-bottom: 10px;">FIND THIS TARGET:</div>
+                <canvas id="previewCanvas" width="60" height="60"></canvas>
+            </div>
+            <button class="btn" onclick="startGame()">START GAME</button>
+            <div style="margin-top: 20px; font-size: 14px; opacity: 0.8;">
+                Find the unique target in the crowd before time runs out!
+            </div>
+        </div>
+        
+        <div id="winScreen" style="display: none;">
+            <h1 id="winTitle">LEVEL COMPLETE!</h1>
+            <div style="font-size: 24px; margin: 20px 0;">
+                Time Bonus: <span id="timeBonus">0</span>
+            </div>
+            <div style="font-size: 20px; margin-bottom: 20px;">
+                Total Score: <span id="totalScore">0</span>
+            </div>
+            <button class="btn" onclick="nextLevel()">NEXT LEVEL</button>
+            <button class="btn" onclick="resetGame()">MENU</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Game state
+        let gameRunning = false;
+        let level = 1;
+        let score = 0;
+        let timeLeft = 60;
+        let timerInterval;
+        let targetsFound = 0;
+        let totalTargets = 1;
+        
+        // Camera
+        let camera = {
+            x: 0,
+            y: 0,
+            zoom: 1,
+            minZoom: 0.5,
+            maxZoom: 4
+        };
+        
+        // Scene
+        let sceneWidth = 2000;
+        let sceneHeight = 2000;
+        let characters = [];
+        let targets = [];
+        
+        // Input
+        let isDragging = false;
+        let lastX = 0;
+        let lastY = 0;
+        let touches = [];
+        
+        // Character types
+        const characterTypes = [
+            { shape: 'square', size: 20, color: '#0088ff' },
+            { shape: 'circle', size: 20, color: '#ff8800' },
+            { shape: 'triangle', size: 20, color: '#ff0088' },
+            { shape: 'diamond', size: 20, color: '#8800ff' },
+            { shape: 'star', size: 20, color: '#ffff00' },
+            { shape: 'hexagon', size: 20, color: '#00ffff' }
+        ];
+        
+        // Target character (Waldo equivalent)
+        const targetType = {
+            shape: 'special',
+            size: 25,
+            color: '#00ff00',
+            hat: true
+        };
+        
+        // Initialize
+        function init() {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // Mouse controls
+            canvas.addEventListener('mousedown', handleMouseDown);
+            canvas.addEventListener('mousemove', handleMouseMove);
+            canvas.addEventListener('mouseup', handleMouseUp);
+            canvas.addEventListener('wheel', handleWheel);
+            canvas.addEventListener('click', handleClick);
+            
+            // Touch controls
+            canvas.addEventListener('touchstart', handleTouchStart);
+            canvas.addEventListener('touchmove', handleTouchMove);
+            canvas.addEventListener('touchend', handleTouchEnd);
+            
+            // Keyboard controls
+            document.addEventListener('keydown', handleKeyDown);
+            
+            // Draw target preview
+            drawTargetPreview();
+        }
+        
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        
+        function drawTargetPreview() {
+            const previewCanvas = document.getElementById('previewCanvas');
+            const pctx = previewCanvas.getContext('2d');
+            
+            pctx.clearRect(0, 0, 60, 60);
+            pctx.save();
+            pctx.translate(30, 30);
+            drawCharacter(pctx, targetType, 0);
+            pctx.restore();
+        }
+        
+        function startGame() {
+            document.getElementById('menuScreen').style.display = 'none';
+            gameRunning = true;
+            level = 1;
+            score = 0;
+            generateLevel();
+            startTimer();
+            gameLoop();
+        }
+        
+        function generateLevel() {
+            // Calculate scene size based on level
+            sceneWidth = 1500 + level * 300;
+            sceneHeight = 1500 + level * 300;
+            
+            // Reset camera
+            camera.x = (sceneWidth - canvas.width) / 2;
+            camera.y = (sceneHeight - canvas.height) / 2;
+            camera.zoom = 1;
+            
+            // Generate characters
+            characters = [];
+            targets = [];
+            targetsFound = 0;
+            totalTargets = Math.min(1 + Math.floor(level / 3), 5);
+            
+            // Number of decoy characters
+            const numCharacters = 200 + level * 50;
+            
+            // Generate decoys
+            for (let i = 0; i < numCharacters; i++) {
+                const type = characterTypes[Math.floor(Math.random() * characterTypes.length)];
+                characters.push({
+                    x: Math.random() * (sceneWidth - 100) + 50,
+                    y: Math.random() * (sceneHeight - 100) + 50,
+                    type: { ...type },
+                    rotation: Math.random() * Math.PI * 2,
+                    scale: 0.8 + Math.random() * 0.4
+                });
+            }
+            
+            // Generate targets
+            for (let i = 0; i < totalTargets; i++) {
+                let placed = false;
+                let attempts = 0;
+                
+                while (!placed && attempts < 100) {
+                    const x = Math.random() * (sceneWidth - 100) + 50;
+                    const y = Math.random() * (sceneHeight - 100) + 50;
+                    
+                    // Check minimum distance from other targets
+                    let validPosition = true;
+                    for (const target of targets) {
+                        const dist = Math.sqrt((x - target.x) ** 2 + (y - target.y) ** 2);
+                        if (dist < 200) {
+                            validPosition = false;
+                            break;
+                        }
+                    }
+                    
+                    if (validPosition) {
+                        targets.push({
+                            x: x,
+                            y: y,
+                            type: { ...targetType },
+                            rotation: Math.random() * Math.PI * 2,
+                            scale: 1,
+                            found: false
+                        });
+                        placed = true;
+                    }
+                    attempts++;
+                }
+            }
+            
+            updateUI();
+        }
+        
+        function startTimer() {
+            timeLeft = 60 + level * 10;
+            clearInterval(timerInterval);
+            
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timer').textContent = timeLeft;
+                
+                if (timeLeft <= 10) {
+                    document.getElementById('timer').style.color = '#ff0000';
+                } else {
+                    document.getElementById('timer').style.color = '#00ff00';
+                }
+                
+                if (timeLeft <= 0) {
+                    gameOver();
+                }
+            }, 1000);
+        }
+        
+        function gameLoop() {
+            if (!gameRunning) return;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw scene
+            ctx.save();
+            ctx.scale(camera.zoom, camera.zoom);
+            ctx.translate(-camera.x, -camera.y);
+            
+            // Draw grid background
+            ctx.strokeStyle = 'rgba(0, 255, 0, 0.1)';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < sceneWidth; x += 100) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, sceneHeight);
+                ctx.stroke();
+            }
+            for (let y = 0; y < sceneHeight; y += 100) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(sceneWidth, y);
+                ctx.stroke();
+            }
+            
+            // Draw scene bounds
+            ctx.strokeStyle = '#00ff00';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(0, 0, sceneWidth, sceneHeight);
+            
+            // Draw all characters
+            for (const char of characters) {
+                ctx.save();
+                ctx.translate(char.x, char.y);
+                ctx.rotate(char.rotation);
+                ctx.scale(char.scale, char.scale);
+                drawCharacter(ctx, char.type, char.rotation);
+                ctx.restore();
+            }
+            
+            // Draw targets
+            for (const target of targets) {
+                if (!target.found) {
+                    ctx.save();
+                    ctx.translate(target.x, target.y);
+                    ctx.rotate(target.rotation);
+                    ctx.scale(target.scale, target.scale);
+                    drawCharacter(ctx, target.type, target.rotation);
+                    ctx.restore();
+                }
+            }
+            
+            ctx.restore();
+            
+            // Update zoom indicator
+            document.getElementById('zoomIndicator').textContent = 
+                `ZOOM: ${Math.round(camera.zoom * 100)}%`;
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function drawCharacter(ctx, type, rotation) {
+            ctx.fillStyle = type.color;
+            ctx.strokeStyle = type.color;
+            ctx.lineWidth = 2;
+            
+            if (type.shape === 'special') {
+                // Draw target character (Waldo)
+                // Body
+                ctx.fillRect(-10, -5, 20, 20);
+                
+                // Stripes
+                ctx.fillStyle = '#000';
+                for (let i = -8; i < 10; i += 4) {
+                    ctx.fillRect(i, -5, 2, 20);
+                }
+                
+                // Head
+                ctx.fillStyle = type.color;
+                ctx.beginPath();
+                ctx.arc(0, -15, 8, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Hat
+                ctx.fillStyle = '#ff0000';
+                ctx.beginPath();
+                ctx.moveTo(-10, -20);
+                ctx.lineTo(10, -20);
+                ctx.lineTo(0, -35);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Glasses
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(-3, -15, 3, 0, Math.PI * 2);
+                ctx.arc(3, -15, 3, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, -15);
+                ctx.lineTo(0, -15);
+                ctx.stroke();
+                
+            } else if (type.shape === 'square') {
+                ctx.fillRect(-type.size/2, -type.size/2, type.size, type.size);
+            } else if (type.shape === 'circle') {
+                ctx.beginPath();
+                ctx.arc(0, 0, type.size/2, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (type.shape === 'triangle') {
+                ctx.beginPath();
+                ctx.moveTo(0, -type.size/2);
+                ctx.lineTo(-type.size/2, type.size/2);
+                ctx.lineTo(type.size/2, type.size/2);
+                ctx.closePath();
+                ctx.fill();
+            } else if (type.shape === 'diamond') {
+                ctx.save();
+                ctx.rotate(Math.PI / 4);
+                ctx.fillRect(-type.size/2, -type.size/2, type.size, type.size);
+                ctx.restore();
+            } else if (type.shape === 'star') {
+                drawStar(ctx, 0, 0, 5, type.size/2, type.size/4);
+            } else if (type.shape === 'hexagon') {
+                drawHexagon(ctx, 0, 0, type.size/2);
+            }
+        }
+        
+        function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius) {
+            let rot = Math.PI / 2 * 3;
+            let x = cx;
+            let y = cy;
+            const step = Math.PI / spikes;
+            
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - outerRadius);
+            
+            for (let i = 0; i < spikes; i++) {
+                x = cx + Math.cos(rot) * outerRadius;
+                y = cy + Math.sin(rot) * outerRadius;
+                ctx.lineTo(x, y);
+                rot += step;
+                
+                x = cx + Math.cos(rot) * innerRadius;
+                y = cy + Math.sin(rot) * innerRadius;
+                ctx.lineTo(x, y);
+                rot += step;
+            }
+            
+            ctx.closePath();
+            ctx.fill();
+        }
+        
+        function drawHexagon(ctx, x, y, size) {
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const angle = (Math.PI / 3) * i;
+                const px = x + size * Math.cos(angle);
+                const py = y + size * Math.sin(angle);
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fill();
+        }
+        
+        function handleClick(e) {
+            if (!gameRunning) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+            
+            // Convert to world coordinates
+            const worldX = clickX / camera.zoom + camera.x;
+            const worldY = clickY / camera.zoom + camera.y;
+            
+            // Check if clicked on target
+            let found = false;
+            for (const target of targets) {
+                if (!target.found) {
+                    const dist = Math.sqrt((worldX - target.x) ** 2 + (worldY - target.y) ** 2);
+                    if (dist < 30) {
+                        // Found target!
+                        target.found = true;
+                        targetsFound++;
+                        score += 100 + timeLeft * 10;
+                        found = true;
+                        
+                        // Create found effect
+                        createFoundEffect(clickX, clickY);
+                        
+                        if (targetsFound >= totalTargets) {
+                            levelComplete();
+                        }
+                        
+                        updateUI();
+                        break;
+                    }
+                }
+            }
+            
+            if (!found) {
+                // Wrong click
+                score = Math.max(0, score - 50);
+                createWrongEffect(clickX, clickY);
+                updateUI();
+            }
+        }
+        
+        function createFoundEffect(x, y) {
+            const flash = document.createElement('div');
+            flash.className = 'found-flash';
+            flash.style.left = (x - 25) + 'px';
+            flash.style.top = (y - 25) + 'px';
+            flash.style.width = '50px';
+            flash.style.height = '50px';
+            document.getElementById('gameContainer').appendChild(flash);
+            
+            setTimeout(() => flash.remove(), 1000);
+        }
+        
+        function createWrongEffect(x, y) {
+            const flash = document.createElement('div');
+            flash.className = 'wrong-flash';
+            flash.style.left = (x - 15) + 'px';
+            flash.style.top = (y - 15) + 'px';
+            flash.style.width = '30px';
+            flash.style.height = '30px';
+            document.getElementById('gameContainer').appendChild(flash);
+            
+            setTimeout(() => flash.remove(), 500);
+        }
+        
+        function levelComplete() {
+            gameRunning = false;
+            clearInterval(timerInterval);
+            
+            const timeBonus = timeLeft * 10;
+            score += timeBonus;
+            
+            document.getElementById('winTitle').textContent = `LEVEL ${level} COMPLETE!`;
+            document.getElementById('timeBonus').textContent = timeBonus;
+            document.getElementById('totalScore').textContent = score;
+            document.getElementById('winScreen').style.display = 'flex';
+        }
+        
+        function gameOver() {
+            gameRunning = false;
+            clearInterval(timerInterval);
+            
+            document.getElementById('winTitle').textContent = 'TIME\'S UP!';
+            document.getElementById('timeBonus').textContent = '0';
+            document.getElementById('totalScore').textContent = score;
+            document.getElementById('winScreen').style.display = 'flex';
+        }
+        
+        function nextLevel() {
+            document.getElementById('winScreen').style.display = 'none';
+            level++;
+            generateLevel();
+            gameRunning = true;
+            startTimer();
+            gameLoop();
+        }
+        
+        function resetGame() {
+            document.getElementById('winScreen').style.display = 'none';
+            document.getElementById('menuScreen').style.display = 'flex';
+            gameRunning = false;
+            clearInterval(timerInterval);
+        }
+        
+        function updateUI() {
+            document.getElementById('level').textContent = level;
+            document.getElementById('score').textContent = score;
+            document.getElementById('targetsLeft').textContent = totalTargets - targetsFound;
+        }
+        
+        // Mouse controls
+        function handleMouseDown(e) {
+            isDragging = true;
+            lastX = e.clientX;
+            lastY = e.clientY;
+            canvas.style.cursor = 'grabbing';
+        }
+        
+        function handleMouseMove(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // Update crosshair
+            const crosshair = document.getElementById('crosshair');
+            crosshair.style.display = 'block';
+            crosshair.style.left = (x - 20) + 'px';
+            crosshair.style.top = (y - 20) + 'px';
+            
+            if (isDragging) {
+                const dx = e.clientX - lastX;
+                const dy = e.clientY - lastY;
+                
+                camera.x -= dx / camera.zoom;
+                camera.y -= dy / camera.zoom;
+                
+                // Clamp camera
+                camera.x = Math.max(0, Math.min(sceneWidth - canvas.width / camera.zoom, camera.x));
+                camera.y = Math.max(0, Math.min(sceneHeight - canvas.height / camera.zoom, camera.y));
+                
+                lastX = e.clientX;
+                lastY = e.clientY;
+            }
+        }
+        
+        function handleMouseUp() {
+            isDragging = false;
+            canvas.style.cursor = 'move';
+        }
+        
+        function handleWheel(e) {
+            e.preventDefault();
+            
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            const zoomDelta = e.deltaY > 0 ? 0.9 : 1.1;
+            const newZoom = Math.max(camera.minZoom, Math.min(camera.maxZoom, camera.zoom * zoomDelta));
+            
+            // Zoom towards mouse position
+            const worldX = mouseX / camera.zoom + camera.x;
+            const worldY = mouseY / camera.zoom + camera.y;
+            
+            camera.zoom = newZoom;
+            
+            camera.x = worldX - mouseX / camera.zoom;
+            camera.y = worldY - mouseY / camera.zoom;
+            
+            // Clamp camera
+            camera.x = Math.max(0, Math.min(sceneWidth - canvas.width / camera.zoom, camera.x));
+            camera.y = Math.max(0, Math.min(sceneHeight - canvas.height / camera.zoom, camera.y));
+        }
+        
+        // Touch controls
+        function handleTouchStart(e) {
+            e.preventDefault();
+            touches = Array.from(e.touches);
+            
+            if (touches.length === 1) {
+                isDragging = true;
+                lastX = touches[0].clientX;
+                lastY = touches[0].clientY;
+            }
+        }
+        
+        function handleTouchMove(e) {
+            e.preventDefault();
+            touches = Array.from(e.touches);
+            
+            if (touches.length === 1 && isDragging) {
+                const dx = touches[0].clientX - lastX;
+                const dy = touches[0].clientY - lastY;
+                
+                camera.x -= dx / camera.zoom;
+                camera.y -= dy / camera.zoom;
+                
+                // Clamp camera
+                camera.x = Math.max(0, Math.min(sceneWidth - canvas.width / camera.zoom, camera.x));
+                camera.y = Math.max(0, Math.min(sceneHeight - canvas.height / camera.zoom, camera.y));
+                
+                lastX = touches[0].clientX;
+                lastY = touches[0].clientY;
+            } else if (touches.length === 2) {
+                // Pinch zoom
+                const dist = Math.sqrt(
+                    (touches[0].clientX - touches[1].clientX) ** 2 +
+                    (touches[0].clientY - touches[1].clientY) ** 2
+                );
+                
+                if (this.lastPinchDist) {
+                    const scale = dist / this.lastPinchDist;
+                    camera.zoom = Math.max(camera.minZoom, Math.min(camera.maxZoom, camera.zoom * scale));
+                }
+                
+                this.lastPinchDist = dist;
+            }
+        }
+        
+        function handleTouchEnd(e) {
+            e.preventDefault();
+            
+            if (e.touches.length === 0) {
+                // Check if it was a tap
+                if (!isDragging && touches.length === 1) {
+                    const rect = canvas.getBoundingClientRect();
+                    const mockEvent = {
+                        clientX: touches[0].clientX,
+                        clientY: touches[0].clientY
+                    };
+                    handleClick(mockEvent);
+                }
+                
+                isDragging = false;
+                this.lastPinchDist = null;
+            }
+            
+            touches = Array.from(e.touches);
+        }
+        
+        // Keyboard controls
+        function handleKeyDown(e) {
+            if (!gameRunning) return;
+            
+            const panSpeed = 20 / camera.zoom;
+            
+            switch(e.key) {
+                case 'ArrowLeft':
+                    camera.x = Math.max(0, camera.x - panSpeed);
+                    break;
+                case 'ArrowRight':
+                    camera.x = Math.min(sceneWidth - canvas.width / camera.zoom, camera.x + panSpeed);
+                    break;
+                case 'ArrowUp':
+                    camera.y = Math.max(0, camera.y - panSpeed);
+                    break;
+                case 'ArrowDown':
+                    camera.y = Math.min(sceneHeight - canvas.height / camera.zoom, camera.y + panSpeed);
+                    break;
+                case '+':
+                case '=':
+                    camera.zoom = Math.min(camera.maxZoom, camera.zoom * 1.1);
+                    break;
+                case '-':
+                    camera.zoom = Math.max(camera.minZoom, camera.zoom * 0.9);
+                    break;
+                case ' ':
+                    e.preventDefault();
+                    // Select at center of screen
+                    const mockEvent = {
+                        clientX: window.innerWidth / 2,
+                        clientY: window.innerHeight / 2
+                    };
+                    handleClick(mockEvent);
+                    break;
+            }
+        }
+        
+        // Initialize game
+        init();
+    </script>
+</body>
+</html>
