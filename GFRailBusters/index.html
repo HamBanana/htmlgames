@@ -247,6 +247,13 @@
             transform: scale(1.1);
         }
         
+        #loadingStatus {
+            color: #ff0;
+            font-size: 16px;
+            margin-top: 20px;
+            min-height: 20px;
+        }
+        
         @media (max-width: 768px) {
             #hud {
                 height: 60px;
@@ -296,7 +303,8 @@
             Eliminate all creatures to survive!<br>
             Mouse/Touch to aim and shoot
         </div>
-        <button class="start-btn" id="startBtn">Start Game</button>
+        <button class="start-btn" id="startBtn" disabled>Loading Framework...</button>
+        <div id="loadingStatus">Initializing GameFramework...</div>
     </div>
     
     <div id="ui">
@@ -311,8 +319,7 @@
         <div id="instructions">
             MOUSE/TOUCH: Aim & Shoot<br>
             1-3: Change Weapon<br>
-            Eliminate all enemies!<br>
-            <span id="spriteStatus" style="color: #888; font-size: 10px;"></span>
+            Eliminate all enemies!
         </div>
         
         <div id="hud">
@@ -358,1011 +365,1022 @@
         </div>
     </div>
 
+    <!-- Load GameFramework -->
+    <script src="/GameFramework/index.js"></script>
     <script>
-        // Sprite loading and management
-        class SpriteLoader {
-            constructor() {
-                this.sprites = new Map();
-                this.images = new Map();
-            }
+        // Framework enhancement for better sprite handling
+        window.addEventListener('gameframework:ready', () => {
+            // Enhance the RenderSystem's drawSpriteFrame method for better error handling
+            const originalDrawSpriteFrame = window.RenderSystem.prototype.drawSpriteFrame;
             
-            async loadSprite(name, imagePath) {
-                try {
-                    const image = new Image();
-                    image.src = `../GameDevStuff/Assets/Sprites/${imagePath}`;
-                    
-                    return new Promise((resolve, reject) => {
-                        image.onload = () => {
-                            this.images.set(name, image);
-                            
-                            // Create sprite data - assuming simple single frame for now
-                            const spriteData = {
-                                image: image,
-                                width: image.width,
-                                height: image.height,
-                                frames: [{
-                                    x: 0, y: 0,
-                                    width: image.width,
-                                    height: image.height
-                                }]
-                            };
-                            
-                            this.sprites.set(name, spriteData);
-                            resolve(spriteData);
-                        };
-                        
-                        image.onerror = () => {
-                            console.warn(`Failed to load sprite: ${imagePath}, using fallback`);
-                            // Create a fallback colored square
-                            const canvas = document.createElement('canvas');
-                            canvas.width = 64;
-                            canvas.height = 64;
-                            const ctx = canvas.getContext('2d');
-                            
-                            // Different colors for different sprite names
-                            ctx.fillStyle = name === 'karateguy' ? '#0a0' : 
-                                           name === 'ninjamand' ? '#808' : '#f00';
-                            ctx.fillRect(0, 0, 64, 64);
-                            
-                            // Add simple face
-                            ctx.fillStyle = '#f00';
-                            ctx.fillRect(16, 20, 8, 8); // left eye
-                            ctx.fillRect(40, 20, 8, 8); // right eye
-                            ctx.fillRect(24, 40, 16, 4); // mouth
-                            
-                            const spriteData = {
-                                image: canvas,
-                                width: 64,
-                                height: 64,
-                                frames: [{
-                                    x: 0, y: 0,
-                                    width: 64,
-                                    height: 64
-                                }]
-                            };
-                            
-                            this.sprites.set(name, spriteData);
-                            resolve(spriteData);
-                        };
-                    });
-                    
-                } catch (error) {
-                    console.error(`Error loading sprite ${name}:`, error);
-                    throw error;
-                }
-            }
-            
-            getSprite(name) {
-                return this.sprites.get(name);
-            }
-            
-            drawSprite(ctx, name, x, y, scale = 1, frame = 0) {
-                const sprite = this.sprites.get(name);
-                if (!sprite) return false;
+            window.RenderSystem.prototype.drawSpriteFrame = function(name, frameIndex, x, y, width, height) {
+                const image = this.sprites.get(name);
+                const data = this.spriteData.get(name);
                 
-                const frameData = sprite.frames[frame % sprite.frames.length];
-                const width = frameData.width * scale;
-                const height = frameData.height * scale;
-                
-                ctx.drawImage(
-                    sprite.image,
-                    frameData.x, frameData.y,
-                    frameData.width, frameData.height,
-                    x - width/2, y - height/2,
-                    width, height
-                );
-                
-                return true;
-            }
-        }
-        
-        // Simple 3D rail shooter with sprite support
-        class Game {
-            constructor() {
-                this.canvas = document.getElementById('gameCanvas');
-                this.ctx = this.canvas.getContext('2d');
-                this.running = false;
-                this.paused = false;
-                this.spritesLoaded = false;
-                
-                // Initialize sprite loader
-                this.spriteLoader = new SpriteLoader();
-                
-                // Game state
-                this.score = 0;
-                this.wave = 1;
-                this.playerHealth = 100;
-                this.maxHealth = 100;
-                this.currentWeapon = 'pistol';
-                this.ammo = { shotgun: 50, machinegun: 200 };
-                
-                // Input
-                this.mouseX = 0;
-                this.mouseY = 0;
-                this.shooting = false;
-                this.keys = {};
-                
-                // Game objects
-                this.enemies = [];
-                this.bullets = [];
-                this.particles = [];
-                this.powerups = [];
-                
-                // Timing
-                this.lastTime = 0;
-                this.fireTimer = 0;
-                this.waveTimer = 0;
-                this.waveDelay = 3;
-                this.enemiesInWave = 0;
-                this.enemiesKilled = 0;
-                
-                // Weapons
-                this.weapons = {
-                    pistol: { damage: 30, fireRate: 3, ammo: Infinity, spread: 0 },
-                    shotgun: { damage: 20, fireRate: 1, ammo: 50, spread: 0.3, pellets: 5 },
-                    machinegun: { damage: 15, fireRate: 10, ammo: 200, spread: 0.1 }
-                };
-                
-                // Camera shake
-                this.shakeX = 0;
-                this.shakeY = 0;
-                this.shakeIntensity = 0;
-                
-                this.setupCanvas();
-                this.setupEvents();
-                this.showStartScreen();
-            }
-            
-            setupCanvas() {
-                this.canvas.width = window.innerWidth;
-                this.canvas.height = window.innerHeight;
-                this.ctx.imageSmoothingEnabled = false;
-            }
-            
-            setupEvents() {
-                // Mouse/touch controls
-                this.canvas.addEventListener('mousemove', (e) => {
-                    const rect = this.canvas.getBoundingClientRect();
-                    this.mouseX = e.clientX - rect.left;
-                    this.mouseY = e.clientY - rect.top;
-                    this.updateCrosshair(e.clientX, e.clientY);
-                });
-                
-                this.canvas.addEventListener('mousedown', (e) => {
-                    e.preventDefault();
-                    this.shooting = true;
-                });
-                
-                this.canvas.addEventListener('mouseup', () => {
-                    this.shooting = false;
-                });
-                
-                // Touch events
-                this.canvas.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    this.shooting = true;
-                    this.handleTouch(e);
-                });
-                
-                this.canvas.addEventListener('touchmove', (e) => {
-                    e.preventDefault();
-                    this.handleTouch(e);
-                });
-                
-                this.canvas.addEventListener('touchend', () => {
-                    this.shooting = false;
-                });
-                
-                // Keyboard
-                document.addEventListener('keydown', (e) => {
-                    this.keys[e.key] = true;
-                    if (e.key >= '1' && e.key <= '3') {
-                        const weapons = ['pistol', 'shotgun', 'machinegun'];
-                        this.selectWeapon(weapons[parseInt(e.key) - 1]);
-                    }
-                });
-                
-                document.addEventListener('keyup', (e) => {
-                    this.keys[e.key] = false;
-                });
-                
-                // Weapon selection
-                document.querySelectorAll('.weapon-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        this.selectWeapon(btn.dataset.weapon);
-                    });
-                });
-                
-                // Start and restart buttons
-                document.getElementById('startBtn').addEventListener('click', () => {
-                    this.startGame();
-                });
-                
-                document.getElementById('restartBtn').addEventListener('click', () => {
-                    this.restartGame();
-                });
-                
-                // Resize handling
-                window.addEventListener('resize', () => {
-                    this.setupCanvas();
-                });
-                
-                // Show crosshair
-                document.getElementById('crosshair').style.display = 'block';
-            }
-            
-            handleTouch(e) {
-                const rect = this.canvas.getBoundingClientRect();
-                const touch = e.touches[0];
-                this.mouseX = touch.clientX - rect.left;
-                this.mouseY = touch.clientY - rect.top;
-                this.updateCrosshair(touch.clientX, touch.clientY);
-            }
-            
-            updateCrosshair(clientX, clientY) {
-                const crosshair = document.getElementById('crosshair');
-                crosshair.style.left = clientX - 20 + 'px';
-                crosshair.style.top = clientY - 20 + 'px';
-            }
-            
-            async loadSprites() {
-                try {
-                    document.getElementById('startBtn').textContent = 'Loading Sprites...';
-                    document.getElementById('startBtn').disabled = true;
-                    
-                    const statusEl = document.getElementById('spriteStatus');
-                    if (statusEl) statusEl.textContent = 'Loading karateguy sprite...';
-                    
-                    // Try to load sprites with various file extensions
-                    const extensions = ['png', 'jpg', 'gif'];
-                    
-                    for (let ext of extensions) {
-                        try {
-                            await this.spriteLoader.loadSprite('karateguy', `karateguy.${ext}`);
-                            if (statusEl) statusEl.textContent = 'Karateguy loaded! Loading ninjamand...';
-                            break;
-                        } catch (e) {
-                            if (ext === extensions[extensions.length - 1]) {
-                                // Last extension failed, use fallback
-                                await this.spriteLoader.loadSprite('karateguy', 'karateguy.png');
-                                if (statusEl) statusEl.textContent = 'Karateguy fallback loaded! Loading ninjamand...';
-                            }
-                        }
-                    }
-                    
-                    for (let ext of extensions) {
-                        try {
-                            await this.spriteLoader.loadSprite('ninjamand', `ninjamand.${ext}`);
-                            if (statusEl) statusEl.textContent = 'All sprites loaded!';
-                            break;
-                        } catch (e) {
-                            if (ext === extensions[extensions.length - 1]) {
-                                // Last extension failed, use fallback
-                                await this.spriteLoader.loadSprite('ninjamand', 'ninjamand.png');
-                                if (statusEl) statusEl.textContent = 'All sprites loaded (with fallbacks)!';
-                            }
-                        }
-                    }
-                    
-                    this.spritesLoaded = true;
-                    document.getElementById('startBtn').textContent = 'Start Game';
-                    document.getElementById('startBtn').disabled = false;
-                    
-                    setTimeout(() => {
-                        if (statusEl) statusEl.textContent = '';
-                    }, 2000);
-                    
-                } catch (error) {
-                    console.error('Error loading sprites:', error);
-                    this.spritesLoaded = true; // Use fallbacks
-                    document.getElementById('startBtn').textContent = 'Start Game';
-                    document.getElementById('startBtn').disabled = false;
-                    
-                    const statusEl = document.getElementById('spriteStatus');
-                    if (statusEl) statusEl.textContent = 'Using fallback graphics';
-                }
-            }
-            
-            showStartScreen() {
-                document.getElementById('startScreen').style.display = 'flex';
-                this.loadSprites(); // Load sprites when showing start screen
-            }
-            
-            startGame() {
-                if (!this.spritesLoaded) {
-                    console.log('Sprites not loaded yet, please wait...');
-                    return;
+                if (!image || !data) {
+                    console.warn(`Sprite ${name} not found`);
+                    return false;
                 }
                 
-                document.getElementById('startScreen').style.display = 'none';
-                this.running = true;
-                this.lastTime = performance.now();
-                this.spawnWave();
-                this.gameLoop();
-            }
-            
-            restartGame() {
-                // Reset game state
-                this.score = 0;
-                this.wave = 1;
-                this.playerHealth = 100;
-                this.ammo = { shotgun: 50, machinegun: 200 };
-                this.currentWeapon = 'pistol';
-                
-                // Clear arrays
-                this.enemies = [];
-                this.bullets = [];
-                this.particles = [];
-                this.powerups = [];
-                
-                // Reset timers
-                this.waveTimer = 0;
-                this.enemiesInWave = 0;
-                this.enemiesKilled = 0;
-                
-                // Update UI
-                this.updateUI();
-                this.selectWeapon('pistol');
-                
-                // Hide game over screen
-                document.getElementById('gameOver').style.display = 'none';
-                
-                // Start game
-                this.startGame();
-            }
-            
-            selectWeapon(weapon) {
-                // Check ammo for limited weapons
-                if ((weapon === 'shotgun' && this.ammo.shotgun <= 0) ||
-                    (weapon === 'machinegun' && this.ammo.machinegun <= 0)) {
-                    return;
+                // Ensure frameIndex is valid - clamp to available frames
+                const availableFrames = Array.from(data.frames.keys());
+                if (availableFrames.length === 0) {
+                    console.warn(`No frames available for sprite ${name}`);
+                    return false;
                 }
                 
-                this.currentWeapon = weapon;
+                // Convert frameIndex to string and validate
+                let frameKey = frameIndex.toString();
                 
-                // Update UI
-                document.querySelectorAll('.weapon-btn').forEach(btn => {
-                    btn.classList.toggle('active', btn.dataset.weapon === weapon);
-                });
-                
-                this.updateAmmoDisplay();
-            }
-            
-            updateAmmoDisplay() {
-                const ammoCount = document.getElementById('ammo-count');
-                if (this.currentWeapon === 'pistol') {
-                    ammoCount.textContent = '∞';
-                } else {
-                    ammoCount.textContent = this.ammo[this.currentWeapon];
-                }
-            }
-            
-            gameLoop() {
-                if (!this.running) return;
-                
-                const currentTime = performance.now();
-                const deltaTime = (currentTime - this.lastTime) / 1000;
-                this.lastTime = currentTime;
-                
-                this.update(deltaTime);
-                this.render();
-                
-                requestAnimationFrame(() => this.gameLoop());
-            }
-            
-            update(deltaTime) {
-                if (this.paused) return;
-                
-                // Update timers
-                this.fireTimer = Math.max(0, this.fireTimer - deltaTime);
-                this.waveTimer += deltaTime;
-                
-                // Shooting
-                if ((this.shooting || this.keys[' ']) && this.fireTimer <= 0) {
-                    this.fire();
-                }
-                
-                // Update shake
-                if (this.shakeIntensity > 0) {
-                    this.shakeX = (Math.random() - 0.5) * this.shakeIntensity;
-                    this.shakeY = (Math.random() - 0.5) * this.shakeIntensity;
-                    this.shakeIntensity *= 0.9;
-                    if (this.shakeIntensity < 0.5) {
-                        this.shakeIntensity = 0;
-                        this.shakeX = 0;
-                        this.shakeY = 0;
-                    }
-                }
-                
-                // Update bullets
-                this.bullets = this.bullets.filter(bullet => {
-                    bullet.x += bullet.vx * deltaTime;
-                    bullet.y += bullet.vy * deltaTime;
-                    bullet.z += bullet.vz * deltaTime;
-                    bullet.life -= deltaTime;
+                // If the requested frame doesn't exist, find the closest valid frame
+                if (!data.frames.has(frameKey)) {
+                    // Try to find a valid frame by checking numeric order
+                    const numericFrameIndex = Math.max(0, Math.min(frameIndex, availableFrames.length - 1));
                     
-                    // Check collision with enemies
-                    for (let enemy of this.enemies) {
-                        const dx = bullet.x - enemy.x;
-                        const dy = bullet.y - enemy.y;
-                        const dz = bullet.z - enemy.z;
-                        const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-                        
-                        if (dist < 50) {
-                            this.hitEnemy(enemy, bullet.damage);
-                            this.createHitEffect(bullet.x, bullet.y, bullet.z);
-                            return false; // Remove bullet
-                        }
-                    }
-                    
-                    return bullet.life > 0 && bullet.z > -1000;
-                });
-                
-                // Update enemies
-                this.enemies.forEach(enemy => {
-                    // Move towards player
-                    enemy.z += enemy.speed * deltaTime;
-                    enemy.x += Math.sin(enemy.z * 0.01 + enemy.offset) * enemy.sway;
-                    
-                    // Update animation
-                    enemy.animTimer += deltaTime;
-                    if (enemy.animTimer > 0.2) { // Change frame every 0.2 seconds
-                        enemy.animTimer = 0;
-                        enemy.animFrame = (enemy.animFrame + 1) % 4; // Assume 4 frames max
-                    }
-                    
-                    // Attack player if close
-                    if (enemy.z > -100 && !enemy.hasAttacked) {
-                        enemy.hasAttacked = true;
-                        this.takeDamage(enemy.damage);
-                    }
-                    
-                    // Update screen position
-                    this.updateEnemyScreenPos(enemy);
-                });
-                
-                // Remove enemies that are too close or dead
-                this.enemies = this.enemies.filter(enemy => 
-                    enemy.health > 0 && enemy.z < 100
-                );
-                
-                // Update particles
-                this.particles = this.particles.filter(particle => {
-                    particle.x += particle.vx * deltaTime;
-                    particle.y += particle.vy * deltaTime;
-                    particle.life -= deltaTime;
-                    particle.alpha = particle.life / particle.maxLife;
-                    return particle.life > 0;
-                });
-                
-                // Update powerups
-                this.powerups.forEach(powerup => {
-                    powerup.z += 50 * deltaTime;
-                    powerup.bobOffset += deltaTime * 5;
-                    powerup.y = powerup.baseY + Math.sin(powerup.bobOffset) * 20;
-                    
-                    // Check collection
-                    if (powerup.z > -100) {
-                        const dist = Math.sqrt(powerup.x * powerup.x + powerup.y * powerup.y);
-                        if (dist < 100) {
-                            this.collectPowerup(powerup);
-                            powerup.collected = true;
-                        }
-                    }
-                    
-                    this.updateEnemyScreenPos(powerup);
-                });
-                
-                this.powerups = this.powerups.filter(p => !p.collected && p.z < 200);
-                
-                // Check wave completion
-                if (this.enemies.length === 0 && this.enemiesKilled >= this.enemiesInWave && this.waveTimer > this.waveDelay) {
-                    this.nextWave();
-                }
-                
-                this.updateUI();
-            }
-            
-            fire() {
-                const weapon = this.weapons[this.currentWeapon];
-                
-                // Check ammo
-                if (this.currentWeapon !== 'pistol' && this.ammo[this.currentWeapon] <= 0) {
-                    this.selectWeapon('pistol');
-                    return;
-                }
-                
-                this.fireTimer = 1 / weapon.fireRate;
-                
-                // Calculate aim direction
-                const aimX = (this.mouseX - this.canvas.width / 2) * 2;
-                const aimY = (this.mouseY - this.canvas.height / 2) * 2;
-                
-                // Fire projectiles
-                const pellets = weapon.pellets || 1;
-                for (let i = 0; i < pellets; i++) {
-                    const spread = weapon.spread * (Math.random() - 0.5);
-                    const bullet = {
-                        x: 0, y: 0, z: -100,
-                        vx: aimX + spread * 100,
-                        vy: aimY + spread * 100,
-                        vz: -800,
-                        damage: weapon.damage,
-                        life: 2,
-                        color: this.currentWeapon === 'machinegun' ? '#ff0' : '#0f0'
-                    };
-                    this.bullets.push(bullet);
-                }
-                
-                // Consume ammo
-                if (this.currentWeapon !== 'pistol') {
-                    this.ammo[this.currentWeapon]--;
-                }
-                
-                // Effects
-                this.shake(this.currentWeapon === 'shotgun' ? 8 : 3);
-                this.createMuzzleFlash();
-            }
-            
-            hitEnemy(enemy, damage) {
-                enemy.health -= damage;
-                
-                if (enemy.health <= 0) {
-                    this.score += enemy.score;
-                    this.enemiesKilled++;
-                    this.createExplosion(enemy.x, enemy.y, enemy.z);
-                    
-                    // Drop powerup chance
-                    if (Math.random() < 0.3) {
-                        this.dropPowerup(enemy.x, enemy.y, enemy.z);
-                    }
-                }
-            }
-            
-            takeDamage(amount) {
-                this.playerHealth -= amount;
-                this.playerHealth = Math.max(0, this.playerHealth);
-                this.shake(15);
-                
-                if (this.playerHealth <= 0) {
-                    this.gameOver();
-                }
-            }
-            
-            gameOver() {
-                this.running = false;
-                document.getElementById('finalScore').textContent = this.score;
-                document.getElementById('finalWave').textContent = this.wave;
-                document.getElementById('gameOver').style.display = 'block';
-            }
-            
-            spawnWave() {
-                this.wave++;
-                this.waveTimer = 0;
-                this.enemiesKilled = 0;
-                this.enemiesInWave = Math.min(2 + this.wave, 10);
-                
-                // Spawn enemies over time
-                for (let i = 0; i < this.enemiesInWave; i++) {
-                    setTimeout(() => {
-                        if (this.running) {
-                            this.spawnEnemy();
-                        }
-                    }, i * 1000);
-                }
-            }
-            
-            nextWave() {
-                // Brief pause between waves
-                this.waveTimer = 0;
-                this.waveDelay = 2;
-                setTimeout(() => {
-                    if (this.running) {
-                        this.spawnWave();
-                    }
-                }, 2000);
-            }
-            
-            spawnEnemy() {
-                const types = [
-                    { name: 'zombie', sprite: 'karateguy', health: 60, damage: 20, speed: 100, score: 100, flying: false },
-                    { name: 'demon', sprite: 'karateguy', health: 80, damage: 25, speed: 80, score: 200, flying: false },
-                    { name: 'bat', sprite: 'ninjamand', health: 40, damage: 15, speed: 200, score: 150, flying: true }
-                ];
-                
-                const type = types[Math.floor(Math.random() * types.length)];
-                
-                const enemy = {
-                    type: type.name,
-                    sprite: type.sprite,
-                    x: (Math.random() - 0.5) * 800,
-                    y: type.flying ? -100 - Math.random() * 200 : 0,
-                    z: -800 - Math.random() * 400,
-                    health: type.health,
-                    maxHealth: type.health,
-                    damage: type.damage,
-                    speed: type.speed,
-                    score: type.score,
-                    flying: type.flying,
-                    sway: type.flying ? 3 : 1,
-                    offset: Math.random() * Math.PI * 2,
-                    hasAttacked: false,
-                    screenX: 0,
-                    screenY: 0,
-                    scale: 1,
-                    visible: false,
-                    animFrame: 0,
-                    animTimer: 0
-                };
-                
-                this.enemies.push(enemy);
-            }
-            
-            dropPowerup(x, y, z) {
-                const types = ['health', 'ammo_shotgun', 'ammo_machinegun'];
-                const type = types[Math.floor(Math.random() * types.length)];
-                
-                const powerup = {
-                    type: type,
-                    x: x,
-                    y: y,
-                    z: z,
-                    baseY: y,
-                    bobOffset: 0,
-                    collected: false,
-                    screenX: 0,
-                    screenY: 0,
-                    scale: 1,
-                    visible: false
-                };
-                
-                this.powerups.push(powerup);
-            }
-            
-            collectPowerup(powerup) {
-                switch (powerup.type) {
-                    case 'health':
-                        this.playerHealth = Math.min(this.maxHealth, this.playerHealth + 30);
-                        break;
-                    case 'ammo_shotgun':
-                        this.ammo.shotgun = Math.min(50, this.ammo.shotgun + 20);
-                        break;
-                    case 'ammo_machinegun':
-                        this.ammo.machinegun = Math.min(200, this.ammo.machinegun + 50);
-                        break;
-                }
-                
-                this.createPickupEffect(powerup.screenX, powerup.screenY);
-            }
-            
-            updateEnemyScreenPos(obj) {
-                if (obj.z >= -50) {
-                    obj.visible = false;
-                    return;
-                }
-                
-                const fov = 800;
-                obj.scale = fov / -obj.z;
-                obj.screenX = this.canvas.width / 2 + obj.x * obj.scale;
-                obj.screenY = this.canvas.height / 2 - obj.y * obj.scale;
-                
-                const margin = 100;
-                obj.visible = obj.screenX > -margin && obj.screenX < this.canvas.width + margin &&
-                             obj.screenY > -margin && obj.screenY < this.canvas.height + margin;
-            }
-            
-            shake(intensity) {
-                this.shakeIntensity = intensity;
-            }
-            
-            createMuzzleFlash() {
-                for (let i = 0; i < 5; i++) {
-                    this.particles.push({
-                        x: this.canvas.width / 2 + (Math.random() - 0.5) * 20,
-                        y: this.canvas.height / 2 + (Math.random() - 0.5) * 20,
-                        vx: (Math.random() - 0.5) * 100,
-                        vy: (Math.random() - 0.5) * 100,
-                        life: 0.1,
-                        maxLife: 0.1,
-                        alpha: 1,
-                        size: Math.random() * 10 + 5,
-                        color: '#ff0'
-                    });
-                }
-            }
-            
-            createHitEffect(x, y, z) {
-                const fov = 800;
-                const scale = fov / -z;
-                const screenX = this.canvas.width / 2 + x * scale;
-                const screenY = this.canvas.height / 2 - y * scale;
-                
-                for (let i = 0; i < 8; i++) {
-                    this.particles.push({
-                        x: screenX,
-                        y: screenY,
-                        vx: (Math.random() - 0.5) * 200,
-                        vy: (Math.random() - 0.5) * 200,
-                        life: 0.5,
-                        maxLife: 0.5,
-                        alpha: 1,
-                        size: Math.random() * 6 + 3,
-                        color: '#f00'
-                    });
-                }
-            }
-            
-            createExplosion(x, y, z) {
-                const fov = 800;
-                const scale = fov / -z;
-                const screenX = this.canvas.width / 2 + x * scale;
-                const screenY = this.canvas.height / 2 - y * scale;
-                
-                for (let i = 0; i < 15; i++) {
-                    this.particles.push({
-                        x: screenX,
-                        y: screenY,
-                        vx: (Math.random() - 0.5) * 300,
-                        vy: (Math.random() - 0.5) * 300,
-                        life: 1,
-                        maxLife: 1,
-                        alpha: 1,
-                        size: Math.random() * 12 + 8,
-                        color: Math.random() > 0.5 ? '#ff0' : '#f80'
-                    });
-                }
-            }
-            
-            createPickupEffect(x, y) {
-                for (let i = 0; i < 10; i++) {
-                    this.particles.push({
-                        x: x,
-                        y: y,
-                        vx: (Math.random() - 0.5) * 150,
-                        vy: (Math.random() - 0.5) * 150,
-                        life: 0.8,
-                        maxLife: 0.8,
-                        alpha: 1,
-                        size: Math.random() * 8 + 4,
-                        color: '#0f0'
-                    });
-                }
-            }
-            
-            updateUI() {
-                document.getElementById('score').textContent = `SCORE: ${this.score}`;
-                document.getElementById('wave').textContent = this.wave;
-                document.getElementById('enemies-left').textContent = Math.max(0, this.enemiesInWave - this.enemiesKilled);
-                document.getElementById('health-fill').style.width = (this.playerHealth / this.maxHealth * 100) + '%';
-                this.updateAmmoDisplay();
-            }
-            
-            render() {
-                // Clear screen
-                this.ctx.fillStyle = '#000';
-                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-                
-                // Apply camera shake
-                this.ctx.save();
-                this.ctx.translate(this.shakeX, this.shakeY);
-                
-                this.drawEnvironment();
-                this.drawBullets();
-                this.drawEnemies();
-                this.drawPowerups();
-                this.drawParticles();
-                
-                this.ctx.restore();
-            }
-            
-            drawEnvironment() {
-                // Draw starfield/background
-                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-                for (let i = 0; i < 50; i++) {
-                    const x = (Math.sin(performance.now() * 0.001 + i) * 0.5 + 0.5) * this.canvas.width;
-                    const y = (Math.cos(performance.now() * 0.001 + i * 0.7) * 0.5 + 0.5) * this.canvas.height;
-                    this.ctx.fillRect(x, y, 2, 2);
-                }
-                
-                // Draw horizon line
-                this.ctx.strokeStyle = 'rgba(0, 255, 0, 0.5)';
-                this.ctx.lineWidth = 2;
-                this.ctx.beginPath();
-                this.ctx.moveTo(0, this.canvas.height / 2);
-                this.ctx.lineTo(this.canvas.width, this.canvas.height / 2);
-                this.ctx.stroke();
-                
-                // Draw perspective grid
-                const centerX = this.canvas.width / 2;
-                const centerY = this.canvas.height / 2;
-                
-                this.ctx.strokeStyle = 'rgba(0, 255, 0, 0.2)';
-                this.ctx.lineWidth = 1;
-                
-                // Vertical lines with perspective
-                for (let x = -10; x <= 10; x++) {
-                    const screenX = centerX + x * 40;
-                    const vanishingOffset = x * 15;
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(screenX, centerY);
-                    this.ctx.lineTo(screenX - vanishingOffset, this.canvas.height);
-                    this.ctx.stroke();
-                }
-                
-                // Horizontal lines for depth
-                for (let z = 1; z <= 10; z++) {
-                    const y = centerY + z * z * 6;
-                    const alpha = Math.max(0.05, 0.3 - z * 0.03);
-                    this.ctx.strokeStyle = `rgba(0, 255, 0, ${alpha})`;
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(0, y);
-                    this.ctx.lineTo(this.canvas.width, y);
-                    this.ctx.stroke();
-                }
-                
-                // Side walls with depth
-                this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.1)';
-                this.ctx.lineWidth = 2;
-                // Left wall
-                this.ctx.beginPath();
-                this.ctx.moveTo(0, 0);
-                this.ctx.lineTo(centerX - 300, centerY);
-                this.ctx.lineTo(centerX - 300, this.canvas.height);
-                this.ctx.lineTo(0, this.canvas.height);
-                this.ctx.stroke();
-                
-                // Right wall
-                this.ctx.beginPath();
-                this.ctx.moveTo(this.canvas.width, 0);
-                this.ctx.lineTo(centerX + 300, centerY);
-                this.ctx.lineTo(centerX + 300, this.canvas.height);
-                this.ctx.lineTo(this.canvas.width, this.canvas.height);
-                this.ctx.stroke();
-            }
-            
-            drawBullets() {
-                this.bullets.forEach(bullet => {
-                    if (bullet.z >= -50) return;
-                    
-                    const fov = 800;
-                    const scale = fov / -bullet.z;
-                    const screenX = this.canvas.width / 2 + bullet.x * scale;
-                    const screenY = this.canvas.height / 2 - bullet.y * scale;
-                    
-                    this.ctx.fillStyle = bullet.color;
-                    this.ctx.fillRect(screenX - 2, screenY - 2, 4, 4);
-                });
-            }
-            
-            drawEnemies() {
-                this.enemies.forEach(enemy => {
-                    if (!enemy.visible) return;
-                    
-                    const baseSize = 64; // Base sprite size
-                    const size = baseSize * enemy.scale;
-                    
-                    // Try to draw sprite first
-                    const spriteDrawn = this.spriteLoader.drawSprite(
-                        this.ctx,
-                        enemy.sprite,
-                        enemy.screenX,
-                        enemy.screenY,
-                        enemy.scale,
-                        enemy.animFrame
-                    );
-                    
-                    // Fallback to colored rectangle if sprite fails
-                    if (!spriteDrawn) {
-                        this.ctx.fillStyle = enemy.type === 'demon' ? '#f00' : 
-                                            enemy.type === 'bat' ? '#808' : '#0a0';
-                        this.ctx.fillRect(
-                            enemy.screenX - size/2,
-                            enemy.screenY - size/2,
-                            size,
-                            size
-                        );
-                        
-                        // Eyes
-                        this.ctx.fillStyle = '#f00';
-                        this.ctx.fillRect(
-                            enemy.screenX - size/3,
-                            enemy.screenY - size/4,
-                            size/6,
-                            size/6
-                        );
-                        this.ctx.fillRect(
-                            enemy.screenX + size/6,
-                            enemy.screenY - size/4,
-                            size/6,
-                            size/6
-                        );
-                    }
-                    
-                    // Health bar
-                    if (enemy.health < enemy.maxHealth) {
-                        const barWidth = size;
-                        const barHeight = 6;
-                        const barY = enemy.screenY - size/2 - 10;
-                        
-                        this.ctx.fillStyle = '#333';
-                        this.ctx.fillRect(enemy.screenX - barWidth/2, barY, barWidth, barHeight);
-                        
-                        this.ctx.fillStyle = '#f00';
-                        const healthPercent = enemy.health / enemy.maxHealth;
-                        this.ctx.fillRect(enemy.screenX - barWidth/2, barY, barWidth * healthPercent, barHeight);
-                        
-                        // Health bar border
-                        this.ctx.strokeStyle = '#fff';
-                        this.ctx.lineWidth = 1;
-                        this.ctx.strokeRect(enemy.screenX - barWidth/2, barY, barWidth, barHeight);
-                    }
-                });
-            }
-            
-            drawPowerups() {
-                this.powerups.forEach(powerup => {
-                    if (!powerup.visible) return;
-                    
-                    const size = 30 * powerup.scale;
-                    
-                    this.ctx.fillStyle = powerup.type === 'health' ? '#0f0' : '#ff0';
-                    this.ctx.strokeStyle = '#fff';
-                    this.ctx.lineWidth = 2;
-                    
-                    if (powerup.type === 'health') {
-                        // Cross
-                        this.ctx.fillRect(
-                            powerup.screenX - size/2,
-                            powerup.screenY - size/6,
-                            size,
-                            size/3
-                        );
-                        this.ctx.fillRect(
-                            powerup.screenX - size/6,
-                            powerup.screenY - size/2,
-                            size/3,
-                            size
-                        );
+                    // Check if we have numeric indices
+                    if (data.frames.has(numericFrameIndex.toString())) {
+                        frameKey = numericFrameIndex.toString();
                     } else {
-                        // Box
-                        this.ctx.fillRect(
-                            powerup.screenX - size/2,
-                            powerup.screenY - size/2,
-                            size,
-                            size
-                        );
-                        this.ctx.strokeRect(
-                            powerup.screenX - size/2,
-                            powerup.screenY - size/2,
-                            size,
-                            size
-                        );
+                        // Fallback to first available frame
+                        frameKey = availableFrames[0];
                     }
-                });
-            }
-            
-            drawParticles() {
-                this.particles.forEach(particle => {
-                    this.ctx.fillStyle = particle.color;
-                    this.ctx.globalAlpha = particle.alpha;
-                    this.ctx.fillRect(
-                        particle.x - particle.size/2,
-                        particle.y - particle.size/2,
-                        particle.size,
-                        particle.size
+                    
+                    // Only warn once per sprite-frame combination to avoid spam
+                    const warnKey = `${name}-${frameIndex}`;
+                    if (!this._frameWarnings) this._frameWarnings = new Set();
+                    if (!this._frameWarnings.has(warnKey)) {
+                        console.warn(`Frame ${frameIndex} not found for sprite ${name}, using frame ${frameKey}`);
+                        this._frameWarnings.add(warnKey);
+                    }
+                }
+                
+                const frame = data.frames.get(frameKey);
+                if (!frame) {
+                    console.warn(`Frame data missing for ${name}:${frameKey}`);
+                    return false;
+                }
+                
+                const drawWidth = width !== undefined ? width : frame.w;
+                const drawHeight = height !== undefined ? height : frame.h;
+                
+                try {
+                    this.context.drawImage(
+                        image,
+                        frame.x, frame.y, frame.w, frame.h,
+                        x, y, drawWidth, drawHeight
                     );
+                    return true;
+                } catch (error) {
+                    console.error(`Error drawing sprite ${name}:${frameKey}:`, error);
+                    return false;
+                }
+            };
+            
+            // Enhance drawSprite method as well
+            const originalDrawSprite = window.RenderSystem.prototype.drawSprite;
+            
+            window.RenderSystem.prototype.drawSprite = function(name, x, y, width, height, frame = 0) {
+                const image = this.sprites.get(name);
+                if (!image) {
+                    console.warn(`Sprite ${name} not found`);
+                    return false;
+                }
+                
+                const data = this.spriteData.get(name);
+                if (data && data.frames && data.frames.size > 0) {
+                    return this.drawSpriteFrame(name, frame, x, y, width, height);
+                } else {
+                    // Simple image without frame data
+                    try {
+                        this.context.drawImage(image, x, y, width || image.width, height || image.height);
+                        return true;
+                    } catch (error) {
+                        console.error(`Error drawing simple sprite ${name}:`, error);
+                        return false;
+                    }
+                }
+            };
+            
+            console.log('✅ Enhanced GameFramework sprite rendering for better error handling');
+        });
+        
+        // Wait for GameFramework to load
+        let gameInstance = null;
+        let spritesLoaded = false;
+        
+        // Update loading status
+        function updateStatus(message) {
+            document.getElementById('loadingStatus').textContent = message;
+        }
+        
+        // GameFramework ready handler
+        window.addEventListener('gameframework:ready', async () => {
+            try {
+                updateStatus('Framework loaded! Initializing game...');
+                await initializeGame();
+            } catch (error) {
+                console.error('Failed to initialize game:', error);
+                updateStatus('❌ Failed to initialize game');
+            }
+        });
+        
+        // GameFramework error handler
+        window.addEventListener('gameframework:error', (e) => {
+            console.error('GameFramework failed to load:', e.detail.error);
+            updateStatus('❌ Failed to load framework');
+            document.getElementById('startBtn').textContent = 'Framework Error';
+        });
+        
+        // Initialize the game
+        async function initializeGame() {
+            try {
+                // Create game instance using GameFramework
+                gameInstance = await GameFramework.quickStart({
+                    width: window.innerWidth,
+                    height: window.innerHeight,
+                    backgroundColor: '#000000',
+                    pixelated: true,
+                    debug: false
                 });
-                this.ctx.globalAlpha = 1;
+                
+                updateStatus('Loading sprites...');
+                
+                // Load sprites using GameFramework
+                try {
+                    updateStatus('Loading Karate Guy sprite...');
+                    await gameInstance.loadSprite('karateguy', 'karateguy.json');
+                    updateStatus('Karate Guy loaded!');
+                    
+                    // Verify the sprite was loaded correctly
+                    const renderer = gameInstance.getSystem('renderer');
+                    const spriteData = renderer.getSpriteData('karateguy');
+                    if (spriteData && spriteData.frames.size > 0) {
+                        console.log(`✅ Karateguy sprite loaded with ${spriteData.frames.size} frames:`, Array.from(spriteData.frames.keys()));
+                    } else {
+                        throw new Error('Sprite loaded but no frame data found');
+                    }
+                } catch (error) {
+                    console.warn('❌ Failed to load karateguy sprite, using fallback:', error.message);
+                    updateStatus('Creating Karate Guy fallback...');
+                    createFallbackSprite(gameInstance, 'karateguy', '#0a0');
+                }
+                
+                try {
+                    updateStatus('Loading Ninja sprite...');
+                    await gameInstance.loadSprite('ninjamand', 'ninjamand.json');
+                    updateStatus('Ninja loaded!');
+                    
+                    // Verify the sprite was loaded correctly
+                    const renderer = gameInstance.getSystem('renderer');
+                    const spriteData = renderer.getSpriteData('ninjamand');
+                    if (spriteData && spriteData.frames.size > 0) {
+                        console.log(`✅ Ninjamand sprite loaded with ${spriteData.frames.size} frames:`, Array.from(spriteData.frames.keys()));
+                    } else {
+                        throw new Error('Sprite loaded but no frame data found');
+                    }
+                } catch (error) {
+                    console.warn('❌ Failed to load ninjamand sprite, using fallback:', error.message);
+                    updateStatus('Creating Ninja fallback...');
+                    createFallbackSprite(gameInstance, 'ninjamand', '#808');
+                }
+                
+                spritesLoaded = true;
+                updateStatus('All sprites loaded!');
+                
+                // Initialize the game
+                initializeGameSystems();
+                
+                // Enable start button
+                const startBtn = document.getElementById('startBtn');
+                startBtn.textContent = 'Start Game';
+                startBtn.disabled = false;
+                startBtn.addEventListener('click', startGame);
+                
+                setTimeout(() => {
+                    updateStatus('Ready to play!');
+                }, 1000);
+                
+            } catch (error) {
+                console.error('Game initialization error:', error);
+                updateStatus('❌ Initialization failed');
             }
         }
         
-        // Start the game
-        let game;
+        // Create fallback sprite for missing assets
+        function createFallbackSprite(game, name, color) {
+            const renderer = game.getSystem('renderer');
+            if (renderer) {
+                console.log(`Creating fallback sprite for ${name}...`);
+                
+                // Create a simple canvas-based fallback sprite
+                const canvas = document.createElement('canvas');
+                canvas.width = 64;
+                canvas.height = 64;
+                const ctx = canvas.getContext('2d');
+                
+                // Draw simple colored square with face
+                ctx.fillStyle = color;
+                ctx.fillRect(0, 0, 64, 64);
+                
+                // Add simple face
+                ctx.fillStyle = '#f00';
+                ctx.fillRect(16, 20, 8, 8); // left eye
+                ctx.fillRect(40, 20, 8, 8); // right eye
+                ctx.fillRect(24, 40, 16, 4); // mouth
+                
+                // Store as a basic sprite
+                renderer.sprites.set(name, canvas);
+                
+                // Create comprehensive sprite data with frames that match framework expectations
+                const frames = new Map();
+                
+                // Create 4 identical frames with string keys as expected by framework
+                for (let i = 0; i < 4; i++) {
+                    const frameKey = i.toString();
+                    frames.set(frameKey, {
+                        x: 0,
+                        y: 0,
+                        w: 64,
+                        h: 64,
+                        duration: 200,
+                        sourceSize: { w: 64, h: 64 },
+                        spriteSourceSize: { x: 0, y: 0, w: 64, h: 64 }
+                    });
+                }
+                
+                const animations = new Map();
+                animations.set('idle', {
+                    from: 0,
+                    to: 3,
+                    direction: 'forward',
+                    repeat: -1
+                });
+                
+                const spriteData = {
+                    frames: frames,
+                    animations: animations,
+                    image: canvas,
+                    meta: { 
+                        fallback: true, 
+                        frameCount: 4,
+                        size: { w: 64, h: 64 },
+                        image: canvas
+                    }
+                };
+                
+                renderer.spriteData.set(name, spriteData);
+                
+                console.log(`✅ Created fallback sprite for ${name} with frames:`, Array.from(frames.keys()));
+                
+                // Verify the sprite was created correctly
+                const testSprite = renderer.getSpriteData(name);
+                if (testSprite && testSprite.frames.size > 0) {
+                    console.log(`✅ Fallback sprite ${name} verified: ${testSprite.frames.size} frames available`);
+                    // Test that frame 0 exists
+                    if (testSprite.frames.has('0')) {
+                        console.log(`✅ Frame 0 exists for ${name}`);
+                    } else {
+                        console.error(`❌ Frame 0 missing for ${name}`);
+                    }
+                } else {
+                    console.error(`❌ Failed to create fallback sprite data for ${name}`);
+                }
+            }
+        }
         
-        window.addEventListener('load', () => {
-            game = new Game();
-        });
+        // Game variables
+        let gameState = {
+            score: 0,
+            wave: 1,
+            playerHealth: 100,
+            maxHealth: 100,
+            currentWeapon: 'pistol',
+            ammo: { shotgun: 50, machinegun: 200 },
+            enemies: [],
+            bullets: [],
+            particles: [],
+            powerups: [],
+            running: false,
+            mouseX: 0,
+            mouseY: 0,
+            shooting: false,
+            fireTimer: 0,
+            waveTimer: 0,
+            enemiesInWave: 0,
+            enemiesKilled: 0,
+            shakeX: 0,
+            shakeY: 0,
+            shakeIntensity: 0
+        };
+        
+        // Weapons configuration
+        const weapons = {
+            pistol: { damage: 30, fireRate: 3, ammo: Infinity, spread: 0 },
+            shotgun: { damage: 20, fireRate: 1, ammo: 50, spread: 0.3, pellets: 5 },
+            machinegun: { damage: 15, fireRate: 10, ammo: 200, spread: 0.1 }
+        };
+        
+        // Initialize game systems
+        function initializeGameSystems() {
+            setupCanvas();
+            setupEvents();
+        }
+        
+        function setupCanvas() {
+            const canvas = gameInstance.canvas;
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        
+        function setupEvents() {
+            const canvas = gameInstance.canvas;
+            
+            // Mouse/touch controls
+            canvas.addEventListener('mousemove', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                gameState.mouseX = e.clientX - rect.left;
+                gameState.mouseY = e.clientY - rect.top;
+                updateCrosshair(e.clientX, e.clientY);
+            });
+            
+            canvas.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                gameState.shooting = true;
+            });
+            
+            canvas.addEventListener('mouseup', () => {
+                gameState.shooting = false;
+            });
+            
+            // Touch events
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                gameState.shooting = true;
+                handleTouch(e);
+            });
+            
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                handleTouch(e);
+            });
+            
+            canvas.addEventListener('touchend', () => {
+                gameState.shooting = false;
+            });
+            
+            // Keyboard
+            document.addEventListener('keydown', (e) => {
+                if (e.key >= '1' && e.key <= '3') {
+                    const weaponNames = ['pistol', 'shotgun', 'machinegun'];
+                    selectWeapon(weaponNames[parseInt(e.key) - 1]);
+                }
+            });
+            
+            // Weapon selection
+            document.querySelectorAll('.weapon-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectWeapon(btn.dataset.weapon);
+                });
+            });
+            
+            // Restart button
+            document.getElementById('restartBtn').addEventListener('click', () => {
+                restartGame();
+            });
+            
+            // Resize handling
+            window.addEventListener('resize', () => {
+                setupCanvas();
+            });
+            
+            // Show crosshair
+            document.getElementById('crosshair').style.display = 'block';
+        }
+        
+        function handleTouch(e) {
+            const rect = gameInstance.canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            gameState.mouseX = touch.clientX - rect.left;
+            gameState.mouseY = touch.clientY - rect.top;
+            updateCrosshair(touch.clientX, touch.clientY);
+        }
+        
+        function updateCrosshair(clientX, clientY) {
+            const crosshair = document.getElementById('crosshair');
+            crosshair.style.left = clientX - 20 + 'px';
+            crosshair.style.top = clientY - 20 + 'px';
+        }
+        
+        function selectWeapon(weapon) {
+            // Check ammo for limited weapons
+            if ((weapon === 'shotgun' && gameState.ammo.shotgun <= 0) ||
+                (weapon === 'machinegun' && gameState.ammo.machinegun <= 0)) {
+                return;
+            }
+            
+            gameState.currentWeapon = weapon;
+            
+            // Update UI
+            document.querySelectorAll('.weapon-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.weapon === weapon);
+            });
+            
+            updateAmmoDisplay();
+        }
+        
+        function updateAmmoDisplay() {
+            const ammoCount = document.getElementById('ammo-count');
+            if (gameState.currentWeapon === 'pistol') {
+                ammoCount.textContent = '∞';
+            } else {
+                ammoCount.textContent = gameState.ammo[gameState.currentWeapon];
+            }
+        }
+        
+        function startGame() {
+            if (!spritesLoaded || !gameInstance) {
+                console.log('Game not ready yet');
+                return;
+            }
+            
+            document.getElementById('startScreen').style.display = 'none';
+            gameState.running = true;
+            spawnWave();
+            gameInstance.start();
+            
+            // Start custom game loop
+            gameLoop();
+        }
+        
+        function restartGame() {
+            // Reset game state
+            gameState.score = 0;
+            gameState.wave = 1;
+            gameState.playerHealth = 100;
+            gameState.ammo = { shotgun: 50, machinegun: 200 };
+            gameState.currentWeapon = 'pistol';
+            gameState.enemies = [];
+            gameState.bullets = [];
+            gameState.particles = [];
+            gameState.powerups = [];
+            gameState.waveTimer = 0;
+            gameState.enemiesInWave = 0;
+            gameState.enemiesKilled = 0;
+            
+            // Clear any existing particles from framework
+            const particleSystem = gameInstance.getSystem('particles');
+            if (particleSystem && particleSystem.clear) {
+                particleSystem.clear();
+            }
+            
+            // Update UI
+            updateUI();
+            selectWeapon('pistol');
+            
+            // Hide game over screen
+            document.getElementById('gameOver').style.display = 'none';
+            
+            // Start game
+            startGame();
+        }
+        
+        function gameLoop() {
+            if (!gameState.running) return;
+            
+            const deltaTime = 1/60; // Fixed timestep for simplicity
+            
+            update(deltaTime);
+            render();
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function update(deltaTime) {
+            // Update timers
+            gameState.fireTimer = Math.max(0, gameState.fireTimer - deltaTime);
+            gameState.waveTimer += deltaTime;
+            
+            // Shooting
+            if (gameState.shooting && gameState.fireTimer <= 0) {
+                fire();
+            }
+            
+            // Update shake
+            if (gameState.shakeIntensity > 0) {
+                gameState.shakeX = (Math.random() - 0.5) * gameState.shakeIntensity;
+                gameState.shakeY = (Math.random() - 0.5) * gameState.shakeIntensity;
+                gameState.shakeIntensity *= 0.9;
+                if (gameState.shakeIntensity < 0.5) {
+                    gameState.shakeIntensity = 0;
+                    gameState.shakeX = 0;
+                    gameState.shakeY = 0;
+                }
+            }
+            
+            // Update bullets
+            gameState.bullets = gameState.bullets.filter(bullet => {
+                bullet.x += bullet.vx * deltaTime;
+                bullet.y += bullet.vy * deltaTime;
+                bullet.z += bullet.vz * deltaTime;
+                bullet.life -= deltaTime;
+                
+                // Check collision with enemies
+                for (let enemy of gameState.enemies) {
+                    const dx = bullet.x - enemy.x;
+                    const dy = bullet.y - enemy.y;
+                    const dz = bullet.z - enemy.z;
+                    const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                    
+                    if (dist < 50) {
+                        hitEnemy(enemy, bullet.damage);
+                        createHitEffect(bullet.x, bullet.y, bullet.z);
+                        return false; // Remove bullet
+                    }
+                }
+                
+                return bullet.life > 0 && bullet.z > -1000;
+            });
+            
+            // Update enemies
+            gameState.enemies.forEach(enemy => {
+                // Move towards player
+                enemy.z += enemy.speed * deltaTime;
+                enemy.x += Math.sin(enemy.z * 0.01 + enemy.offset) * enemy.sway;
+                
+                // Update animation with very careful frame bounds
+                enemy.animTimer += deltaTime;
+                if (enemy.animTimer > 0.2) {
+                    enemy.animTimer = 0;
+                    
+                    // Get current sprite data to ensure we have the right frame count
+                    const renderer = gameInstance.getSystem('renderer');
+                    const spriteData = renderer?.getSpriteData(enemy.sprite);
+                    let maxFrames = 4; // Default fallback
+                    
+                    if (spriteData && spriteData.frames) {
+                        maxFrames = spriteData.frames.size;
+                    }
+                    
+                    // Store the correct max frames on the enemy
+                    enemy.maxFrames = maxFrames;
+                    
+                    // Safely increment frame with bounds checking
+                    if (maxFrames > 0) {
+                        enemy.animFrame = (enemy.animFrame + 1) % maxFrames;
+                    } else {
+                        enemy.animFrame = 0;
+                    }
+                }
+                
+                // Attack player if close
+                if (enemy.z > -100 && !enemy.hasAttacked) {
+                    enemy.hasAttacked = true;
+                    takeDamage(enemy.damage);
+                }
+                
+                // Update screen position
+                updateEnemyScreenPos(enemy);
+            });
+            
+            // Remove enemies that are too close or dead
+            gameState.enemies = gameState.enemies.filter(enemy => 
+                enemy.health > 0 && enemy.z < 100
+            );
+            
+            // Update particles using framework
+            gameInstance.getSystem('particles')?.update(deltaTime);
+            
+            // Check wave completion
+            if (gameState.enemies.length === 0 && gameState.enemiesKilled >= gameState.enemiesInWave && gameState.waveTimer > 3) {
+                nextWave();
+            }
+            
+            updateUI();
+        }
+        
+        function render() {
+            const renderer = gameInstance.getSystem('renderer');
+            if (!renderer) return;
+            
+            const ctx = gameInstance.context;
+            
+            // Clear screen
+            renderer.clear();
+            
+            // Apply camera shake
+            ctx.save();
+            ctx.translate(gameState.shakeX, gameState.shakeY);
+            
+            drawEnvironment(ctx);
+            drawBullets(ctx);
+            drawEnemies(ctx, renderer);
+            drawPowerups(ctx);
+            
+            // Render particles using framework
+            gameInstance.getSystem('particles')?.render(ctx);
+            
+            ctx.restore();
+        }
+        
+        function drawEnvironment(ctx) {
+            const canvas = gameInstance.canvas;
+            
+            // Draw starfield/background
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+            for (let i = 0; i < 50; i++) {
+                const x = (Math.sin(performance.now() * 0.001 + i) * 0.5 + 0.5) * canvas.width;
+                const y = (Math.cos(performance.now() * 0.001 + i * 0.7) * 0.5 + 0.5) * canvas.height;
+                ctx.fillRect(x, y, 2, 2);
+            }
+            
+            // Draw horizon line
+            ctx.strokeStyle = 'rgba(0, 255, 0, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2);
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+            
+            // Draw perspective grid
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            
+            ctx.strokeStyle = 'rgba(0, 255, 0, 0.2)';
+            ctx.lineWidth = 1;
+            
+            // Vertical lines with perspective
+            for (let x = -10; x <= 10; x++) {
+                const screenX = centerX + x * 40;
+                const vanishingOffset = x * 15;
+                ctx.beginPath();
+                ctx.moveTo(screenX, centerY);
+                ctx.lineTo(screenX - vanishingOffset, canvas.height);
+                ctx.stroke();
+            }
+            
+            // Horizontal lines for depth
+            for (let z = 1; z <= 10; z++) {
+                const y = centerY + z * z * 6;
+                const alpha = Math.max(0.05, 0.3 - z * 0.03);
+                ctx.strokeStyle = `rgba(0, 255, 0, ${alpha})`;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+        }
+        
+        function drawBullets(ctx) {
+            gameState.bullets.forEach(bullet => {
+                if (bullet.z >= -50) return;
+                
+                const fov = 800;
+                const scale = fov / -bullet.z;
+                const screenX = gameInstance.canvas.width / 2 + bullet.x * scale;
+                const screenY = gameInstance.canvas.height / 2 - bullet.y * scale;
+                
+                ctx.fillStyle = bullet.color;
+                ctx.fillRect(screenX - 2, screenY - 2, 4, 4);
+            });
+        }
+        
+        function drawEnemies(ctx, renderer) {
+            gameState.enemies.forEach(enemy => {
+                if (!enemy.visible) return;
+                
+                const baseSize = 64;
+                const size = baseSize * enemy.scale;
+                
+                // Try to draw sprite using GameFramework renderer
+                ctx.save();
+                ctx.translate(enemy.screenX, enemy.screenY);
+                
+                // Check if we have the sprite loaded and validate frame
+                const spriteData = renderer.getSpriteData(enemy.sprite);
+                const hasSprite = renderer.sprites.has(enemy.sprite) && spriteData;
+                
+                let spriteDrawn = false;
+                if (hasSprite) {
+                    // Ensure animFrame is within bounds - be extra careful
+                    const availableFrames = Array.from(spriteData.frames.keys());
+                    let safeFrame = 0; // Default to frame 0
+                    
+                    if (availableFrames.length > 0) {
+                        if (typeof enemy.animFrame === 'number') {
+                            safeFrame = Math.max(0, Math.min(enemy.animFrame, availableFrames.length - 1));
+                        }
+                        
+                        // Double check the frame exists
+                        if (!spriteData.frames.has(safeFrame.toString())) {
+                            safeFrame = parseInt(availableFrames[0]) || 0;
+                        }
+                    }
+                    
+                    // Reset enemy's animFrame to the safe value
+                    enemy.animFrame = safeFrame;
+                    
+                    spriteDrawn = renderer.drawSprite(enemy.sprite, -size/2, -size/2, size, size, safeFrame);
+                }
+                
+                if (!spriteDrawn) {
+                    // Fallback to colored rectangle
+                    drawEnemyFallback(ctx, enemy, size);
+                }
+                
+                ctx.restore();
+                
+                // Health bar
+                if (enemy.health < enemy.maxHealth) {
+                    const barWidth = size;
+                    const barHeight = 6;
+                    const barY = enemy.screenY - size/2 - 10;
+                    
+                    ctx.fillStyle = '#333';
+                    ctx.fillRect(enemy.screenX - barWidth/2, barY, barWidth, barHeight);
+                    
+                    ctx.fillStyle = '#f00';
+                    const healthPercent = enemy.health / enemy.maxHealth;
+                    ctx.fillRect(enemy.screenX - barWidth/2, barY, barWidth * healthPercent, barHeight);
+                    
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(enemy.screenX - barWidth/2, barY, barWidth, barHeight);
+                }
+            });
+        }
+        
+        function drawEnemyFallback(ctx, enemy, size) {
+            ctx.fillStyle = enemy.type === 'demon' ? '#f00' : 
+                            enemy.type === 'bat' ? '#808' : '#0a0';
+            ctx.fillRect(-size/2, -size/2, size, size);
+            
+            // Eyes
+            ctx.fillStyle = '#f00';
+            ctx.fillRect(-size/3, -size/4, size/6, size/6);
+            ctx.fillRect(size/6, -size/4, size/6, size/6);
+            
+            // Add simple animation by changing eye size based on animFrame
+            const eyeSize = (size/6) * (0.8 + 0.2 * Math.sin(enemy.animFrame));
+            ctx.fillRect(-size/3, -size/4, eyeSize, eyeSize);
+            ctx.fillRect(size/6, -size/4, eyeSize, eyeSize);
+        }
+        
+        function drawPowerups(ctx) {
+            gameState.powerups.forEach(powerup => {
+                if (!powerup.visible) return;
+                
+                const size = 30 * powerup.scale;
+                
+                ctx.fillStyle = powerup.type === 'health' ? '#0f0' : '#ff0';
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                
+                if (powerup.type === 'health') {
+                    // Cross
+                    ctx.fillRect(
+                        powerup.screenX - size/2,
+                        powerup.screenY - size/6,
+                        size,
+                        size/3
+                    );
+                    ctx.fillRect(
+                        powerup.screenX - size/6,
+                        powerup.screenY - size/2,
+                        size/3,
+                        size
+                    );
+                } else {
+                    // Box
+                    ctx.fillRect(
+                        powerup.screenX - size/2,
+                        powerup.screenY - size/2,
+                        size,
+                        size
+                    );
+                    ctx.strokeRect(
+                        powerup.screenX - size/2,
+                        powerup.screenY - size/2,
+                        size,
+                        size
+                    );
+                }
+            });
+        }
+        
+        function fire() {
+            const weapon = weapons[gameState.currentWeapon];
+            
+            // Check ammo
+            if (gameState.currentWeapon !== 'pistol' && gameState.ammo[gameState.currentWeapon] <= 0) {
+                selectWeapon('pistol');
+                return;
+            }
+            
+            gameState.fireTimer = 1 / weapon.fireRate;
+            
+            // Calculate aim direction
+            const aimX = (gameState.mouseX - gameInstance.canvas.width / 2) * 2;
+            const aimY = (gameState.mouseY - gameInstance.canvas.height / 2) * 2;
+            
+            // Fire projectiles
+            const pellets = weapon.pellets || 1;
+            for (let i = 0; i < pellets; i++) {
+                const spread = weapon.spread * (Math.random() - 0.5);
+                const bullet = {
+                    x: 0, y: 0, z: -100,
+                    vx: aimX + spread * 100,
+                    vy: aimY + spread * 100,
+                    vz: -800,
+                    damage: weapon.damage,
+                    life: 2,
+                    color: gameState.currentWeapon === 'machinegun' ? '#ff0' : '#0f0'
+                };
+                gameState.bullets.push(bullet);
+            }
+            
+            // Consume ammo
+            if (gameState.currentWeapon !== 'pistol') {
+                gameState.ammo[gameState.currentWeapon]--;
+            }
+            
+            // Effects
+            shake(gameState.currentWeapon === 'shotgun' ? 8 : 3);
+            createMuzzleFlash();
+        }
+        
+        function hitEnemy(enemy, damage) {
+            enemy.health -= damage;
+            
+            if (enemy.health <= 0) {
+                gameState.score += enemy.score;
+                gameState.enemiesKilled++;
+                createExplosion(enemy.x, enemy.y, enemy.z);
+                
+                // Drop powerup chance
+                if (Math.random() < 0.3) {
+                    dropPowerup(enemy.x, enemy.y, enemy.z);
+                }
+            }
+        }
+        
+        function takeDamage(amount) {
+            gameState.playerHealth -= amount;
+            gameState.playerHealth = Math.max(0, gameState.playerHealth);
+            shake(15);
+            
+            if (gameState.playerHealth <= 0) {
+                gameOver();
+            }
+        }
+        
+        function gameOver() {
+            gameState.running = false;
+            document.getElementById('finalScore').textContent = gameState.score;
+            document.getElementById('finalWave').textContent = gameState.wave;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+        
+        function spawnWave() {
+            gameState.wave++;
+            gameState.waveTimer = 0;
+            gameState.enemiesKilled = 0;
+            gameState.enemiesInWave = Math.min(2 + gameState.wave, 10);
+            
+            // Spawn enemies over time
+            for (let i = 0; i < gameState.enemiesInWave; i++) {
+                setTimeout(() => {
+                    if (gameState.running) {
+                        spawnEnemy();
+                    }
+                }, i * 1000);
+            }
+        }
+        
+        function nextWave() {
+            gameState.waveTimer = 0;
+            setTimeout(() => {
+                if (gameState.running) {
+                    spawnWave();
+                }
+            }, 2000);
+        }
+        
+        function spawnEnemy() {
+            const types = [
+                { name: 'zombie', sprite: 'karateguy', health: 60, damage: 20, speed: 100, score: 100, flying: false },
+                { name: 'demon', sprite: 'karateguy', health: 80, damage: 25, speed: 80, score: 200, flying: false },
+                { name: 'bat', sprite: 'ninjamand', health: 40, damage: 15, speed: 200, score: 150, flying: true }
+            ];
+            
+            const type = types[Math.floor(Math.random() * types.length)];
+            
+            // Get the frame count for this sprite to ensure proper animation bounds
+            const renderer = gameInstance.getSystem('renderer');
+            const spriteData = renderer?.getSpriteData(type.sprite);
+            const maxFrames = spriteData?.frames?.size || 4;
+            
+            const enemy = {
+                type: type.name,
+                sprite: type.sprite,
+                x: (Math.random() - 0.5) * 800,
+                y: type.flying ? -100 - Math.random() * 200 : 0,
+                z: -800 - Math.random() * 400,
+                health: type.health,
+                maxHealth: type.health,
+                damage: type.damage,
+                speed: type.speed,
+                score: type.score,
+                flying: type.flying,
+                sway: type.flying ? 3 : 1,
+                offset: Math.random() * Math.PI * 2,
+                hasAttacked: false,
+                screenX: 0,
+                screenY: 0,
+                scale: 1,
+                visible: false,
+                animFrame: 0, // Always start at frame 0
+                animTimer: 0,
+                maxFrames: maxFrames // Store for bounds checking
+            };
+            
+            gameState.enemies.push(enemy);
+            console.log(`Spawned ${type.name} with sprite ${type.sprite} (${maxFrames} frames)`);
+        }
+        
+        function dropPowerup(x, y, z) {
+            const types = ['health', 'ammo_shotgun', 'ammo_machinegun'];
+            const type = types[Math.floor(Math.random() * types.length)];
+            
+            const powerup = {
+                type: type,
+                x: x,
+                y: y,
+                z: z,
+                baseY: y,
+                bobOffset: 0,
+                collected: false,
+                screenX: 0,
+                screenY: 0,
+                scale: 1,
+                visible: false
+            };
+            
+            gameState.powerups.push(powerup);
+        }
+        
+        function updateEnemyScreenPos(obj) {
+            if (obj.z >= -50) {
+                obj.visible = false;
+                return;
+            }
+            
+            const fov = 800;
+            obj.scale = fov / -obj.z;
+            obj.screenX = gameInstance.canvas.width / 2 + obj.x * obj.scale;
+            obj.screenY = gameInstance.canvas.height / 2 - obj.y * obj.scale;
+            
+            const margin = 100;
+            obj.visible = obj.screenX > -margin && obj.screenX < gameInstance.canvas.width + margin &&
+                         obj.screenY > -margin && obj.screenY < gameInstance.canvas.height + margin;
+        }
+        
+        function shake(intensity) {
+            gameState.shakeIntensity = intensity;
+        }
+        
+        function createMuzzleFlash() {
+            gameInstance.createParticleEffect('sparkle', 
+                gameInstance.canvas.width / 2, 
+                gameInstance.canvas.height / 2
+            );
+        }
+        
+        function createHitEffect(x, y, z) {
+            const fov = 800;
+            const scale = fov / -z;
+            const screenX = gameInstance.canvas.width / 2 + x * scale;
+            const screenY = gameInstance.canvas.height / 2 - y * scale;
+            
+            gameInstance.createParticleEffect('hit', screenX, screenY);
+        }
+        
+        function createExplosion(x, y, z) {
+            const fov = 800;
+            const scale = fov / -z;
+            const screenX = gameInstance.canvas.width / 2 + x * scale;
+            const screenY = gameInstance.canvas.height / 2 - y * scale;
+            
+            gameInstance.createParticleEffect('explosion', screenX, screenY);
+        }
+        
+        function updateUI() {
+            document.getElementById('score').textContent = `SCORE: ${gameState.score}`;
+            document.getElementById('wave').textContent = gameState.wave;
+            document.getElementById('enemies-left').textContent = Math.max(0, gameState.enemiesInWave - gameState.enemiesKilled);
+            document.getElementById('health-fill').style.width = (gameState.playerHealth / gameState.maxHealth * 100) + '%';
+            updateAmmoDisplay();
+        }
     </script>
 </body>
 </html>
