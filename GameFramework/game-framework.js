@@ -389,7 +389,7 @@ class Scene {
 window.Scene = Scene;
 
 /**
- * Asset Loader - Handles loading of game assets
+ * Enhanced Asset Loader - Now with comprehensive audio support
  */
 class AssetLoader {
     constructor(framework) {
@@ -397,15 +397,56 @@ class AssetLoader {
         this.config = window.FRAMEWORK_CONFIG || {};
         this.loadedAssets = new Map();
         this.loadingPromises = new Map();
+        this.audioPresets = new Map();
+        
+        // Initialize audio presets
+        this.initializeAudioPresets();
+    }
+    
+    initializeAudioPresets() {
+        // Define common audio configurations
+        this.audioPresets.set('music', {
+            category: 'music',
+            loop: true,
+            volume: 0.7,
+            maxInstances: 1
+        });
+        
+        this.audioPresets.set('ambient', {
+            category: 'music',
+            loop: true,
+            volume: 0.5,
+            maxInstances: 1
+        });
+        
+        this.audioPresets.set('sfx', {
+            category: 'sfx',
+            loop: false,
+            volume: 0.8,
+            maxInstances: 3
+        });
+        
+        this.audioPresets.set('ui', {
+            category: 'sfx',
+            loop: false,
+            volume: 0.6,
+            maxInstances: 2
+        });
+        
+        this.audioPresets.set('voice', {
+            category: 'voice',
+            loop: false,
+            volume: 0.9,
+            maxInstances: 1
+        });
     }
     
     async initialize() {
-        console.log('🔧 Framework Asset Loader initialized');
+        console.log('🔧 Framework Asset Loader initialized with audio support');
     }
     
     async loadSprite(assetId, filename) {
         // Construct the full path using the configured sprites path
-        // Note: filename should be just the filename, not a full path
         const basePath = this.config.paths?.sprites || '/GameAssets/Sprites/Aseprite/';
         const path = basePath + filename;
         
@@ -451,7 +492,6 @@ class AssetLoader {
             throw new Error('Renderer system not available');
         }
         
-        // Pass the full path to loadAseprite since we've already constructed it
         const spriteData = await renderer.loadAseprite(assetId, path);
         
         if (spriteData.animations && spriteData.animations.size > 0) {
@@ -462,39 +502,141 @@ class AssetLoader {
         return spriteData;
     }
     
-    async loadAudio(assetId, filename, type = 'sfx') {
-        const basePath = type === 'music' 
-            ? (this.config.paths?.audio?.music || '/GameAssets/Audio/Music/')
-            : (this.config.paths?.audio?.sfx || '/GameAssets/Audio/SFX/');
+    /**
+     * Enhanced audio loading with presets and advanced configuration
+     */
+    async loadAudio(assetId, filename, options = {}) {
+        // Handle different parameter formats
+        let config = {};
+        if (typeof options === 'string') {
+            // Legacy: loadAudio(id, filename, 'music')
+            config = this.audioPresets.get(options) || { category: options };
+        } else {
+            // New: loadAudio(id, filename, { preset: 'music', volume: 0.5 })
+            config = { ...options };
+            
+            if (config.preset) {
+                const presetConfig = this.audioPresets.get(config.preset);
+                if (presetConfig) {
+                    config = { ...presetConfig, ...config };
+                }
+                delete config.preset;
+            }
+        }
+        
+        // Determine audio category and path
+        const category = config.category || 'sfx';
+        const basePath = this.getAudioBasePath(category);
         const path = basePath + filename;
         
         if (this.loadedAssets.has(assetId)) {
             return this.loadedAssets.get(assetId);
         }
         
-        console.log(`🔊 Loading audio: ${assetId} from ${filename}`);
+        if (this.loadingPromises.has(assetId)) {
+            return this.loadingPromises.get(assetId);
+        }
+        
+        console.log(`🔊 Loading audio: ${assetId} (${category}) from ${filename}`);
+        
+        const loadPromise = this.doLoadAudio(assetId, path, config);
+        this.loadingPromises.set(assetId, loadPromise);
         
         try {
-            const audio = this.framework.getSystem('audio');
-            if (!audio) {
-                throw new Error('Audio system not available');
-            }
+            const startTime = performance.now();
+            const audioAsset = await loadPromise;
+            const loadTime = performance.now() - startTime;
             
-            const audioAsset = await audio.loadSound(assetId, path);
             this.loadedAssets.set(assetId, audioAsset);
+            console.log(`  ✅ Audio loaded in ${loadTime.toFixed(2)}ms`);
             
             this.framework.events.emit('asset:loaded', {
                 type: 'audio',
                 id: assetId,
                 filename: filename,
-                audioType: type
+                category: category,
+                loadTime: loadTime
             });
             
             return audioAsset;
         } catch (error) {
             console.error(`❌ Failed to load audio ${assetId}:`, error);
+            this.loadingPromises.delete(assetId);
             throw error;
         }
+    }
+    
+    getAudioBasePath(category) {
+        const audioPaths = this.config.paths?.audio;
+        if (!audioPaths) {
+            return '/GameAssets/Audio/';
+        }
+        
+        switch (category) {
+            case 'music':
+                return audioPaths.music || audioPaths.base || '/GameAssets/Audio/';
+            case 'voice':
+                return audioPaths.voice || audioPaths.base || '/GameAssets/Audio/';
+            default:
+                return audioPaths.sfx || audioPaths.base || '/GameAssets/Audio/';
+        }
+    }
+    
+    async doLoadAudio(assetId, path, config) {
+        const audio = this.framework.getSystem('audio');
+        if (!audio) {
+            throw new Error('Audio system not available');
+        }
+        
+        const audioAsset = await audio.loadSound(assetId, path, config);
+        return audioAsset;
+    }
+    
+    /**
+     * Load multiple assets in parallel
+     */
+    async loadAssets(assetList) {
+        const loadPromises = assetList.map(asset => {
+            switch (asset.type) {
+                case 'sprite':
+                    return this.loadSprite(asset.id, asset.filename);
+                case 'audio':
+                    return this.loadAudio(asset.id, asset.filename, asset.config || asset.category);
+                default:
+                    console.warn(`Unknown asset type: ${asset.type}`);
+                    return Promise.resolve();
+            }
+        });
+        
+        const results = await Promise.allSettled(loadPromises);
+        
+        const failed = results
+            .map((result, index) => ({ result, asset: assetList[index] }))
+            .filter(({ result }) => result.status === 'rejected');
+        
+        if (failed.length > 0) {
+            console.warn(`Failed to load ${failed.length} assets:`, failed);
+        }
+        
+        const loaded = results.filter(result => result.status === 'fulfilled').length;
+        console.log(`📦 Loaded ${loaded}/${assetList.length} assets`);
+        
+        return results;
+    }
+    
+    /**
+     * Create audio preset
+     */
+    createAudioPreset(name, config) {
+        this.audioPresets.set(name, config);
+        console.log(`🎵 Created audio preset: ${name}`);
+    }
+    
+    /**
+     * Get available audio presets
+     */
+    getAudioPresets() {
+        return Array.from(this.audioPresets.keys());
     }
     
     getAsset(assetId) {
@@ -503,6 +645,17 @@ class AssetLoader {
     
     hasAsset(assetId) {
         return this.loadedAssets.has(assetId);
+    }
+    
+    /**
+     * Get loading statistics
+     */
+    getStats() {
+        return {
+            totalLoaded: this.loadedAssets.size,
+            currentlyLoading: this.loadingPromises.size,
+            audioPresets: this.audioPresets.size
+        };
     }
 }
 
@@ -564,6 +717,9 @@ class GameFramework {
         // Performance monitoring
         this.performanceMonitor = new PerformanceMonitor();
         
+        // Audio state
+        this.currentMusic = null;
+        
         // Initialize core systems (but not render system yet)
         this.initializeSystems();
     }
@@ -584,6 +740,14 @@ class GameFramework {
             rendering: {
                 pixelated: true,
                 antialias: false
+            },
+            audio: {
+                masterVolume: 1,
+                categoryVolumes: {
+                    music: 0.7,
+                    sfx: 0.8,
+                    voice: 0.9
+                }
             }
         };
         
@@ -847,10 +1011,25 @@ class GameFramework {
     }
     
     /**
-     * Load audio asset
+     * Load audio asset with preset support
      */
-    async loadAudio(assetId, filename, type = 'sfx') {
-        return this.assetLoader.loadAudio(assetId, filename, type);
+    async loadAudio(assetId, filename, options = {}) {
+        return this.assetLoader.loadAudio(assetId, filename, options);
+    }
+    
+    /**
+     * Load multiple audio assets
+     */
+    async loadAudioAssets(assetList) {
+        console.log('🔊 Loading audio assets...');
+        const results = await Promise.allSettled(
+            assetList.map(asset => this.loadAudio(asset.id, asset.filename, asset.config))
+        );
+        
+        const loaded = results.filter(r => r.status === 'fulfilled').length;
+        console.log(`🎵 Loaded ${loaded}/${assetList.length} audio assets`);
+        
+        return results;
     }
     
     /**
@@ -865,6 +1044,132 @@ class GameFramework {
      */
     hasAsset(assetId) {
         return this.assetLoader.hasAsset(assetId);
+    }
+    
+    /**
+     * Play sound with enhanced options
+     */
+    async playSound(soundId, options = {}) {
+        const audio = this.getSystem('audio');
+        if (!audio) {
+            console.warn('Audio system not available');
+            return null;
+        }
+        
+        return audio.play(soundId, options);
+    }
+    
+    /**
+     * Stop a specific sound
+     */
+    stopSound(soundId) {
+        const audio = this.getSystem('audio');
+        if (audio) {
+            audio.stop(soundId);
+        }
+    }
+    
+    /**
+     * Stop all sounds
+     */
+    stopAllSounds() {
+        const audio = this.getSystem('audio');
+        if (audio) {
+            audio.stopAll();
+        }
+    }
+    
+    /**
+     * Set master volume
+     */
+    setMasterVolume(volume) {
+        const audio = this.getSystem('audio');
+        if (audio) {
+            audio.setMasterVolume(volume);
+        }
+    }
+    
+    /**
+     * Set category volume (music, sfx, voice)
+     */
+    setCategoryVolume(category, volume) {
+        const audio = this.getSystem('audio');
+        if (audio) {
+            audio.setCategoryVolume(category, volume);
+        }
+    }
+    
+    /**
+     * Mute/unmute audio
+     */
+    setMuted(muted) {
+        const audio = this.getSystem('audio');
+        if (audio) {
+            audio.setMuted(muted);
+        }
+    }
+    
+    /**
+     * Toggle mute
+     */
+    toggleMute() {
+        const audio = this.getSystem('audio');
+        return audio ? audio.toggleMute() : false;
+    }
+    
+    /**
+     * Create audio preset
+     */
+    createAudioPreset(name, config) {
+        this.assetLoader.createAudioPreset(name, config);
+    }
+    
+    /**
+     * Play music with crossfade
+     */
+    async playMusic(musicId, options = {}) {
+        const audio = this.getSystem('audio');
+        if (!audio) return null;
+        
+        // Stop current music if crossfade is requested
+        if (options.crossfade && this.currentMusic) {
+            this.currentMusic.fadeOut(options.crossfade);
+        }
+        
+        const instance = await audio.play(musicId, {
+            category: 'music',
+            loop: true,
+            ...options
+        });
+        
+        if (instance && options.fadeIn) {
+            instance.fadeIn(options.fadeIn, options.volume);
+        }
+        
+        this.currentMusic = instance;
+        return instance;
+    }
+    
+    /**
+     * Stop current music
+     */
+    stopMusic(fadeOut = 0) {
+        if (this.currentMusic) {
+            if (fadeOut > 0) {
+                this.currentMusic.fadeOut(fadeOut);
+            } else {
+                this.currentMusic.stop();
+            }
+            this.currentMusic = null;
+        }
+    }
+    
+    /**
+     * Get audio system statistics
+     */
+    getAudioStats() {
+        const audio = this.getSystem('audio');
+        return audio ? audio.getStats() : null;
     }
     
     /**
@@ -1078,17 +1383,12 @@ class GameFramework {
         return this;
     }
     
-    // Helper methods for Pong game
+    // Helper methods for compatibility
     createParticleEffect(effectName, x, y, options = {}) {
         const particles = this.getSystem('particles');
         if (particles && particles.createEffect) {
             particles.createEffect(effectName, x, y, options);
         }
-    }
-    
-    playSound(soundName, options = {}) {
-        // For now, just log since we don't have actual audio files
-        console.log(`🔊 Playing sound: ${soundName}`);
     }
     
     shake(intensity = 10, duration = 0.5) {

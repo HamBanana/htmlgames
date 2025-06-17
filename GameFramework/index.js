@@ -1,8 +1,8 @@
-// GameFramework/index.js - Framework entry point
+// GameFramework/index.js - Framework entry point (UPDATED FOR AUDIO)
 
 /**
  * GameFramework - A powerful HTML5 game development framework
- * @version 1.0.3 - Complete standalone version
+ * @version 1.0.4 - Complete standalone version with enhanced audio
  */
 
 // Prevent multiple loading
@@ -96,6 +96,7 @@ if (window.GameFramework?.loaded) {
                 'game-framework.js',        // Core classes (System, Component, etc.)
                 'framework-components.js',  // Components that use Component base class
                 'framework-systems.js',     // Systems that use System base class
+                'framework-audio.js',       // Enhanced audio system (NEW)
                 'framework-physics.js',     // Physics system that extends System
                 'framework-ui.js',          // UI system
                 'framework-effects.js',     // Effects
@@ -143,6 +144,7 @@ if (window.GameFramework?.loaded) {
             window.GameFramework.loadTime = Date.now() - window.GameFramework.loadStartTime;
             
             console.log(`🎉 GameFramework loaded successfully in ${window.GameFramework.loadTime}ms!`);
+            console.log('🎵 Enhanced audio system ready');
             
             window.dispatchEvent(new CustomEvent('gameframework:ready', {
                 detail: { 
@@ -201,6 +203,14 @@ if (window.GameFramework?.loaded) {
                         pixelated: config.pixelated !== false,
                         antialias: !config.pixelated
                     },
+                    audio: {
+                        masterVolume: config.masterVolume || 1,
+                        categoryVolumes: config.categoryVolumes || {
+                            music: 0.7,
+                            sfx: 0.8,
+                            voice: 0.9
+                        }
+                    },
                     input: {
                         keyboard: config.controls || {
                             left: ['ArrowLeft', 'KeyA'],
@@ -221,23 +231,35 @@ if (window.GameFramework?.loaded) {
                 
                 super(defaults);
                 this.ready = this.initialize(config.canvasId || 'gameCanvas');
+                this.currentMusic = null; // Track current music for crossfading
             }
             
-            createParticleEffect(effectName, x, y, options = {}) {
-                const particles = this.getSystem('particles');
-                if (particles && particles.createEffect) {
-                    particles.createEffect(effectName, x, y, options);
-                }
+            // Enhanced audio methods
+            async loadAudioAssets(assetList) {
+                console.log('🔊 Loading audio assets...');
+                const results = await Promise.allSettled(
+                    assetList.map(asset => this.loadAudio(asset.id, asset.filename, asset.config))
+                );
+                
+                const loaded = results.filter(r => r.status === 'fulfilled').length;
+                console.log(`🎵 Loaded ${loaded}/${assetList.length} audio assets`);
+                
+                return results;
             }
             
-            playSound(soundName, options = {}) {
-                console.log(`🔊 Playing sound: ${soundName}`);
-            }
-            
-            shake(intensity = 10, duration = 0.5) {
-                const camera = this.getSystem('camera');
-                if (camera && camera.shake) {
-                    camera.shake(intensity, duration);
+            async preloadGameAudio() {
+                // Common game audio assets
+                const audioAssets = [
+                    { id: 'click', filename: 'click', config: { preset: 'ui' } },
+                    { id: 'hover', filename: 'hover', config: { preset: 'ui' } },
+                    { id: 'success', filename: 'success', config: { preset: 'sfx' } },
+                    { id: 'error', filename: 'error', config: { preset: 'sfx' } }
+                ];
+                
+                try {
+                    await this.loadAudioAssets(audioAssets);
+                } catch (error) {
+                    console.warn('Some audio assets failed to load:', error);
                 }
             }
         }
@@ -249,10 +271,20 @@ if (window.GameFramework?.loaded) {
             quickStart: async (config = {}) => {
                 const game = new Game(config);
                 await game.ready;
+                
+                // Auto-preload common audio if requested
+                if (config.preloadAudio !== false) {
+                    try {
+                        await game.preloadGameAudio();
+                    } catch (error) {
+                        console.warn('Failed to preload audio:', error);
+                    }
+                }
+                
                 return game;
             },
             
-            version: '1.0.3',
+            version: '1.0.4',
             
             ready: () => {
                 return new Promise((resolve) => {
@@ -264,6 +296,21 @@ if (window.GameFramework?.loaded) {
                         });
                     }
                 });
+            },
+            
+            // Audio utility methods
+            createAudioPreset: (name, config) => {
+                console.log(`🎵 Creating global audio preset: ${name}`);
+                // This will be available to all game instances
+                if (!window.GameFramework.globalAudioPresets) {
+                    window.GameFramework.globalAudioPresets = new Map();
+                }
+                window.GameFramework.globalAudioPresets.set(name, config);
+            },
+            
+            getAudioPresets: () => {
+                return window.GameFramework.globalAudioPresets ? 
+                    Array.from(window.GameFramework.globalAudioPresets.keys()) : [];
             }
         };
         
@@ -275,6 +322,7 @@ if (window.GameFramework?.loaded) {
         });
         
         console.log('✨ Framework initialization complete');
+        console.log('🎵 Audio presets available:', ['music', 'ambient', 'sfx', 'ui', 'voice']);
     };
 
     // Auto-load framework
@@ -335,6 +383,6 @@ if (typeof window !== 'undefined') {
 // Export for module systems
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = { 
-        version: '1.0.3'
+        version: '1.0.4'
     };
 }

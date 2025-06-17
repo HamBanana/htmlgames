@@ -1,0 +1,65 @@
+{
+  "name": "gameframework",
+  "version": "1.0.0",
+  "description": "A powerful HTML5 game development framework with Aseprite support",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "build": "node tools/build.js",
+    "minify": "node tools/minify.js",
+    "docs": "jsdoc -c jsdoc.config.json",
+    "test": "jest",
+    "lint": "eslint src/**/*.js"
+  },
+  "keywords": [
+    "game",
+    "framework",
+    "html5",
+    "canvas",
+    "gamedev",
+    "aseprite",
+    "2d",
+    "javascript"
+  ],
+  "author": "GameFramework Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/gameframework.git"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.0.0",
+    "jest": "^29.0.0",
+    "jsdoc": "^4.0.0",
+    "rollup": "^3.0.0",
+    "terser": "^5.0.0"
+  },
+  "files": [
+    "index.js",
+    "src/**/*.js",
+    "assets/**/*",
+    "docs/**/*",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "import": "./index.js"
+    },
+    "./core": {
+      "import": "./src/core/index.js"
+    },
+    "./components": {
+      "import": "./src/components/index.js"
+    },
+    "./systems": {
+      "import": "./src/systems/index.js"
+    },
+    "./utils": {
+      "import": "./src/utils/index.js"
+    }
+  }
+}

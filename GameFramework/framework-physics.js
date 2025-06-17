@@ -1,4 +1,4 @@
-// GameFramework/framework-physics.js - Physics and Collision Systems
+// GameFramework/framework-physics.js - Physics and Collision Systems (Audio moved to separate file)
 
 /**
  * Physics System - Handles physics simulation
@@ -265,48 +265,9 @@ class CameraSystem extends System {
     }
 }
 
-/**
- * Audio System placeholder
- */
-class AudioSystem extends System {
-    constructor(config = {}) {
-        super(config);
-        this.sounds = new Map();
-        this.volume = config.volume || 1;
-        this.muted = false;
-    }
-    
-    async loadSound(name, url) {
-        // Placeholder - would load actual audio files
-        console.log(`Loading sound: ${name} from ${url}`);
-        this.sounds.set(name, { name, url });
-        return { name, url };
-    }
-    
-    play(name, options = {}) {
-        if (this.muted) return;
-        
-        const sound = this.sounds.get(name);
-        if (sound) {
-            console.log(`Playing sound: ${name}`);
-        }
-    }
-    
-    setVolume(volume) {
-        this.volume = Math.max(0, Math.min(1, volume));
-    }
-    
-    mute() {
-        this.muted = true;
-    }
-    
-    unmute() {
-        this.muted = false;
-    }
-}
-
 // Make systems available globally
 window.PhysicsSystem = PhysicsSystem;
 window.CollisionSystem = CollisionSystem;
 window.CameraSystem = CameraSystem;
-window.AudioSystem = AudioSystem;
+
+console.log('⚙️ Physics and Camera systems loaded');

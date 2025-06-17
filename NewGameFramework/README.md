@@ -1,0 +1,278 @@
+# GameFramework
+
+A powerful, modular HTML5 game development framework with built-in Aseprite support, designed to minimize boilerplate code and maximize productivity.
+
+## 🎮 Features
+
+- **Easy to Use**: Single script include to get started
+- **Aseprite Integration**: Native support for Aseprite JSON format with animations
+- **Component-Based Architecture**: Flexible entity-component system
+- **Built-in Systems**: Physics, collision detection, input handling, audio, and rendering
+- **Asset Management**: Smart asset loading with fallback support
+- **Debug Tools**: Comprehensive debugging utilities
+- **Modular Design**: Use only what you need
+- **No Dependencies**: Pure JavaScript, no external libraries required
+
+## 🚀 Quick Start
+
+### Basic Setup
+
+1. Include the framework in your HTML:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Game</title>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <script src="./GameFramework/index.js" type="module"></script>
+    <script type="module">
+        // Your game code here
+        const game = await GameFramework.quickStart('gameCanvas', {
+            width: 800,
+            height: 600,
+            backgroundColor: '#2c3e50'
+        });
+        
+        // Create a scene
+        const mainScene = game.createScene('main');
+        
+        // Add entities, load assets, etc.
+    </script>
+</body>
+</html>
+```
+
+### Creating a Simple Game
+
+```javascript
+// Create game instance
+const game = GameFramework.createGame('gameCanvas', {
+    width: 800,
+    height: 600,
+    debug: true
+});
+
+// Create a scene
+class GameScene extends GameFramework.Scene {
+    async onLoad() {
+        // Load assets
+        await this.engine.assets.loadSprite('player', 'player');
+        await this.engine.assets.loadSprite('enemy', 'enemy');
+        
+        // Create player entity
+        const player = new GameFramework.Entity({
+            name: 'Player',
+            x: 400,
+            y: 300
+        });
+        
+        // Add components
+        player.addComponent(new GameFramework.Components.AnimatedSprite('player'));
+        player.addComponent(new GameFramework.Components.PhysicsBody({
+            mass: 1,
+            useGravity: false
+        }));
+        player.addComponent(new GameFramework.Components.Collider({
+            width: 32,
+            height: 32
+        }));
+        
+        // Add to scene
+        this.addEntity(player);
+    }
+    
+    onActivate() {
+        console.log('Game scene activated!');
+    }
+}
+
+// Register and load scene
+game.addScene(new GameScene('game'));
+await game.switchScene('game');
+
+// Start the game
+game.start();
+```
+
+## 📦 Asset Configuration
+
+The framework uses a simple naming system for assets. Just reference asset names, not full paths:
+
+```javascript
+// In your game configuration
+const config = {
+    sprites: {
+        'player': 'player',           // Looks in assets/sprites/player.json
+        'enemy': 'enemy',             // Looks in assets/sprites/enemy.json
+        'ui_button': 'ui_button'      // Falls back to framework assets if not found
+    },
+    audio: {
+        'jump': 'jump',               // Looks in assets/audio/jump.ogg
+        'music': 'background_music'   // Looks in assets/audio/background_music.ogg
+    }
+};
+```
+
+## 🎨 Working with Aseprite
+
+The framework natively supports Aseprite JSON export format:
+
+1. In Aseprite: File → Export Sprite Sheet
+2. Data: JSON (Hash or Array)
+3. Output: Enable "Meta > Tags" for animations
+4. Save both .json and .png files
+
+```javascript
+// Load Aseprite sprite
+await game.assets.loadSprite('player', 'player');
+
+// Create animated sprite
+const sprite = new GameFramework.Components.AnimatedSprite('player');
+entity.addComponent(sprite);
+
+// Play animation
+sprite.play('walk'); // Plays the 'walk' tag from Aseprite
+```
+
+## 🏗️ Architecture
+
+### Core Concepts
+
+- **Entity**: Game objects that can have components
+- **Component**: Reusable behaviors attached to entities
+- **System**: Global managers (rendering, physics, input, etc.)
+- **Scene**: Container for entities with lifecycle methods
+
+### Built-in Components
+
+- `AsepriteRenderer`: Renders static Aseprite sprites
+- `AnimatedSprite`: Handles Aseprite animations
+- `PhysicsBody`: Physics simulation
+- `Collider`: Collision detection
+- `TextRenderer`: Text rendering
+- `AudioSource`: 3D/2D audio playback
+
+### Built-in Systems
+
+- `InputManager`: Keyboard, mouse, touch, and gamepad input
+- `Renderer`: Canvas-based rendering with camera support
+- `AssetManager`: Asset loading and caching
+- `AudioSystem`: Web Audio API integration
+- `CollisionSystem`: Efficient collision detection
+
+## 🛠️ Advanced Usage
+
+### Custom Components
+
+```javascript
+class PlayerController extends GameFramework.Component {
+    constructor() {
+        super();
+        this.speed = 200;
+    }
+    
+    update(deltaTime) {
+        const input = this.engine.input;
+        const physics = this.getComponent(GameFramework.Components.PhysicsBody);
+        
+        if (input.isActionPressed('moveLeft')) {
+            physics.velocity.x = -this.speed;
+        } else if (input.isActionPressed('moveRight')) {
+            physics.velocity.x = this.speed;
+        } else {
+            physics.velocity.x = 0;
+        }
+        
+        if (input.isActionJustPressed('jump') && physics.isGrounded) {
+            physics.addImpulse(0, -300);
+        }
+    }
+}
+
+// Register component
+GameFramework.registerComponent('PlayerController', PlayerController);
+```
+
+### Input Mapping
+
+```javascript
+// Configure input actions
+game.input.mapAction('jump', ['Space', 'KeyW']);
+game.input.mapAction('shoot', ['Mouse0', 'KeyX']);
+
+// Configure axes
+game.input.mapAxis('horizontal', {
+    positive: ['KeyD', 'ArrowRight'],
+    negative: ['KeyA', 'ArrowLeft'],
+    gamepadAxis: 0
+});
+```
+
+### Collision Handling
+
+```javascript
+// Set up collision layers
+entity.getComponent(Collider).layer = GameFramework.CollisionLayers.PLAYER;
+entity.getComponent(Collider).mask = 
+    GameFramework.CollisionLayers.ENEMY | 
+    GameFramework.CollisionLayers.WALL;
+
+// Listen for collisions
+entity.on('collision:enter', (event) => {
+    console.log('Collided with:', event.other.name);
+});
+```
+
+## 🐛 Debug Features
+
+Enable debug mode for helpful overlays:
+
+```javascript
+const game = GameFramework.createGame('gameCanvas', {
+    debug: true,
+    debugLevel: 'verbose'
+});
+
+// Access debug utilities
+GameFramework.Utils.DebugUtils.createOverlay(game);
+```
+
+## 📁 Project Structure
+
+```
+my-game/
+├── index.html                    # Your game HTML
+├── assets/                       # Your game assets
+│   ├── sprites/                  # Aseprite JSON files
+│   │   ├── player.json
+│   │   └── player.png
+│   └── audio/                    # Sound files
+│       └── jump.ogg
+├── src/                          # Your game code
+│   └── game.js
+└── GameFramework/                # Framework folder
+    ├── index.js                  # Framework entry point
+    └── src/                      # Framework source
+```
+
+## 🤝 Contributing
+
+Contributions are welcome! Please read our contributing guidelines and submit pull requests to our repository.
+
+## 📄 License
+
+MIT License - see LICENSE file for details
+
+## 🔗 Links
+
+- [Documentation](https://gameframework.dev/docs)
+- [Examples](https://gameframework.dev/examples)
+- [Discord Community](https://discord.gg/gameframework)
+- [GitHub Repository](https://github.com/gameframework/gameframework)
+
+---
+
+Made with ❤️ for game developers
