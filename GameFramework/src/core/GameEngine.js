@@ -25,6 +25,8 @@ export class GameEngine extends EventEmitter {
             maxDeltaTime: 0.1,
             debug: false,
             backgroundColor: '#000000',
+            // Asset config can be passed in or will use defaults
+            assetConfig: config.assetConfig || null,
             ...config
         };
         

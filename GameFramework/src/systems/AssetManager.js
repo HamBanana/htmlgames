@@ -1,5 +1,6 @@
 // GameFramework/src/systems/AssetManager.js
 import { AsepriteParser } from '../parsers/AsepriteParser.js';
+import { AssetConfig } from '../parsers/AssetConfig.js';
 
 /**
  * AssetManager - Handles loading and management of game assets
@@ -13,20 +14,8 @@ export class AssetManager {
         this.assets = new Map();
         this.loadingAssets = new Map();
         
-        // Asset paths configuration
-        this.paths = {
-            sprites: 'assets/sprites/',
-            audio: 'assets/audio/',
-            data: 'assets/data/',
-            fonts: 'assets/fonts/'
-        };
-        
-        // Framework paths (fallback)
-        this.frameworkPaths = {
-            sprites: 'GameFramework/assets/sprites/',
-            audio: 'GameFramework/assets/audio/',
-            fonts: 'GameFramework/assets/fonts/'
-        };
+        // Asset configuration - single source of truth
+        this.assetConfig = new AssetConfig(engine.config.assetConfig || AssetConfig.createDefault());
         
         // Loading state
         this.loading = false;
@@ -46,14 +35,8 @@ export class AssetManager {
      * Initialize asset manager
      */
     initialize() {
-        // Override paths from engine config if provided
-        if (this.engine.config.assetPaths) {
-            Object.assign(this.paths, this.engine.config.assetPaths);
-        }
-        
-        if (this.engine.config.frameworkAssetPaths) {
-            Object.assign(this.frameworkPaths, this.engine.config.frameworkAssetPaths);
-        }
+        // Asset config is already initialized in constructor
+        // No need for path overrides - everything goes through AssetConfig
     }
     
     /**
@@ -205,43 +188,6 @@ export class AssetManager {
     }
     
     /**
-     * Get asset URL
-     * @param {string} name - Asset name
-     * @param {string} type - Asset type
-     * @param {string} [extension] - File extension
-     * @returns {string} Full asset URL
-     */
-    getAssetUrl(name, type, extension) {
-        // Try game assets first
-        let basePath = this.paths[type] || this.paths.sprites;
-        let url = basePath + name;
-        
-        if (extension && !url.endsWith(extension)) {
-            url += '.' + extension;
-        }
-        
-        return url;
-    }
-    
-    /**
-     * Get framework asset URL
-     * @param {string} name - Asset name
-     * @param {string} type - Asset type
-     * @param {string} [extension] - File extension
-     * @returns {string} Full asset URL
-     */
-    getFrameworkAssetUrl(name, type, extension) {
-        let basePath = this.frameworkPaths[type] || this.frameworkPaths.sprites;
-        let url = basePath + name;
-        
-        if (extension && !url.endsWith(extension)) {
-            url += '.' + extension;
-        }
-        
-        return url;
-    }
-    
-    /**
      * Load an asset
      * @param {string} name - Asset name/ID
      * @param {string} path - Asset path or filename
@@ -259,20 +205,20 @@ export class AssetManager {
             return this.loadingAssets.get(name);
         }
         
-        // Determine full URL
+        // Determine full URL using AssetConfig
         let url;
         if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('/')) {
             // Absolute URL
             url = path;
         } else {
-            // Relative path - try game assets first
+            // Use AssetConfig to resolve the path
             const extension = path.split('.').pop().toLowerCase();
             const type = options.type || this._guessAssetType(extension);
             
             if (options.framework) {
-                url = this.getFrameworkAssetUrl(path, type);
+                url = this.assetConfig.getFrameworkAssetUrl(path, type);
             } else {
-                url = this.getAssetUrl(path, type);
+                url = this.assetConfig.getAssetUrl(path, type);
             }
         }
         

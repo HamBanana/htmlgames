@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GameFramework Example - Platformer</title>
+    <title>GameFramework Example - Asset Fallback Demo</title>
     <style>
         body {
             margin: 0;
@@ -45,6 +45,17 @@
             color: #fff;
             font-size: 24px;
         }
+        
+        .info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #fff;
+            font-size: 12px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
@@ -53,12 +64,19 @@
         <div class="loading" id="loadingText">Loading GameFramework...</div>
     </div>
     
+    <div class="info">
+        <h3>Asset Fallback Demo</h3>
+        <p>This demo shows framework assets loading from <code>/GameAssets/</code></p>
+        <p>Game assets would load from <code>assets/</code> first if they exist</p>
+    </div>
+    
     <div class="controls">
         <p>Arrow Keys / WASD: Move | Space: Jump | E: Interact</p>
+        <p>Framework assets loading from server root <code>/GameAssets/</code></p>
     </div>
 
     <!-- Load GameFramework -->
-    <script src="./index.js" type="module"></script>
+    <script src="../GameFramework/index.js" type="module"></script>
     
     <!-- Game Code -->
     <script type="module">
@@ -74,7 +92,6 @@
                     super();
                     this.moveSpeed = 200;
                     this.jumpPower = 400;
-                    this.canJump = true;
                 }
                 
                 update(deltaTime) {
@@ -82,7 +99,7 @@
                     const physics = this.getComponent(GameFramework.Components.PhysicsBody);
                     const sprite = this.getComponent(GameFramework.Components.AnimatedSprite);
                     
-                    if (!physics || !sprite) return;
+                    if (!physics) return;
                     
                     // Horizontal movement
                     const moveX = input.getAxis('horizontal');
@@ -91,17 +108,18 @@
                     // Jump
                     if (input.isActionJustPressed('jump') && physics.isGrounded) {
                         physics.addImpulse(0, -this.jumpPower);
-                        this.canJump = false;
                     }
                     
-                    // Update animations
-                    if (!physics.isGrounded) {
-                        sprite.play('jump');
-                    } else if (Math.abs(moveX) > 0.1) {
-                        sprite.play('walk');
-                        sprite.flipX = moveX < 0;
-                    } else {
-                        sprite.play('idle');
+                    // Update animations if we have animated sprite
+                    if (sprite) {
+                        if (!physics.isGrounded) {
+                            sprite.play('jump');
+                        } else if (Math.abs(moveX) > 0.1) {
+                            sprite.play('walk');
+                            sprite.flipX = moveX < 0;
+                        } else {
+                            sprite.play('idle');
+                        }
                     }
                 }
             }
@@ -121,22 +139,24 @@
                 async onLoad() {
                     document.getElementById('loadingText').textContent = 'Loading assets...';
                     
-                    // Create asset config (with fallbacks to framework assets)
-                    const assetConfig = {
-                        sprites: {
-                            'player': { path: 'characters/player', framework: true },
-                            'ground': { path: 'tiles/ground', framework: true },
-                            'coin': { path: 'items/coin', framework: true },
-                            'placeholder': { path: 'debug/placeholder', framework: true }
-                        }
-                    };
+                    // Try to load game-specific assets first, fallback to framework assets
+                    console.log('Loading assets with framework fallback...');
                     
-                    // Try to load sprites, fallback to placeholder if not found
+                    // These will try game assets first, then fallback to framework assets
                     try {
-                        await this.engine.assets.loadSprite('player', 'player');
+                        // This will try assets/sprites/player.json first, then /GameAssets/sprites/debug/placeholder.png
+                        await this.engine.assets.loadSprite('ninjamand', 'ninjamand');
+                        console.log('Player sprite loaded (check network tab to see fallback)');
                     } catch (e) {
-                        console.log('Using placeholder for player');
-                        await this.engine.assets.loadSprite('player', 'placeholder');
+                        console.log('Using framework placeholder sprite');
+                    }
+                    
+                    try {
+                        // Framework UI assets should load from /GameAssets/
+                        await this.engine.assets.loadSprite('ui_button', 'ui/button');
+                        console.log('UI button loaded from framework assets');
+                    } catch (e) {
+                        console.log('Framework UI assets not available');
                     }
                     
                     document.getElementById('loadingText').style.display = 'none';
@@ -158,17 +178,34 @@
                         y: 200
                     });
                     
-                    // For this example, we'll create a colored rectangle if sprite fails
-                    const renderer = new GameFramework.Components.AsepriteRenderer('player');
-                    player.addComponent(renderer);
+                    // Try to use loaded sprite, fallback to colored rectangle
+                    const hasSprite = this.engine.assets.has('player');
                     
-                    // If no sprite, we'll handle it in render
-                    if (!renderer.sprite) {
-                        // Create a custom render component for colored rectangle
+                    if (hasSprite) {
+                        const renderer = new GameFramework.Components.AsepriteRenderer('player');
+                        player.addComponent(renderer);
+                        
+                        // If it's an animated sprite, add animation component
+                        const spriteData = this.engine.renderer.getSpriteData('player');
+                        if (spriteData && spriteData.animations && spriteData.animations.size > 0) {
+                            player.addComponent(new GameFramework.Components.AnimatedSprite('player'));
+                        }
+                    } else {
+                        // Fallback to colored rectangle
                         const customRender = new GameFramework.Component();
                         customRender.render = function(context) {
                             context.fillStyle = '#ff6b6b';
                             context.fillRect(-16, -16, 32, 32);
+                            
+                            // Add some detail
+                            context.fillStyle = '#ff9999';
+                            context.fillRect(-12, -12, 24, 8);
+                            
+                            // Simple face
+                            context.fillStyle = '#000';
+                            context.fillRect(-8, -8, 3, 3);
+                            context.fillRect(5, -8, 3, 3);
+                            context.fillRect(-4, -2, 8, 2);
                         };
                         player.addComponent(customRender);
                     }
@@ -343,18 +380,36 @@
                 
                 // Add some UI
                 onActivate() {
-                    const scoreText = new GameFramework.Entity({
-                        name: 'ScoreText',
+                    const infoText = new GameFramework.Entity({
+                        name: 'InfoText',
                         x: 10,
                         y: 10
                     });
                     
-                    scoreText.addComponent(new GameFramework.Components.TextRenderer('Collect the coins!', {
+                    infoText.addComponent(new GameFramework.Components.TextRenderer('Framework assets load from /GameAssets/', {
                         font: 'Arial',
-                        fontSize: 20,
+                        fontSize: 16,
                         color: '#ffffff',
                         strokeColor: '#000000',
-                        strokeWidth: 3,
+                        strokeWidth: 2,
+                        align: 'left',
+                        baseline: 'top'
+                    }));
+                    
+                    this.addEntity(infoText);
+                    
+                    const scoreText = new GameFramework.Entity({
+                        name: 'ScoreText',
+                        x: 10,
+                        y: 35
+                    });
+                    
+                    scoreText.addComponent(new GameFramework.Components.TextRenderer('Collect the coins! (Check network tab for asset loading)', {
+                        font: 'Arial',
+                        fontSize: 14,
+                        color: '#ffff00',
+                        strokeColor: '#000000',
+                        strokeWidth: 2,
                         align: 'left',
                         baseline: 'top'
                     }));
@@ -385,6 +440,9 @@
                 await game.switchScene('game');
                 
                 console.log('Game started successfully!');
+                console.log('Check network tab to see asset loading behavior:');
+                console.log('- Game assets try local assets/ folder first');
+                console.log('- Framework assets load from /GameAssets/ at server root');
                 
             } catch (error) {
                 console.error('Failed to start game:', error);

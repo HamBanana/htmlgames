@@ -27,11 +27,11 @@ export class AssetConfig {
                 ...config.paths
             },
             
-            // Framework asset paths
+            // Framework asset paths - Fixed to use server root consistently
             frameworkPaths: {
-                sprites: config.frameworkPaths?.sprites || 'GameFramework/assets/sprites/',
-                audio: config.frameworkPaths?.audio || 'GameFramework/assets/audio/',
-                fonts: config.frameworkPaths?.fonts || 'GameFramework/assets/fonts/',
+                sprites: config.frameworkPaths?.sprites || '/GameAssets/Sprites/Aseprite',
+                audio: config.frameworkPaths?.audio || '/GameAssets/audio/',
+                fonts: config.frameworkPaths?.fonts || '/GameAssets/fonts/',
                 ...config.frameworkPaths
             },
             
@@ -338,7 +338,7 @@ export class AssetConfig {
                 fonts: 'assets/fonts/'
             },
             frameworkPaths: {
-                sprites: '/GameAssets/sprites/',
+                sprites: '/GameAssets/Sprites/Aseprite/',
                 audio: '/GameAssets/audio/',
                 fonts: '/GameAssets/fonts/'
             },
