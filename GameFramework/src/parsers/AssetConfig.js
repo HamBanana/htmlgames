@@ -338,9 +338,9 @@ export class AssetConfig {
                 fonts: 'assets/fonts/'
             },
             frameworkPaths: {
-                sprites: 'GameFramework/assets/sprites/',
-                audio: 'GameFramework/assets/audio/',
-                fonts: 'GameFramework/assets/fonts/'
+                sprites: '/GameAssets/sprites/',
+                audio: '/GameAssets/audio/',
+                fonts: '/GameAssets/fonts/'
             },
             sprites: {
                 // Framework defaults
