@@ -83,6 +83,60 @@ const GameFramework = {
     CollisionShape,
     CollisionLayers,
     
+    // Ready state
+    _ready: false,
+    _readyCallbacks: [],
+    
+    /**
+     * Check if framework is ready or register callback
+     * @param {Function} [callback] - Optional callback for when ready
+     * @returns {boolean|undefined} Ready state if no callback provided
+     */
+    ready(callback) {
+        if (typeof callback === 'function') {
+            if (this._ready) {
+                // Already ready, call immediately
+                setTimeout(() => callback(this), 0);
+            } else {
+                // Store callback for later
+                this._readyCallbacks.push(callback);
+            }
+        } else {
+            return this._ready;
+        }
+    },
+    
+    /**
+     * Mark framework as ready and call callbacks
+     * @private
+     */
+    _markReady() {
+        if (this._ready) return;
+        
+        this._ready = true;
+        
+        // Call all waiting callbacks
+        this._readyCallbacks.forEach(callback => {
+            try {
+                callback(this);
+            } catch (error) {
+                console.error('Error in GameFramework ready callback:', error);
+            }
+        });
+        
+        // Clear callbacks
+        this._readyCallbacks = [];
+        
+        // Dispatch global event
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('gameframework:ready', {
+                detail: { framework: this }
+            }));
+        }
+        
+        console.log(`🎮 GameFramework v${this.VERSION} ready`);
+    },
+    
     /**
      * Create a new game instance
      * @param {string} canvasId - Canvas element ID
@@ -234,14 +288,25 @@ export {
 // Default export
 export default GameFramework;
 
-// Browser global
+// Browser initialization
 if (typeof window !== 'undefined') {
+    // Make GameFramework globally available
     window.GameFramework = GameFramework;
     
-    // Dispatch ready event
-    window.dispatchEvent(new CustomEvent('gameframework:ready', {
-        detail: { framework: GameFramework }
-    }));
+    /**
+     * Initialize framework when DOM is ready
+     */
+    function initializeFramework() {
+        // Mark framework as ready
+        GameFramework._markReady();
+    }
     
-    console.log(`🎮 GameFramework v${GameFramework.VERSION} loaded`);
+    // Check if DOM is already loaded
+    if (document.readyState === 'loading') {
+        // Wait for DOMContentLoaded
+        document.addEventListener('DOMContentLoaded', initializeFramework);
+    } else {
+        // DOM is already loaded, initialize immediately on next tick
+        setTimeout(initializeFramework, 0);
+    }
 }
