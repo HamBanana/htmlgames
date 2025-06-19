@@ -126,6 +126,28 @@ export class AssetConfig {
     }
     
     /**
+     * Get asset URL for game assets
+     * @param {string} path - Asset path
+     * @param {string} type - Asset type
+     * @returns {string}
+     */
+    getAssetUrl(path, type) {
+        const basePath = this.config.paths[type] || this.config.paths.sprites;
+        return basePath + path;
+    }
+    
+    /**
+     * Get asset URL for framework assets
+     * @param {string} path - Asset path
+     * @param {string} type - Asset type
+     * @returns {string}
+     */
+    getFrameworkAssetUrl(path, type) {
+        const basePath = this.config.frameworkPaths[type] || this.config.frameworkPaths.sprites;
+        return basePath + path;
+    }
+    
+    /**
      * Register asset group
      * @param {string} name - Group name
      * @param {string[]} assets - Asset names
