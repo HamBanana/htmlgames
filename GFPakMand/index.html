@@ -84,9 +84,12 @@
     
     <!-- Pacman Game Code -->
     <script type="module">
+        // Import needed for manual asset loading
+        let GameFramework = null;
+        
         // Wait for framework to load
         window.addEventListener('gameframework:ready', async (event) => {
-            const GameFramework = event.detail.framework;
+            GameFramework = event.detail.framework;
             
             // Game Constants
             const TILE_SIZE = 32;
@@ -119,7 +122,7 @@
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
             ];
             
-            // Create Pacman Component
+            // Create Pacman Component (without render method to let sprite handle rendering)
             class PacmanController extends GameFramework.Component {
                 constructor() {
                     super();
@@ -148,6 +151,7 @@
                     
                     const input = this.engine.input;
                     const scene = this.scene;
+                    const animSprite = this.getComponent(GameFramework.Components.AnimatedSprite);
                     
                     // Handle input - use isKeyPressed for continuous movement
                     if (input.isKeyPressed('ArrowLeft') || input.isKeyPressed('KeyA')) {
@@ -188,11 +192,25 @@
                             this.entity.position.x = newX;
                             this.entity.position.y = newY;
                             
-                            // Animate mouth
-                            this.animTimer += deltaTime;
-                            if (this.animTimer > 0.1) {
-                                this.mouthOpen = !this.mouthOpen;
-                                this.animTimer = 0;
+                            // Update sprite direction and animation
+                            if (animSprite) {
+                                animSprite.flipX = this.direction.x < 0;
+                                
+                                // Play appropriate animation
+                                if (this.direction.x !== 0 || this.direction.y !== 0) {
+                                    if (!animSprite.playing || animSprite.getCurrentAnimation() !== 'walk') {
+                                        animSprite.playFirstAvailable('walk', 'run', 'idle');
+                                    }
+                                } else {
+                                    if (!animSprite.playing || animSprite.getCurrentAnimation() !== 'idle') {
+                                        animSprite.play('idle');
+                                    }
+                                }
+                            }
+                        } else {
+                            // Stopped, play idle
+                            if (animSprite && (!animSprite.playing || animSprite.getCurrentAnimation() !== 'idle')) {
+                                animSprite.play('idle');
                             }
                         }
                     }
@@ -233,29 +251,7 @@
                     return scene.maze[y][x] !== 1;
                 }
                 
-                render(context) {
-                    // Draw Pacman as a yellow circle with mouth
-                    context.fillStyle = '#ffff00';
-                    
-                    if (this.mouthOpen && (this.direction.x !== 0 || this.direction.y !== 0)) {
-                        // Calculate mouth angle based on direction
-                        let startAngle = 0;
-                        if (this.direction.x > 0) startAngle = 0.25 * Math.PI;
-                        else if (this.direction.x < 0) startAngle = 1.25 * Math.PI;
-                        else if (this.direction.y > 0) startAngle = 0.75 * Math.PI;
-                        else if (this.direction.y < 0) startAngle = 1.75 * Math.PI;
-                        
-                        context.beginPath();
-                        context.moveTo(0, 0);
-                        context.arc(0, 0, 12, startAngle, startAngle + 1.5 * Math.PI);
-                        context.closePath();
-                        context.fill();
-                    } else {
-                        context.beginPath();
-                        context.arc(0, 0, 12, 0, 2 * Math.PI);
-                        context.fill();
-                    }
-                }
+                // No render method - let the sprite components handle rendering
             }
             
             // Ghost AI Component
@@ -457,28 +453,108 @@
                 async onLoad() {
                     document.getElementById('loadingText').textContent = 'Loading assets...';
                     
-                    // Try multiple paths for karateguy sprite
-                    const spritePaths = [
-                        'karateguy.json',
-                        'assets/sprites/karateguy.json',
-                        'GameAssets/Sprites/Aseprite/karateguy.json',
-                        '/GameAssets/Sprites/Aseprite/karateguy.json'
-                    ];
-                    
-                    let spriteLoaded = false;
-                    for (const path of spritePaths) {
-                        try {
-                            await this.engine.assets.load('karateguy', path);
-                            console.log('Karateguy sprite loaded from:', path);
-                            spriteLoaded = true;
-                            break;
-                        } catch (e) {
-                            console.log('Failed to load from:', path);
+                    // Load karateguy sprite - it's a framework asset
+                    try {
+                        // Try multiple possible locations for the karateguy sprite
+                        const possiblePaths = [
+                            // Framework assets location
+                            { json: '/GameAssets/Sprites/Aseprite/karateguy.json', png: '/GameAssets/Sprites/Aseprite/karateguy.png' },
+                            // Local assets
+                            { json: 'assets/sprites/karateguy.json', png: 'assets/sprites/karateguy.png' },
+                            // Root directory
+                            { json: 'karateguy.json', png: 'karateguy.png' }
+                        ];
+                        
+                        let loaded = false;
+                        
+                        for (const paths of possiblePaths) {
+                            try {
+                                console.log(`Trying to load karateguy from: ${paths.json}`);
+                                
+                                // Load the JSON data
+                                const response = await fetch(paths.json);
+                                if (!response.ok) continue;
+                                
+                                const jsonData = await response.json();
+                                console.log('JSON loaded successfully');
+                                
+                                // Fix the empty image field if needed
+                                if (jsonData.meta && jsonData.meta.image === '') {
+                                    jsonData.meta.image = paths.png;
+                                }
+                                
+                                // Ensure frameTags is properly parsed
+                                if (jsonData.meta && typeof jsonData.meta.frameTags === 'string') {
+                                    try {
+                                        jsonData.meta.frameTags = JSON.parse(jsonData.meta.frameTags.replace(/\\/g, ''));
+                                    } catch (e) {
+                                        console.error('Failed to parse frameTags');
+                                    }
+                                }
+                                
+                                // Parse the data using AsepriteParser
+                                const parsed = await GameFramework.Parsers.AsepriteParser.parse(jsonData);
+                                
+                                // Load the PNG image
+                                const image = await new Promise((resolve, reject) => {
+                                    const img = new Image();
+                                    img.onload = () => {
+                                        console.log(`PNG loaded successfully from: ${paths.png}`);
+                                        resolve(img);
+                                    };
+                                    img.onerror = () => reject(new Error(`Failed to load ${paths.png}`));
+                                    img.src = paths.png;
+                                });
+                                
+                                // Store in renderer with proper frame structure
+                                const renderer = this.engine.renderer;
+                                if (renderer && image) {
+                                    renderer.sprites.set('karateguy', image);
+                                    
+                                    // Debug: log the parsed data structure
+                                    console.log('Parsed frames:', parsed.frames);
+                                    console.log('Parsed animations:', parsed.animations);
+                                    
+                                    // Ensure frames are accessible
+                                    if (!parsed.frames || parsed.frames.size === 0) {
+                                        console.error('No frames found in parsed data');
+                                        
+                                        // If frames is an object, convert to Map
+                                        if (jsonData.frames && typeof jsonData.frames === 'object') {
+                                            parsed.frames = new Map();
+                                            Object.entries(jsonData.frames).forEach(([key, value]) => {
+                                                parsed.frames.set(key, value);
+                                            });
+                                            console.log('Converted frames to Map:', parsed.frames);
+                                        }
+                                    }
+                                    
+                                    renderer.spriteData.set('karateguy', parsed);
+                                    
+                                    // Also store in assets
+                                    this.engine.assets.assets.set('karateguy', {
+                                        type: 'aseprite',
+                                        data: { image, ...parsed },
+                                        name: 'karateguy'
+                                    });
+                                    
+                                    console.log('Karateguy sprite loaded and registered successfully');
+                                    console.log('Image dimensions:', image.width, 'x', image.height);
+                                    console.log('First frame:', parsed.frames.get('0') || parsed.frames.get('1') || 'No frame 0 or 1');
+                                    loaded = true;
+                                    break;
+                                }
+                            } catch (e) {
+                                console.log(`Failed to load from ${paths.json}:`, e.message);
+                            }
                         }
-                    }
-                    
-                    if (!spriteLoaded) {
-                        console.log('Could not load karateguy sprite from any path, using default rendering');
+                        
+                        if (!loaded) {
+                            console.warn('Could not load karateguy sprite from any location');
+                        }
+                        
+                    } catch (error) {
+                        console.error('Failed to load karateguy sprite:', error);
                     }
                     
                     document.getElementById('loadingText').style.display = 'none';
@@ -524,27 +600,144 @@
                     
                     // Check if we have the karateguy sprite
                     if (this.engine.assets.has('karateguy')) {
-                        const renderer = new GameFramework.Components.AsepriteRenderer('karateguy');
-                        pacman.addComponent(renderer);
+                        console.log('Karateguy asset found in assets manager');
                         
-                        // Check if it's animated
+                        // Debug: Check what's in the renderer
+                        const sprite = this.engine.renderer.getSprite('karateguy');
                         const spriteData = this.engine.renderer.getSpriteData('karateguy');
-                        if (spriteData && spriteData.animations && spriteData.animations.size > 0) {
-                            const animSprite = new GameFramework.Components.AnimatedSprite('karateguy');
-                            pacman.addComponent(animSprite);
-                            // Try to play idle or walk animation
-                            if (animSprite.hasAnimation('idle')) {
-                                animSprite.play('idle');
-                            } else if (animSprite.hasAnimation('walk')) {
-                                animSprite.play('walk');
+                        console.log('Sprite image:', sprite);
+                        console.log('Sprite data:', spriteData);
+                        
+                        if (sprite && spriteData) {
+                            // Create a simple sprite renderer that directly uses the image
+                            const simpleRenderer = new GameFramework.Component();
+                            simpleRenderer.sprite = sprite;
+                            simpleRenderer.spriteData = spriteData;
+                            simpleRenderer.currentFrame = 0;
+                            simpleRenderer.animTimer = 0;
+                            
+                            simpleRenderer.render = function(context) {
+                                if (!this.sprite) return;
+                                
+                                // For simplicity, just draw a portion of the sprite sheet
+                                // Assuming the sprite sheet has frames arranged in a grid
+                                const frameWidth = 32;  // Typical frame width
+                                const frameHeight = 64; // Typical frame height
+                                
+                                // Calculate frame position (simple animation)
+                                const framesPerRow = Math.floor(this.sprite.width / frameWidth);
+                                const frameX = (this.currentFrame % framesPerRow) * frameWidth;
+                                const frameY = Math.floor(this.currentFrame / framesPerRow) * frameHeight;
+                                
+                                // Draw the sprite frame
+                                try {
+                                    context.drawImage(
+                                        this.sprite,
+                                        frameX, frameY, frameWidth, frameHeight,  // Source
+                                        -frameWidth/2, -frameHeight/2, frameWidth, frameHeight  // Destination
+                                    );
+                                } catch (e) {
+                                    console.error('Error drawing sprite:', e);
+                                    // Fallback to yellow circle
+                                    context.fillStyle = '#ffff00';
+                                    context.beginPath();
+                                    context.arc(0, 0, 12, 0, 2 * Math.PI);
+                                    context.fill();
+                                }
+                            };
+                            
+                            simpleRenderer.update = function(deltaTime) {
+                                // Simple animation cycling
+                                this.animTimer += deltaTime;
+                                if (this.animTimer > 0.1) {
+                                    this.currentFrame = (this.currentFrame + 1) % 10; // Assume max 10 frames
+                                    this.animTimer = 0;
+                                }
+                            };
+                            
+                            pacman.addComponent(simpleRenderer);
+                            
+                            // Scale down the sprite to fit the tile size
+                            pacman.scaleX = 0.75;
+                            pacman.scaleY = 0.375;
+                            
+                            console.log('Using simple renderer for karateguy sprite');
+                            
+                            // Also try the original AsepriteRenderer approach
+                            /*
+                            const renderer = new GameFramework.Components.AsepriteRenderer('karateguy');
+                            pacman.addComponent(renderer);
+                            
+                            // Manually trigger sprite loading since it might not happen in start()
+                            if (!renderer.sprite || !renderer.spriteData) {
+                                renderer.loadSprite();
                             }
+                            
+                            // Check if it's animated and add animation component
+                            if (spriteData.animations && spriteData.animations.size > 0) {
+                                const animSprite = new GameFramework.Components.AnimatedSprite('karateguy');
+                                pacman.addComponent(animSprite);
+                                
+                                console.log('Available animations:', animSprite.getAnimationNames());
+                                
+                                // Try to play idle animation
+                                if (animSprite.hasAnimation('idle')) {
+                                    animSprite.play('idle');
+                                    console.log('Playing idle animation');
+                                } else if (animSprite.hasAnimation('Idle')) {
+                                    animSprite.play('Idle');
+                                    console.log('Playing Idle animation');
+                                } else {
+                                    // Play first available animation
+                                    const anims = animSprite.getAnimationNames();
+                                    if (anims.length > 0) {
+                                        animSprite.play(anims[0]);
+                                        console.log('Playing first available animation:', anims[0]);
+                                    }
+                                }
+                            } else {
+                                console.log('No animations found in sprite data');
+                            }
+                            */
+                            
+                            // Add a debug component to check rendering
+                            const debugComponent = new GameFramework.Component();
+                            debugComponent.firstRender = true;
+                            debugComponent.render = function(context) {
+                                if (this.firstRender) {
+                                    console.log('Debug render called');
+                                    console.log('Entity position:', this.entity.position);
+                                    console.log('Entity scale:', this.entity.scale);
+                                    this.firstRender = false;
+                                }
+                                
+                                // Draw a debug outline
+                                context.strokeStyle = '#00ff00';
+                                context.lineWidth = 1;
+                                context.strokeRect(-16, -16, 32, 32);
+                            };
+                            pacman.addComponent(debugComponent);
+                        } else {
+                            console.error('Sprite or sprite data missing from renderer');
                         }
+                    } else {
+                        // Fallback to simple yellow circle
+                        console.log('Karateguy not found in assets, using fallback');
+                        const fallbackRenderer = new GameFramework.Component();
+                        fallbackRenderer.render = function(context) {
+                            context.fillStyle = '#ffff00';
+                            context.beginPath();
+                            context.arc(0, 0, 12, 0, 2 * Math.PI);
+                            context.fill();
+                        };
+                        pacman.addComponent(fallbackRenderer);
                     }
                     
                     this.addEntity(pacman);
                     this.pacman = pacman;
                     
                     console.log('Pacman created at position:', pacman.position);
+                    console.log('Pacman components:', Array.from(pacman.components.keys()).map(c => c.name));
                 }
                 
                 createGhosts() {
@@ -728,7 +921,7 @@
                     height: MAZE_HEIGHT * TILE_SIZE,
                     backgroundColor: '#000000',
                     smoothing: false,
-                    debug: true  // Enable debug mode
+                    debug: false  // Set to true to see debug info
                 });
                 
                 console.log('Game engine created');

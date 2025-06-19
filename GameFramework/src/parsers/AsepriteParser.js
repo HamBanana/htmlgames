@@ -27,12 +27,14 @@ export class AsepriteParser {
         
         // Parse image data
         if (jsonData.meta.image) {
-            parsed.imagePath = jsonData.meta.image;
-            
             // Handle embedded base64 image
             if (jsonData.meta.image.startsWith('data:image/')) {
                 parsed.image = await this.loadBase64Image(jsonData.meta.image);
                 parsed.imageData = jsonData.meta.image;
+                // Don't set imagePath for embedded images!
+            } else {
+                // Only set imagePath for external images
+                parsed.imagePath = jsonData.meta.image;
             }
         }
         
