@@ -1,0 +1,270 @@
+import React, { useState } from 'react';
+import { Smile, Shield, RotateCcw, Trophy } from 'lucide-react';
+
+const scenarios = [
+  {
+    id: 1,
+    situation: "Job Interview Tomorrow",
+    description: "You have a big job interview tomorrow for your dream position.",
+    positiveChoice: "Visualize success, practice confident answers",
+    prepareChoice: "Research every possible question, prepare for rejection",
+    positiveOutcomes: [
+      { text: "Your confidence shines through - you get the job!", points: 10 },
+      { text: "You're relaxed and authentic - they love you!", points: 8 },
+      { text: "Your optimism is infectious but you lack specifics. No offer.", points: -3 }
+    ],
+    prepareOutcomes: [
+      { text: "You're over-prepared and seem nervous. They pass.", points: -2 },
+      { text: "Your thorough preparation impresses them completely!", points: 9 },
+      { text: "You handle every curveball perfectly. Job secured!", points: 10 }
+    ]
+  },
+  {
+    id: 2,
+    situation: "First Date",
+    description: "You're going on a first date with someone you really like.",
+    positiveChoice: "Expect chemistry, be your authentic self",
+    prepareChoice: "Plan conversation topics, research their interests",
+    positiveOutcomes: [
+      { text: "Natural chemistry flows - you hit it off perfectly!", points: 9 },
+      { text: "You're charming and spontaneous. Second date confirmed!", points: 8 },
+      { text: "You're too casual and don't make much effort. Awkward.", points: -2 }
+    ],
+    prepareOutcomes: [
+      { text: "Your research pays off - great conversation all night!", points: 8 },
+      { text: "You seem scripted and overthinking everything.", points: -3 },
+      { text: "Perfect balance of prepared and natural. They're smitten!", points: 10 }
+    ]
+  },
+  {
+    id: 3,
+    situation: "Investment Opportunity",
+    description: "A friend offers you a chance to invest in their startup.",
+    positiveChoice: "Trust your gut, invest with optimism",
+    prepareChoice: "Demand business plan, research market risks",
+    positiveOutcomes: [
+      { text: "Your faith pays off - the startup explodes!", points: 12 },
+      { text: "Good vibes, mediocre returns. Small profit.", points: 3 },
+      { text: "Blind optimism leads to total loss.", points: -8 }
+    ],
+    prepareOutcomes: [
+      { text: "Your due diligence reveals red flags. You avoid disaster!", points: 7 },
+      { text: "Over-analysis leads to missing a golden opportunity.", points: -4 },
+      { text: "Smart research leads to smart investment. Solid returns!", points: 9 }
+    ]
+  },
+  {
+    id: 4,
+    situation: "Big Presentation",
+    description: "You're presenting to the entire company next week.",
+    positiveChoice: "Wing it with charisma and passion",
+    prepareChoice: "Rehearse every slide, anticipate all questions",
+    positiveOutcomes: [
+      { text: "Your natural enthusiasm captivates everyone!", points: 9 },
+      { text: "Charismatic but unprepared - mixed reviews.", points: 2 },
+      { text: "You stumble without preparation. Embarrassing.", points: -5 }
+    ],
+    prepareOutcomes: [
+      { text: "Flawless delivery thanks to perfect preparation!", points: 10 },
+      { text: "Over-rehearsed and robotic. Audience zones out.", points: -2 },
+      { text: "Your backup plans save you when tech fails!", points: 8 }
+    ]
+  },
+  {
+    id: 5,
+    situation: "Marathon Training",
+    description: "You've signed up for your first marathon in 6 months.",
+    positiveChoice: "Believe in yourself, follow your energy",
+    prepareChoice: "Strict training plan, injury prevention focus",
+    positiveOutcomes: [
+      { text: "Positive mindset carries you through - you finish strong!", points: 8 },
+      { text: "Great attitude but poor pacing. You hit the wall.", points: -1 },
+      { text: "Mind over matter - you surprise yourself!", points: 9 }
+    ],
+    prepareOutcomes: [
+      { text: "Methodical training pays off perfectly!", points: 10 },
+      { text: "Overtraining leads to injury before race day.", points: -6 },
+      { text: "Your injury prevention saves you from disaster.", points: 7 }
+    ]
+  }
+];
+
+export default function PositiveVsPrepareGame() {
+  const [currentScenario, setCurrentScenario] = useState(0);
+  const [score, setScore] = useState(0);
+  const [gameResults, setGameResults] = useState([]);
+  const [showResult, setShowResult] = useState(false);
+  const [gameComplete, setGameComplete] = useState(false);
+
+  const makeChoice = (choiceType) => {
+    const scenario = scenarios[currentScenario];
+    const outcomes = choiceType === 'positive' ? scenario.positiveOutcomes : scenario.prepareOutcomes;
+    const randomOutcome = outcomes[Math.floor(Math.random() * outcomes.length)];
+    
+    const result = {
+      scenario: scenario.situation,
+      choice: choiceType === 'positive' ? scenario.positiveChoice : scenario.prepareChoice,
+      outcome: randomOutcome.text,
+      points: randomOutcome.points,
+      choiceType
+    };
+
+    setGameResults([...gameResults, result]);
+    setScore(score + randomOutcome.points);
+    setShowResult(true);
+  };
+
+  const nextScenario = () => {
+    setShowResult(false);
+    if (currentScenario < scenarios.length - 1) {
+      setCurrentScenario(currentScenario + 1);
+    } else {
+      setGameComplete(true);
+    }
+  };
+
+  const resetGame = () => {
+    setCurrentScenario(0);
+    setScore(0);
+    setGameResults([]);
+    setShowResult(false);
+    setGameComplete(false);
+  };
+
+  const getScoreMessage = () => {
+    if (score >= 40) return "🏆 Master of Life Balance!";
+    if (score >= 25) return "🌟 Great Decision Maker!";
+    if (score >= 10) return "👍 Decent Strategist!";
+    if (score >= 0) return "🤔 Room for Improvement!";
+    return "😅 Time to Rethink Your Approach!";
+  };
+
+  if (gameComplete) {
+    return (
+      <div className="max-w-2xl mx-auto p-6 bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl">
+        <div className="text-center mb-6">
+          <Trophy className="w-16 h-16 mx-auto mb-4 text-yellow-500" />
+          <h2 className="text-3xl font-bold mb-2">Game Complete!</h2>
+          <p className="text-xl mb-4">Final Score: <span className="font-bold text-purple-600">{score} points</span></p>
+          <p className="text-lg font-semibold text-gray-700">{getScoreMessage()}</p>
+        </div>
+
+        <div className="bg-white rounded-lg p-4 mb-6 max-h-60 overflow-y-auto">
+          <h3 className="font-bold mb-3">Your Journey:</h3>
+          {gameResults.map((result, index) => (
+            <div key={index} className="mb-3 p-3 bg-gray-50 rounded">
+              <div className="font-semibold">{result.scenario}</div>
+              <div className="text-sm text-gray-600 mb-1">Choice: {result.choice}</div>
+              <div className="text-sm">{result.outcome}</div>
+              <div className={`text-sm font-bold ${result.points > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {result.points > 0 ? '+' : ''}{result.points} points
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <button
+          onClick={resetGame}
+          className="w-full bg-purple-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
+        >
+          <RotateCcw className="w-5 h-5" />
+          Play Again
+        </button>
+      </div>
+    );
+  }
+
+  if (showResult) {
+    const lastResult = gameResults[gameResults.length - 1];
+    return (
+      <div className="max-w-2xl mx-auto p-6 bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl">
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-bold mb-2">Result</h2>
+          <p className="text-lg text-gray-700">{lastResult.scenario}</p>
+        </div>
+
+        <div className="bg-white rounded-lg p-6 mb-6">
+          <div className="mb-4">
+            <span className="font-semibold">Your Choice: </span>
+            <span className={lastResult.choiceType === 'positive' ? 'text-green-600' : 'text-blue-600'}>
+              {lastResult.choice}
+            </span>
+          </div>
+          
+          <div className="mb-4">
+            <span className="font-semibold">Outcome: </span>
+            <span>{lastResult.outcome}</span>
+          </div>
+
+          <div className="text-center">
+            <span className={`text-2xl font-bold ${lastResult.points > 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {lastResult.points > 0 ? '+' : ''}{lastResult.points} points
+            </span>
+          </div>
+        </div>
+
+        <div className="text-center mb-6">
+          <p className="text-lg">Current Score: <span className="font-bold text-purple-600">{score}</span></p>
+          <p className="text-sm text-gray-600">Scenario {currentScenario + 1} of {scenarios.length}</p>
+        </div>
+
+        <button
+          onClick={nextScenario}
+          className="w-full bg-purple-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-purple-700 transition-colors"
+        >
+          {currentScenario < scenarios.length - 1 ? 'Next Scenario' : 'View Final Results'}
+        </button>
+      </div>
+    );
+  }
+
+  const scenario = scenarios[currentScenario];
+
+  return (
+    <div className="max-w-2xl mx-auto p-6 bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl">
+      <div className="text-center mb-6">
+        <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+          Think Positive or Prepare for Failure
+        </h1>
+        <p className="text-gray-600">Choose your approach to life's challenges</p>
+        <div className="mt-4">
+          <span className="text-lg font-semibold">Score: {score}</span>
+          <span className="text-sm text-gray-500 ml-4">Scenario {currentScenario + 1} of {scenarios.length}</span>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg p-6 mb-6 shadow-lg">
+        <h2 className="text-xl font-bold mb-2 text-gray-800">{scenario.situation}</h2>
+        <p className="text-gray-600 mb-6">{scenario.description}</p>
+
+        <div className="space-y-4">
+          <button
+            onClick={() => makeChoice('positive')}
+            className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-4 px-6 rounded-lg font-semibold hover:from-green-600 hover:to-green-700 transition-all transform hover:scale-105 flex items-center justify-center gap-3"
+          >
+            <Smile className="w-6 h-6" />
+            <div>
+              <div className="font-bold">Think Positive</div>
+              <div className="text-sm opacity-90">{scenario.positiveChoice}</div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => makeChoice('prepare')}
+            className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-4 px-6 rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all transform hover:scale-105 flex items-center justify-center gap-3"
+          >
+            <Shield className="w-6 h-6" />
+            <div>
+              <div className="font-bold">Prepare for Failure</div>
+              <div className="text-sm opacity-90">{scenario.prepareChoice}</div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <div className="text-center text-sm text-gray-500">
+        Each choice leads to different random outcomes. Sometimes optimism wins, sometimes preparation does!
+      </div>
+    </div>
+  );
+}
