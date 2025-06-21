@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfection</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(180deg, #000 0%, #001122 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            position: relative;
+            background: #000;
+            border: 3px solid #00ff00;
+            border-radius: 10px;
+            box-shadow: 0 0 20px #00ff0050;
+            width: 900px;
+            height: 600px;
+        }
+        
+        #gameBoard {
+            position: absolute;
+            top: 80px;
+            left: 50px;
+            width: 385px;
+            height: 285px;
+            background: #001122;
+            border: 3px solid #00ff00;
+            border-radius: 10px;
+            box-shadow: inset 0 0 20px #00ff0030;
+        }
+        
+        #pieceArea {
+            position: absolute;
+            top: 80px;
+            right: 50px;
+            width: 280px;
+            height: 400px;
+            background: rgba(0, 17, 34, 0.5);
+            border: 2px solid #00ff0060;
+            border-radius: 10px;
+            padding: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            align-content: flex-start;
+            overflow-y: auto;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #00ff00;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 0 0 5px #00ff00;
+        }
+        
+        #timer {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: #ff0000;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 0 0 10px #ff0000;
+        }
+        
+        .timer-warning {
+            animation: pulse 0.5s infinite alternate;
+        }
+        
+        @keyframes pulse {
+            from { color: #ff0000; text-shadow: 0 0 10px #ff0000; }
+            to { color: #ff6666; text-shadow: 0 0 20px #ff0000; }
+        }
+        
+        .hole {
+            position: absolute;
+            border: 2px solid #00ff00;
+            background: #000;
+            box-shadow: inset 0 0 10px #00ff0030;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .hole:hover {
+            border-color: #00ffff;
+            box-shadow: inset 0 0 15px #00ffff30;
+        }
+        
+        .hole.filled {
+            border-color: #ffff00;
+            box-shadow: inset 0 0 15px #ffff0050;
+        }
+        
+        .piece {
+            background: #00ff00;
+            border: 2px solid #ffffff;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 0 10px #00ff0050;
+            user-select: none;
+        }
+        
+        .piece:hover, .piece.selected {
+            background: #00ffff;
+            border-color: #ffff00;
+            transform: scale(1.1);
+            box-shadow: 0 0 20px #00ffff80;
+        }
+        
+        .piece.placed {
+            background: #ffff00;
+            border-color: #ffffff;
+            box-shadow: 0 0 15px #ffff0080;
+        }
+        
+        .piece.flying {
+            animation: fly 1s ease-out forwards;
+            z-index: 100;
+        }
+        
+        @keyframes fly {
+            0% { transform: scale(1) rotate(0deg); }
+            50% { transform: scale(1.5) rotate(180deg); }
+            100% { 
+                transform: scale(0.5) rotate(360deg) translate(200px, -200px);
+                opacity: 0;
+            }
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            background: rgba(0, 255, 0, 0.2);
+            border: 2px solid rgba(0, 255, 0, 0.5);
+            border-radius: 50%;
+            color: #00ff00;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.1s;
+            text-shadow: 0 0 5px #00ff00;
+        }
+        
+        .control-btn:active {
+            background: rgba(0, 255, 0, 0.4);
+            transform: scale(0.95);
+            box-shadow: 0 0 10px #00ff00;
+        }
+        
+        .start-btn {
+            background: rgba(255, 0, 0, 0.3);
+            border-color: rgba(255, 0, 0, 0.6);
+            color: #ff0000;
+            text-shadow: 0 0 5px #ff0000;
+        }
+        
+        #instructions {
+            position: absolute;
+            bottom: 100px;
+            left: 10px;
+            color: #888;
+            font-size: 12px;
+            max-width: 250px;
+        }
+        
+        #gameOverScreen, #winScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #00ff00;
+            text-align: center;
+            border-radius: 8px;
+        }
+        
+        #gameOverScreen h1 {
+            color: #ff0000;
+            font-size: 48px;
+            margin: 20px 0;
+            text-shadow: 0 0 10px #ff0000;
+        }
+        
+        #winScreen h1 {
+            color: #00ff00;
+            font-size: 48px;
+            margin: 20px 0;  
+            text-shadow: 0 0 10px #00ff00;
+        }
+        
+        .restart-btn {
+            padding: 15px 30px;
+            font-size: 20px;
+            background: #00ff00;
+            color: #000;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+        
+        .restart-btn:hover {
+            background: #00cc00;
+            box-shadow: 0 0 15px #00ff00;
+        }
+        
+        .hole .piece.placed {
+            position: absolute;
+            top: 0;
+            left: 0;
+            background: #ffff00;
+            border-color: #ffffff;
+            box-shadow: 0 0 15px #ffff0080;
+            margin: 0;
+        }
+        
+        .hole .piece.placed.triangle {
+            border-bottom-color: #ffff00;
+        }
+        
+        .hole .piece.placed.hexagon:before,
+        .hole .piece.placed.hexagon:after {
+            border-bottom-color: #ffff00;
+            border-top-color: #ffff00;
+        }
+        .circle { border-radius: 50%; }
+        .triangle { 
+            background: transparent;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-bottom: 26px solid #00ff00;
+            width: 0;
+            height: 0;
+        }
+        .triangle:hover, .triangle.selected {
+            border-bottom-color: #00ffff;
+        }
+        .triangle.placed {
+            border-bottom-color: #ffff00;
+        }
+        .diamond { transform: rotate(45deg); }
+        .hexagon {
+            background: #00ff00;
+            width: 30px;
+            height: 17px;
+            position: relative;
+        }
+        .hexagon:before,
+        .hexagon:after {
+            content: "";
+            position: absolute;
+            width: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+        }
+        .hexagon:before {
+            bottom: 100%;
+            border-bottom: 8px solid #00ff00;
+        }
+        .hexagon:after {
+            top: 100%;
+            border-top: 8px solid #00ff00;
+        }
+        
+        .hexagon:hover, .hexagon.selected {
+            background: #00ffff;
+        }
+        .hexagon:hover:before, .hexagon.selected:before {
+            border-bottom-color: #00ffff;
+        }
+        .hexagon:hover:after, .hexagon.selected:after {
+            border-top-color: #00ffff;
+        }
+        .hexagon.placed {
+            background: #ffff00;
+        }
+        .hexagon.placed:before {
+            border-bottom-color: #ffff00;
+        }
+        .hexagon.placed:after {
+            border-top-color: #ffff00;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="ui">
+            <div>PERFECTION</div>
+            <div>PIECES: <span id="piecesLeft">25</span></div>
+        </div>
+        
+        <div id="timer">90</div>
+        
+        <div id="gameBoard">
+            <!-- Holes will be generated here -->
+        </div>
+        
+        <div id="pieceArea">
+            <!-- Pieces will be generated here -->
+        </div>
+        
+        <div id="controls">
+            <div class="control-btn" onclick="selectPrevious()">←</div>
+            <div class="control-btn" onclick="selectNext()">→</div>
+            <div class="control-btn" onclick="rotatePiece()">↻</div>
+            <div class="control-btn" onclick="placePiece()">PLACE</div>
+            <div class="control-btn start-btn" onclick="startGame()" id="startBtn">START</div>
+        </div>
+        
+        <div id="instructions">
+            Fit all pieces into matching holes!<br>
+            Tap piece, then tap hole to place<br>
+            Complete before time runs out!<br>
+            Use ← → to select, ↻ to rotate
+        </div>
+        
+        <div id="gameOverScreen">
+            <h1>TIME'S UP!</h1>
+            <div style="font-size: 24px; margin: 20px 0;">POP! Pieces flew everywhere!</div>
+            <button class="restart-btn" onclick="resetGame()">TRY AGAIN</button>
+        </div>
+        
+        <div id="winScreen">
+            <h1>PERFECT!</h1>
+            <div style="font-size: 24px; margin: 20px 0;">All pieces fitted perfectly!</div>
+            <div style="font-size: 18px; margin: 10px 0;">Time: <span id="finalTime">0</span> seconds</div>
+            <button class="restart-btn" onclick="resetGame()">PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        let gameRunning = false;
+        let gameStartTime = 0;
+        let timeLeft = 90;
+        let selectedPieceIndex = -1;
+        let timerInterval = null;
+        
+        // Piece definitions - 25 unique shapes, all same container size
+        const pieceTypes = [
+            { type: 'circle', width: 30, height: 30 },
+            { type: 'square', width: 30, height: 30 },
+            { type: 'triangle', width: 30, height: 30 },
+            { type: 'diamond', width: 30, height: 30 },
+            { type: 'hexagon', width: 30, height: 30 },
+            { type: 'star', width: 30, height: 30 },
+            { type: 'plus', width: 30, height: 30 },
+            { type: 'cross', width: 30, height: 30 },
+            { type: 'heart', width: 30, height: 30 },
+            { type: 'oval', width: 30, height: 30 },
+            { type: 'arrow-up', width: 30, height: 30 },
+            { type: 'arrow-down', width: 30, height: 30 },
+            { type: 'arrow-left', width: 30, height: 30 },
+            { type: 'arrow-right', width: 30, height: 30 },
+            { type: 'l-shape', width: 30, height: 30 },
+            { type: 't-shape', width: 30, height: 30 },
+            { type: 'z-shape', width: 30, height: 30 },
+            { type: 's-shape', width: 30, height: 30 },
+            { type: 'house', width: 30, height: 30 },
+            { type: 'lightning', width: 30, height: 30 },
+            { type: 'crescent', width: 30, height: 30 },
+            { type: 'flower', width: 30, height: 30 },
+            { type: 'butterfly', width: 30, height: 30 },
+            { type: 'bowtie', width: 30, height: 30 },
+            { type: 'octagon', width: 30, height: 30 }
+        ];
+        
+        let pieces = [];
+        let holes = [];
+        
+        // Initialize game
+        function init() {
+            createBoard();
+            createPieces();
+            resetGame();
+        }
+        
+        // Create game board with holes
+        function createBoard() {
+            const board = document.getElementById('gameBoard');
+            holes = [];
+            
+            // Create holes matching piece types in a 5x5 grid
+            pieceTypes.forEach((pieceType, index) => {
+                const hole = document.createElement('div');
+                hole.className = `hole ${pieceType.type}`;
+                hole.style.width = pieceType.width + 'px';
+                hole.style.height = pieceType.height + 'px';
+                
+                // Position holes in a 5x5 grid
+                const col = index % 5;
+                const row = Math.floor(index / 5);
+                hole.style.left = (col * 75 + 10) + 'px';
+                hole.style.top = (row * 55 + 10) + 'px';
+                
+                hole.dataset.pieceIndex = index;
+                hole.addEventListener('click', () => placeInHole(index));
+                
+                board.appendChild(hole);
+                holes.push({
+                    element: hole,
+                    pieceType: pieceType,
+                    filled: false,
+                    correctPiece: index
+                });
+            });
+        }
+        
+        // Create game pieces
+        function createPieces() {
+            const pieceArea = document.getElementById('pieceArea');
+            pieces = [];
+            
+            // Create pieces that exactly match the holes
+            const pieceIndices = [...Array(pieceTypes.length).keys()];
+            
+            // Shuffle the display order but keep piece-to-hole mapping intact
+            for (let i = pieceIndices.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [pieceIndices[i], pieceIndices[j]] = [pieceIndices[j], pieceIndices[i]];
+            }
+            
+            pieceIndices.forEach((holeIndex, displayIndex) => {
+                const pieceType = pieceTypes[holeIndex];
+                const piece = document.createElement('div');
+                piece.className = `piece ${pieceType.type}`;
+                piece.style.width = pieceType.width + 'px';
+                piece.style.height = pieceType.height + 'px';
+                
+                piece.dataset.holeIndex = holeIndex;
+                piece.dataset.displayIndex = displayIndex;
+                piece.addEventListener('click', () => selectPiece(displayIndex));
+                
+                pieceArea.appendChild(piece);
+                pieces.push({
+                    element: piece,
+                    holeIndex: holeIndex,
+                    placed: false,
+                    rotation: 0
+                });
+            });
+        }
+        
+        // Start game
+        function startGame() {
+            if (gameRunning) return;
+            
+            gameRunning = true;
+            gameStartTime = Date.now();
+            timeLeft = 90;
+            document.getElementById('startBtn').textContent = 'RESET';
+            document.getElementById('startBtn').onclick = resetGame;
+            
+            // Start timer
+            timerInterval = setInterval(updateTimer, 1000);
+            updateUI();
+        }
+        
+        // Update timer
+        function updateTimer() {
+            if (!gameRunning) return;
+            
+            timeLeft--;
+            updateUI();
+            
+            // Warning when time is low
+            const timerEl = document.getElementById('timer');
+            if (timeLeft <= 15) {
+                timerEl.classList.add('timer-warning');
+            }
+            
+            // Game over
+            if (timeLeft <= 0) {
+                gameOver();
+            }
+        }
+        
+        // Select piece
+        function selectPiece(index) {
+            if (!gameRunning || pieces[index].placed) return;
+            
+            // Deselect previous
+            if (selectedPieceIndex >= 0) {
+                pieces[selectedPieceIndex].element.classList.remove('selected');
+            }
+            
+            // Select new piece
+            selectedPieceIndex = index;
+            pieces[index].element.classList.add('selected');
+        }
+        
+        // Select previous piece
+        function selectPrevious() {
+            if (!gameRunning) return;
+            
+            let newIndex = selectedPieceIndex - 1;
+            while (newIndex >= 0 && pieces[newIndex].placed) {
+                newIndex--;
+            }
+            if (newIndex >= 0) {
+                selectPiece(newIndex);
+            }
+        }
+        
+        // Select next piece
+        function selectNext() {
+            if (!gameRunning) return;
+            
+            let newIndex = selectedPieceIndex + 1;
+            while (newIndex < pieces.length && pieces[newIndex].placed) {
+                newIndex++;
+            }
+            if (newIndex < pieces.length) {
+                selectPiece(newIndex);
+            }
+        }
+        
+        // Rotate piece
+        function rotatePiece() {
+            if (!gameRunning || selectedPieceIndex < 0 || pieces[selectedPieceIndex].placed) return;
+            
+            const piece = pieces[selectedPieceIndex];
+            piece.rotation = (piece.rotation + 90) % 360;
+            piece.element.style.transform = `rotate(${piece.rotation}deg)`;
+        }
+        
+        // Place piece in selected hole
+        function placePiece() {
+            if (!gameRunning || selectedPieceIndex < 0) return;
+            
+            // Find first available matching hole
+            const piece = pieces[selectedPieceIndex];
+            const correctHoleIndex = piece.holeIndex;
+            
+            if (!holes[correctHoleIndex].filled) {
+                placeInHole(correctHoleIndex);
+            }
+        }
+        
+        // Place piece in specific hole
+        function placeInHole(holeIndex) {
+            if (!gameRunning || selectedPieceIndex < 0) return;
+            
+            const piece = pieces[selectedPieceIndex];
+            const hole = holes[holeIndex];
+            
+            // Check if piece matches hole
+            if (piece.holeIndex === hole.correctPiece && !hole.filled) {
+                // Correct placement
+                piece.placed = true;
+                hole.filled = true;
+                
+                // Hide piece from available pieces area
+                piece.element.style.display = 'none';
+                
+                // Mark hole as filled
+                hole.element.classList.add('filled');
+                
+                selectedPieceIndex = -1;
+                updateUI();
+                
+                // Check win condition
+                if (pieces.every(p => p.placed)) {
+                    win();
+                }
+            } else {
+                // Wrong placement - shake effect
+                hole.element.style.animation = 'none';
+                setTimeout(() => {
+                    hole.element.style.animation = 'shake 0.5s';
+                }, 10);
+            }
+        }
+        
+        // Game over
+        function gameOver() {
+            gameRunning = false;
+            clearInterval(timerInterval);
+            
+            // Pop effect - make pieces fly
+            pieces.forEach((piece, index) => {
+                if (!piece.placed) {
+                    setTimeout(() => {
+                        piece.element.classList.add('flying');
+                    }, index * 100);
+                }
+            });
+            
+            setTimeout(() => {
+                document.getElementById('gameOverScreen').style.display = 'flex';
+            }, 1000);
+        }
+        
+        // Win game
+        function win() {
+            gameRunning = false;
+            clearInterval(timerInterval);
+            
+            const finalTime = 90 - timeLeft;
+            document.getElementById('finalTime').textContent = finalTime;
+            document.getElementById('winScreen').style.display = 'flex';
+        }
+        
+        // Reset game
+        function resetGame() {
+            gameRunning = false;
+            clearInterval(timerInterval);
+            timeLeft = 90;
+            selectedPieceIndex = -1;
+            
+            // Clear and recreate pieces with new random positions
+            const pieceArea = document.getElementById('pieceArea');
+            pieceArea.innerHTML = '';
+            createPieces();
+            
+            // Reset holes
+            holes.forEach(hole => {
+                hole.filled = false;
+                hole.element.classList.remove('filled');
+                hole.element.style.animation = 'none';
+            });
+            
+            // Reset UI
+            const timerEl = document.getElementById('timer');
+            timerEl.classList.remove('timer-warning');
+            document.getElementById('startBtn').textContent = 'START';
+            document.getElementById('startBtn').onclick = startGame;
+            document.getElementById('gameOverScreen').style.display = 'none';
+            document.getElementById('winScreen').style.display = 'none';
+            
+            updateUI();
+        }
+        
+        // Update UI
+        function updateUI() {
+            document.getElementById('timer').textContent = timeLeft;
+            const remaining = pieces.filter(p => !p.placed).length;
+            document.getElementById('piecesLeft').textContent = remaining;
+        }
+        
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    selectPrevious();
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    selectNext();
+                    break;
+                case 'ArrowUp': case 'ArrowDown':
+                    e.preventDefault();
+                    // Auto-select first unplaced piece
+                    for (let i = 0; i < pieces.length; i++) {
+                        if (!pieces[i].placed) {
+                            selectPiece(i);
+                            break;
+                        }
+                    }
+                    break;
+                case ' ': case 'Enter':
+                    e.preventDefault();
+                    placePiece();
+                    break;
+                case 'r': case 'R':
+                    e.preventDefault();
+                    rotatePiece();
+                    break;
+                case 's': case 'S':
+                    if (!gameRunning) startGame();
+                    break;
+                case 'Escape':
+                    resetGame();
+                    break;
+            }
+        });
+        
+        // Touch controls
+        document.querySelectorAll('.control-btn').forEach(btn => {
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                btn.click();
+            });
+        });
+        
+        // Prevent context menu
+        document.addEventListener('contextmenu', e => e.preventDefault());
+        
+        // Add shake animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                25% { transform: translateX(-5px); }
+                75% { transform: translateX(5px); }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // Initialize game
+        init();
+    </script>
+</body>
+</html>

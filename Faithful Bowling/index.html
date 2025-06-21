@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Faithful Bowling 3D</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: none;
+            user-select: none;
+        }
+        
+        body {
+            background: #0a0a0a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Arial Black', sans-serif;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+        }
+        
+        #gameCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        #scorecard {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            border: 3px solid #FFD700;
+            border-radius: 10px;
+            padding: 8px 15px;
+            color: #fff;
+            font-size: 14px;
+            text-align: center;
+            width: 90%;
+            max-width: 750px;
+        }
+        
+        .frame-box {
+            display: inline-block;
+            margin: 0 1px;
+            vertical-align: top;
+        }
+        
+        .frame-header {
+            background: #FFD700;
+            color: #000;
+            padding: 1px 6px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        
+        .frame-scores {
+            background: #222;
+            border: 1px solid #FFD700;
+            height: 35px;
+            width: 36px;
+            position: relative;
+        }
+        
+        .ball-score {
+            position: absolute;
+            top: 0;
+            width: 18px;
+            height: 18px;
+            border-right: 1px solid #FFD700;
+            border-bottom: 1px solid #FFD700;
+            font-size: 11px;
+            line-height: 18px;
+            color: #FF69B4;
+        }
+        
+        .ball-score.ball1 { left: 0; }
+        .ball-score.ball2 { left: 18px; }
+        .ball-score.ball3 { left: 36px; display: none; }
+        
+        .frame-total {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 17px;
+            line-height: 17px;
+            font-size: 14px;
+            color: #00FFFF;
+            font-weight: bold;
+        }
+        
+        .frame-box.tenth .ball-score.ball3 { display: block; }
+        .frame-box.tenth .frame-scores { width: 54px; }
+        
+        #powerMeter {
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 30px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00FFFF;
+            border-radius: 15px;
+            overflow: hidden;
+            display: none;
+        }
+        
+        #powerBar {
+            height: 100%;
+            background: linear-gradient(to right, #00FF00, #FFFF00, #FF0000);
+            width: 0%;
+            transition: none;
+        }
+        
+        #spinMeter {
+            position: absolute;
+            bottom: 140px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #FF69B4;
+            border-radius: 10px;
+            display: none;
+        }
+        
+        #spinIndicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 4px;
+            height: 16px;
+            background: #FF69B4;
+            border-radius: 2px;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            pointer-events: auto;
+        }
+        
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 105, 180, 0.2);
+            border: 2px solid #FF69B4;
+            border-radius: 50%;
+            color: #FF69B4;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+        
+        .control-btn:active {
+            background: rgba(255, 105, 180, 0.4);
+            transform: scale(0.95);
+        }
+        
+        .control-btn.throw {
+            background: rgba(0, 255, 255, 0.2);
+            border-color: #00FFFF;
+            color: #00FFFF;
+        }
+        
+        #instructions {
+            position: absolute;
+            bottom: 90px;
+            left: 10px;
+            color: #00FFFF;
+            font-size: 14px;
+            text-align: left;
+            text-shadow: 0 0 5px #00FFFF;
+        }
+        
+        #gameInfo {
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            color: #FFD700;
+            font-size: 16px;
+            text-align: right;
+            text-shadow: 0 0 5px #FFD700;
+        }
+        
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            border: 3px solid #FFD700;
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            display: none;
+            color: #fff;
+        }
+        
+        #gameOver h1 {
+            color: #FFD700;
+            font-size: 36px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px #FFD700;
+        }
+        
+        #gameOver .final-score {
+            font-size: 24px;
+            color: #00FFFF;
+            margin-bottom: 20px;
+        }
+        
+        .restart-btn {
+            background: #FF69B4;
+            color: #fff;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        
+        .restart-btn:hover {
+            background: #FF1493;
+            transform: scale(1.05);
+        }
+        
+        /* Mobile joystick */
+        #joystick {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 105, 180, 0.1);
+            border: 2px solid #FF69B4;
+            border-radius: 50%;
+            display: none;
+            pointer-events: auto;
+        }
+        
+        #joystickKnob {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: #FF69B4;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: none;
+        }
+        
+        @media (max-width: 768px) {
+            #joystick { display: block; }
+            #instructions { display: none; }
+            #scorecard { font-size: 10px; }
+            .control-btn { width: 50px; height: 50px; font-size: 20px; }
+            .frame-header { font-size: 9px; }
+            .ball-score { font-size: 9px; }
+            .frame-total { font-size: 12px; }
+            #gameInfo { font-size: 14px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="ui">
+            <div id="scorecard">
+                <div style="display: flex; justify-content: center; align-items: center; gap: 20px;">
+                    <div style="color: #FFD700; font-weight: bold;">BOWLING</div>
+                    <div id="frames" style="display: flex; gap: 2px;"></div>
+                    <div style="font-size: 24px; color: #00FFFF; font-weight: bold; text-shadow: 0 0 5px #00FFFF;">
+                        TOTAL: <span id="totalScore">0</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="gameInfo">
+                Frame <span id="currentFrame">1</span><br>
+                Ball <span id="currentBall">1</span>
+            </div>
+            
+            <div id="powerMeter">
+                <div id="powerBar"></div>
+            </div>
+            
+            <div id="spinMeter">
+                <div id="spinIndicator"></div>
+            </div>
+            
+            <div id="controls">
+                <button class="control-btn" data-key="ArrowLeft">←</button>
+                <button class="control-btn throw" data-key=" ">⚡</button>
+                <button class="control-btn" data-key="ArrowRight">→</button>
+            </div>
+            
+            <div id="joystick">
+                <div id="joystickKnob"></div>
+            </div>
+            
+            <div id="instructions">
+                ← → Move | SPACE Throw | Mouse/Touch Drag
+            </div>
+            
+            <div id="gameOver">
+                <h1>GAME COMPLETE!</h1>
+                <div class="final-score">Final Score: <span id="finalScoreValue">0</span></div>
+                <div id="gameRating" style="font-size: 18px; color: #FFD700; margin-bottom: 20px;"></div>
+                <button class="restart-btn" onclick="resetGame()">NEW GAME</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Three.js variables
+        let scene, camera, renderer;
+        let lane, pins = [], ball, laneMarkers = [];
+        let clock = new THREE.Clock();
+        
+        // Game state
+        let gameState = 'aiming'; // aiming, power, throwing, rolling, pinfall, scoring
+        let currentFrame = 0;
+        let currentBall = 0;
+        let totalScore = 0;
+        let frames = [];
+        let pinsDown = [];
+        
+        // Input state
+        let keys = {};
+        let power = 0;
+        let powerDirection = 1;
+        let spin = 0;
+        let ballPosition = 0;
+        let joystickActive = false;
+        let joystickInput = { x: 0, y: 0 };
+        
+        // Physics
+        const GRAVITY = -9.8;
+        const PIN_MASS = 1.5;
+        const BALL_MASS = 7;
+        const FRICTION = 0.98;
+        
+        // Initialize Three.js
+        function initThree() {
+            // Scene
+            scene = new THREE.Scene();
+            scene.fog = new THREE.Fog(0x000000, 10, 100);
+            
+            // Camera
+            camera = new THREE.PerspectiveCamera(
+                45,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                1000
+            );
+            camera.position.set(0, 12, 28);
+            camera.lookAt(0, 0, -10);
+            
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ 
+                canvas: document.getElementById('gameCanvas'),
+                antialias: true 
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0x404040);
+            scene.add(ambientLight);
+            
+            const spotLight = new THREE.SpotLight(0xffffff, 1);
+            spotLight.position.set(0, 30, 0);
+            spotLight.castShadow = true;
+            spotLight.shadow.camera.near = 10;
+            spotLight.shadow.camera.far = 50;
+            spotLight.shadow.mapSize.width = 2048;
+            spotLight.shadow.mapSize.height = 2048;
+            scene.add(spotLight);
+            
+            // Neon lights
+            const pinkLight = new THREE.PointLight(0xFF69B4, 0.5, 50);
+            pinkLight.position.set(-10, 5, -15);
+            scene.add(pinkLight);
+            
+            const cyanLight = new THREE.PointLight(0x00FFFF, 0.5, 50);
+            cyanLight.position.set(10, 5, -15);
+            scene.add(cyanLight);
+            
+            createLane();
+            createPins();
+            createBall();
+            
+            window.addEventListener('resize', onWindowResize);
+        }
+        
+        // Create bowling lane
+        function createLane() {
+            // Lane floor
+            const laneGeometry = new THREE.BoxGeometry(4.2, 0.1, 60);
+            const laneMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xD2B48C,
+                shininess: 100
+            });
+            lane = new THREE.Mesh(laneGeometry, laneMaterial);
+            lane.position.y = 0;
+            lane.receiveShadow = true;
+            scene.add(lane);
+            
+            // Lane boards texture
+            const boardsGeometry = new THREE.PlaneGeometry(4.2, 60, 39, 1);
+            const boardsMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xB8956A,
+                wireframe: true,
+                opacity: 0.3,
+                transparent: true
+            });
+            const boards = new THREE.Mesh(boardsGeometry, boardsMaterial);
+            boards.rotation.x = -Math.PI / 2;
+            boards.position.y = 0.1;
+            scene.add(boards);
+            
+            // Gutters
+            const gutterGeometry = new THREE.BoxGeometry(3, 0.1, 60);
+            const gutterMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x222222 
+            });
+            
+            const leftGutter = new THREE.Mesh(gutterGeometry, gutterMaterial);
+            leftGutter.position.set(-3.6, -0.05, 0);
+            scene.add(leftGutter);
+            
+            const rightGutter = new THREE.Mesh(gutterGeometry, gutterMaterial);
+            rightGutter.position.set(3.6, -0.05, 0);
+            scene.add(rightGutter);
+            
+            // Targeting arrows
+            for (let i = -3; i <= 3; i++) {
+                const arrowGeometry = new THREE.ConeGeometry(0.15, 0.5, 3);
+                const arrowMaterial = new THREE.MeshPhongMaterial({ 
+                    color: 0x333333 
+                });
+                const arrow = new THREE.Mesh(arrowGeometry, arrowMaterial);
+                arrow.position.set(i * 0.5, 0.1, 5);
+                arrow.rotation.x = Math.PI;
+                scene.add(arrow);
+                laneMarkers.push(arrow);
+            }
+            
+            // Foul line
+            const foulLineGeometry = new THREE.BoxGeometry(4.2, 0.02, 0.2);
+            const foulLineMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xFF0000 
+            });
+            const foulLine = new THREE.Mesh(foulLineGeometry, foulLineMaterial);
+            foulLine.position.set(0, 0.11, 19);
+            scene.add(foulLine);
+            
+            // Pin deck background
+            const deckGeometry = new THREE.BoxGeometry(8, 0.1, 8);
+            const deckMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x0a0a0a 
+            });
+            const deck = new THREE.Mesh(deckGeometry, deckMaterial);
+            deck.position.set(0, -0.05, -22);
+            scene.add(deck);
+            
+            // Neon border around pin area
+            const borderGeometry = new THREE.TorusGeometry(4, 0.1, 4, 4);
+            const borderMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xFF69B4,
+                emissive: 0xFF69B4,
+                emissiveIntensity: 0.5
+            });
+            const border = new THREE.Mesh(borderGeometry, borderMaterial);
+            border.position.set(0, 0.5, -22);
+            border.rotation.x = Math.PI / 2;
+            scene.add(border);
+            
+            // Game title
+            const titleCanvas = document.createElement('canvas');
+            titleCanvas.width = 512;
+            titleCanvas.height = 128;
+            const titleCtx = titleCanvas.getContext('2d');
+            titleCtx.fillStyle = '#FFD700';
+            titleCtx.font = 'bold 60px Arial Black';
+            titleCtx.textAlign = 'center';
+            titleCtx.textBaseline = 'middle';
+            titleCtx.fillText('FAITHFUL BOWLING', 256, 64);
+            
+            const titleTexture = new THREE.CanvasTexture(titleCanvas);
+            const titleMaterial = new THREE.MeshBasicMaterial({ 
+                map: titleTexture,
+                transparent: true
+            });
+            const titleGeometry = new THREE.PlaneGeometry(8, 2);
+            const titleMesh = new THREE.Mesh(titleGeometry, titleMaterial);
+            titleMesh.position.set(0, 10, -25);
+            scene.add(titleMesh);
+        }
+        
+        // Create bowling pins
+        function createPins() {
+            pins = [];
+            pinsDown = [];
+            
+            // Pin positions (1 pin closest to player)
+            const pinPositions = [
+                // Row 1 (closest) - 1 pin
+                { x: 0, z: -18, number: 1 },
+                // Row 2 - 2 pins
+                { x: -0.5, z: -19.5, number: 2 },
+                { x: 0.5, z: -19.5, number: 3 },
+                // Row 3 - 3 pins
+                { x: -1, z: -21, number: 4 },
+                { x: 0, z: -21, number: 5 },
+                { x: 1, z: -21, number: 6 },
+                // Row 4 (furthest) - 4 pins
+                { x: -1.5, z: -22.5, number: 7 },
+                { x: -0.5, z: -22.5, number: 8 },
+                { x: 0.5, z: -22.5, number: 9 },
+                { x: 1.5, z: -22.5, number: 10 }
+            ];
+            
+            pinPositions.forEach((pos, index) => {
+                const pin = createPin(pos.number);
+                pin.position.set(pos.x, 1.75, pos.z);
+                pin.userData = {
+                    standing: true,
+                    velocity: new THREE.Vector3(0, 0, 0),
+                    angularVelocity: new THREE.Vector3(0, 0, 0),
+                    number: pos.number,
+                    originalPosition: pin.position.clone()
+                };
+                scene.add(pin);
+                pins.push(pin);
+                pinsDown.push(false);
+            });
+        }
+        
+        // Create individual pin
+        function createPin(number) {
+            const pinGroup = new THREE.Group();
+            
+            // Pin body (cylinder)
+            const bodyGeometry = new THREE.CylinderGeometry(0.25, 0.35, 3.5, 8);
+            const bodyMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xffffff,
+                shininess: 100
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.castShadow = true;
+            body.receiveShadow = true;
+            pinGroup.add(body);
+            
+            // Red stripes
+            const stripeGeometry = new THREE.RingGeometry(0.25, 0.3, 8);
+            const stripeMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xDC143C,
+                side: THREE.DoubleSide
+            });
+            
+            const stripe1 = new THREE.Mesh(stripeGeometry, stripeMaterial);
+            stripe1.position.y = 0.5;
+            stripe1.rotation.x = Math.PI / 2;
+            pinGroup.add(stripe1);
+            
+            const stripe2 = new THREE.Mesh(stripeGeometry, stripeMaterial);
+            stripe2.position.y = 0.8;
+            stripe2.rotation.x = Math.PI / 2;
+            pinGroup.add(stripe2);
+            
+            // Pin number
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'black';
+            ctx.font = 'bold 48px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(number, 32, 32);
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            const numberMaterial = new THREE.MeshBasicMaterial({ 
+                map: texture,
+                transparent: true
+            });
+            const numberGeometry = new THREE.PlaneGeometry(0.3, 0.3);
+            const numberMesh = new THREE.Mesh(numberGeometry, numberMaterial);
+            numberMesh.position.z = 0.31;
+            pinGroup.add(numberMesh);
+            
+            return pinGroup;
+        }
+        
+        // Create bowling ball
+        function createBall() {
+            const ballGeometry = new THREE.SphereGeometry(0.4, 16, 16);
+            const ballMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x000000,
+                shininess: 200
+            });
+            ball = new THREE.Mesh(ballGeometry, ballMaterial);
+            ball.castShadow = true;
+            ball.position.set(0, 0.5, 20);
+            ball.userData = {
+                velocity: new THREE.Vector3(0, 0, 0),
+                angularVelocity: new THREE.Vector3(0, 0, 0),
+                spin: 0
+            };
+            scene.add(ball);
+            
+            // Add finger holes
+            const holeGeometry = new THREE.SphereGeometry(0.08, 8, 8);
+            const holeMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x333333 
+            });
+            
+            for (let i = 0; i < 3; i++) {
+                const hole = new THREE.Mesh(holeGeometry, holeMaterial);
+                const angle = (i * Math.PI * 2 / 3);
+                hole.position.x = Math.cos(angle) * 0.3;
+                hole.position.y = Math.sin(angle) * 0.3;
+                hole.position.z = 0.3;
+                ball.add(hole);
+            }
+            
+            // Add ball highlight/shine
+            const shineGeometry = new THREE.SphereGeometry(0.1, 8, 8);
+            const shineMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xFFFFFF,
+                opacity: 0.6,
+                transparent: true
+            });
+            const shine = new THREE.Mesh(shineGeometry, shineMaterial);
+            shine.position.set(-0.2, 0.2, 0.2);
+            ball.add(shine);
+        }
+        
+        // Initialize game
+        function init() {
+            frames = [];
+            for (let i = 0; i < 10; i++) {
+                frames.push({
+                    balls: [],
+                    score: null,
+                    cumulative: null
+                });
+            }
+            
+            currentFrame = 0;
+            currentBall = 0;
+            totalScore = 0;
+            gameState = 'aiming';
+            
+            resetPins();
+            updateScorecard();
+            updateGameInfo();
+        }
+        
+        // Reset pins
+        function resetPins() {
+            pins.forEach((pin, index) => {
+                pin.position.copy(pin.userData.originalPosition);
+                pin.rotation.set(0, 0, 0);
+                pin.userData.standing = true;
+                pin.userData.velocity.set(0, 0, 0);
+                pin.userData.angularVelocity.set(0, 0, 0);
+                pinsDown[index] = false;
+            });
+        }
+        
+        // Update game
+        function update() {
+            const delta = clock.getDelta();
+            
+            switch (gameState) {
+                case 'aiming':
+                    updateAiming();
+                    // Animate position ring
+                    const ring = scene.getObjectByName('positionRing');
+                    if (ring) {
+                        ring.scale.x = 1 + Math.sin(clock.elapsedTime * 3) * 0.1;
+                        ring.scale.y = 1 + Math.sin(clock.elapsedTime * 3) * 0.1;
+                    }
+                    break;
+                case 'power':
+                    updatePower();
+                    break;
+                case 'rolling':
+                    updateBallPhysics(delta);
+                    updatePinPhysics(delta);
+                    checkBallEnd();
+                    break;
+                case 'pinfall':
+                    updatePinPhysics(delta);
+                    checkPinfallEnd();
+                    break;
+            }
+            
+            // Rotate ball when rolling
+            if (ball.userData.velocity.z !== 0) {
+                ball.rotation.x += ball.userData.velocity.z * 0.1;
+            }
+        }
+        
+        // Update aiming
+        function updateAiming() {
+            // Manual control only
+            if (keys['ArrowLeft'] || joystickInput.x < -0.3) {
+                ballPosition = Math.max(-1.8, ballPosition - 0.05);
+            }
+            if (keys['ArrowRight'] || joystickInput.x > 0.3) {
+                ballPosition = Math.min(1.8, ballPosition + 0.05);
+            }
+            
+            ball.position.x = ballPosition;
+            ball.position.y = 0.5;
+            ball.position.z = 20;
+            
+            // Add aiming guide line
+            updateAimingGuide();
+        }
+        
+        // Update aiming guide
+        function updateAimingGuide() {
+            // Remove old guide if exists
+            const oldGuide = scene.getObjectByName('aimingGuide');
+            if (oldGuide) scene.remove(oldGuide);
+            
+            const oldRing = scene.getObjectByName('positionRing');
+            if (oldRing) scene.remove(oldRing);
+            
+            // Create position ring at ball location
+            const ringGeometry = new THREE.RingGeometry(0.45, 0.5, 32);
+            const ringMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0x00FFFF,
+                side: THREE.DoubleSide,
+                opacity: 0.8,
+                transparent: true
+            });
+            const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+            ring.position.set(ballPosition, 0.11, 20);
+            ring.rotation.x = -Math.PI / 2;
+            ring.name = 'positionRing';
+            scene.add(ring);
+            
+            // Create aiming line
+            const points = [];
+            points.push(new THREE.Vector3(ballPosition, 0.5, 20));
+            points.push(new THREE.Vector3(ballPosition + spin * 0.01, 0.5, -22));
+            
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const material = new THREE.LineBasicMaterial({ 
+                color: 0x00FFFF,
+                opacity: 0.5,
+                transparent: true
+            });
+            
+            const line = new THREE.Line(geometry, material);
+            line.name = 'aimingGuide';
+            scene.add(line);
+        }
+        
+        // Update power meter
+        function updatePower() {
+            power += powerDirection * 2;
+            if (power <= 0 || power >= 100) {
+                powerDirection *= -1;
+            }
+            power = Math.max(0, Math.min(100, power));
+            
+            document.getElementById('powerBar').style.width = power + '%';
+            
+            // Update spin based on input
+            if (keys['ArrowLeft'] || joystickInput.x < -0.3) {
+                spin = Math.max(-100, spin - 2);
+            }
+            if (keys['ArrowRight'] || joystickInput.x > 0.3) {
+                spin = Math.min(100, spin + 2);
+            }
+            
+            const spinIndicator = document.getElementById('spinIndicator');
+            spinIndicator.style.left = `${50 + spin / 2}%`;
+        }
+        
+        // Update ball physics
+        function updateBallPhysics(delta) {
+            if (!ball.userData.velocity) return;
+            
+            // Apply velocity
+            ball.position.add(ball.userData.velocity.clone().multiplyScalar(delta));
+            
+            // Apply friction
+            ball.userData.velocity.multiplyScalar(0.995);
+            
+            // Apply spin curve
+            if (Math.abs(ball.userData.spin) > 0.01) {
+                ball.position.x += ball.userData.spin * delta;
+                ball.userData.spin *= 0.99;
+            }
+            
+            // Check gutter
+            if (Math.abs(ball.position.x) > 2.1) {
+                ball.userData.velocity.multiplyScalar(0.9);
+                ball.userData.spin = 0;
+            }
+            
+            // Check pin collisions
+            pins.forEach((pin, index) => {
+                if (!pin.userData.standing) return;
+                
+                // Calculate distance between ball center and pin center
+                const dx = ball.position.x - pin.position.x;
+                const dz = ball.position.z - pin.position.z;
+                const dy = ball.position.y - pin.position.y;
+                
+                // 2D distance for collision (ignore height difference mostly)
+                const distance2D = Math.sqrt(dx * dx + dz * dz);
+                
+                // Ball radius (0.4) + pin radius (0.35) = 0.75
+                if (distance2D < 0.75 && Math.abs(dy) < 1.5) {
+                    // Collision detected
+                    knockDownPin(pin, index);
+                    
+                    // Ball deflection
+                    const normal = new THREE.Vector3(dx, 0, dz).normalize();
+                    
+                    // Reduce ball velocity and add deflection
+                    ball.userData.velocity.add(normal.multiplyScalar(3));
+                    ball.userData.velocity.multiplyScalar(0.7);
+                    
+                    // Add some randomness to make it more realistic
+                    ball.userData.spin += (Math.random() - 0.5) * 0.2;
+                    
+                    // Create impact flash
+                    createImpactFlash(pin.position);
+                }
+            });
+        }
+        
+        // Create impact flash effect
+        function createImpactFlash(position) {
+            const flashGeometry = new THREE.SphereGeometry(0.5, 8, 8);
+            const flashMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xFFFFFF,
+                opacity: 0.8,
+                transparent: true
+            });
+            const flash = new THREE.Mesh(flashGeometry, flashMaterial);
+            flash.position.copy(position);
+            scene.add(flash);
+            
+            // Animate flash
+            const startTime = clock.elapsedTime;
+            const animateFlash = () => {
+                const elapsed = clock.elapsedTime - startTime;
+                if (elapsed < 0.3) {
+                    flash.scale.setScalar(1 + elapsed * 3);
+                    flash.material.opacity = 0.8 - elapsed * 2.6;
+                    requestAnimationFrame(animateFlash);
+                } else {
+                    scene.remove(flash);
+                }
+            };
+            animateFlash();
+        }
+        
+        // Knock down pin
+        function knockDownPin(pin, index) {
+            if (!pin.userData.standing) return;
+            
+            pin.userData.standing = false;
+            pinsDown[index] = true;
+            
+            // Calculate knockdown direction based on ball velocity and position
+            const ballDirection = ball.userData.velocity.clone().normalize();
+            const hitDirection = new THREE.Vector3()
+                .subVectors(pin.position, ball.position)
+                .normalize();
+            
+            // Combine ball direction and hit direction for realistic physics
+            const knockDirection = new THREE.Vector3()
+                .addVectors(ballDirection.multiplyScalar(0.7), hitDirection.multiplyScalar(0.3))
+                .normalize();
+            
+            // Apply velocity based on remaining ball speed
+            const ballSpeed = ball.userData.velocity.length();
+            const transferredForce = Math.min(ballSpeed * 0.6, 8);
+            
+            pin.userData.velocity = knockDirection.multiplyScalar(transferredForce);
+            pin.userData.velocity.y = 2 + Math.random() * 2;
+            
+            // Apply angular velocity for realistic tumbling
+            pin.userData.angularVelocity = new THREE.Vector3(
+                (Math.random() - 0.5) * 15,
+                (Math.random() - 0.5) * 10,
+                (Math.random() - 0.5) * 15
+            );
+            
+            // Check for pin-to-pin collisions after a short delay
+            setTimeout(() => {
+                checkPinToPinCollisions(pin);
+            }, 50);
+        }
+        
+        // Check pin-to-pin collisions
+        function checkPinToPinCollisions(fallingPin) {
+            pins.forEach((pin, index) => {
+                if (!pin.userData.standing || pin === fallingPin) return;
+                
+                // Check distance in 2D (ignore height for collision detection)
+                const dx = fallingPin.position.x - pin.position.x;
+                const dz = fallingPin.position.z - pin.position.z;
+                const distance = Math.sqrt(dx * dx + dz * dz);
+                
+                if (distance < 0.7) {
+                    // Calculate hit probability based on falling pin velocity
+                    const fallingSpeed = fallingPin.userData.velocity.length();
+                    const hitProbability = Math.min(0.9, 0.3 + fallingSpeed * 0.1);
+                    
+                    if (Math.random() < hitProbability) {
+                        // Transfer momentum
+                        const hitDirection = new THREE.Vector3(dx, 0, dz).normalize();
+                        const transferredVelocity = fallingPin.userData.velocity.clone().multiplyScalar(0.5);
+                        
+                        pin.userData.standing = false;
+                        pinsDown[index] = true;
+                        pin.userData.velocity = hitDirection.multiplyScalar(3).add(transferredVelocity);
+                        pin.userData.velocity.y = 1 + Math.random() * 2;
+                        pin.userData.angularVelocity = new THREE.Vector3(
+                            (Math.random() - 0.5) * 10,
+                            (Math.random() - 0.5) * 5,
+                            (Math.random() - 0.5) * 10
+                        );
+                    }
+                }
+            });
+        }
+        
+        // Update pin physics
+        function updatePinPhysics(delta) {
+            let anyMoving = false;
+            
+            pins.forEach(pin => {
+                if (!pin.userData.standing && pin.userData.velocity.length() > 0.01) {
+                    anyMoving = true;
+                    
+                    // Apply velocity
+                    pin.position.add(pin.userData.velocity.clone().multiplyScalar(delta));
+                    
+                    // Apply gravity
+                    pin.userData.velocity.y += GRAVITY * delta;
+                    
+                    // Apply friction
+                    pin.userData.velocity.multiplyScalar(FRICTION);
+                    
+                    // Apply angular velocity
+                    pin.rotation.x += pin.userData.angularVelocity.x * delta;
+                    pin.rotation.y += pin.userData.angularVelocity.y * delta;
+                    pin.rotation.z += pin.userData.angularVelocity.z * delta;
+                    
+                    // Stop if fallen
+                    if (pin.position.y < 0.5) {
+                        pin.position.y = 0.5;
+                        pin.userData.velocity.set(0, 0, 0);
+                        pin.userData.angularVelocity.set(0, 0, 0);
+                    }
+                }
+            });
+            
+            return anyMoving;
+        }
+        
+        // Check if ball reached end
+        function checkBallEnd() {
+            if (ball.position.z < -25 || ball.userData.velocity.length() < 0.1) {
+                gameState = 'pinfall';
+                setTimeout(() => {
+                    if (gameState === 'pinfall') {
+                        endBall();
+                    }
+                }, 2000);
+            }
+        }
+        
+        // Check if pinfall animation ended
+        function checkPinfallEnd() {
+            const anyMoving = updatePinPhysics(clock.getDelta());
+            if (!anyMoving && gameState === 'pinfall') {
+                endBall();
+            }
+        }
+        
+        // Start throw
+        function startThrow() {
+            if (gameState !== 'aiming') return;
+            
+            // Remove aiming guides
+            const guide = scene.getObjectByName('aimingGuide');
+            if (guide) scene.remove(guide);
+            
+            const ring = scene.getObjectByName('positionRing');
+            if (ring) scene.remove(ring);
+            
+            gameState = 'power';
+            power = 0;
+            spin = 0;
+            powerDirection = 1;
+            
+            document.getElementById('powerMeter').style.display = 'block';
+            document.getElementById('spinMeter').style.display = 'block';
+        }
+        
+        // Release ball
+        function releaseBall() {
+            if (gameState !== 'power') return;
+            
+            gameState = 'rolling';
+            document.getElementById('powerMeter').style.display = 'none';
+            document.getElementById('spinMeter').style.display = 'none';
+            
+            // Calculate ball velocity
+            const speed = 10 + (power / 100) * 20;
+            ball.userData.velocity = new THREE.Vector3(0, 0, -speed);
+            ball.userData.spin = (spin / 100) * 0.5;
+        }
+        
+        // End current ball
+        function endBall() {
+            const pinsKnocked = pinsDown.filter(p => p).length;
+            
+            // Score the ball
+            frames[currentFrame].balls.push(pinsKnocked);
+            
+            // Determine next state
+            const isStrike = currentBall === 0 && pinsKnocked === 10;
+            const isSpare = currentBall === 1 && 
+                frames[currentFrame].balls[0] + frames[currentFrame].balls[1] === 10;
+            
+            if (currentFrame < 9) {
+                // Frames 1-9
+                if (isStrike || currentBall === 1) {
+                    currentFrame++;
+                    currentBall = 0;
+                    resetPins();
+                } else {
+                    currentBall++;
+                    // Remove knocked pins
+                    pins.forEach((pin, index) => {
+                        if (pinsDown[index]) {
+                            pin.position.y = -10;
+                        }
+                    });
+                }
+            } else {
+                // 10th frame special rules
+                const balls = frames[9].balls;
+                if (balls.length === 1 && pinsKnocked === 10) {
+                    resetPins();
+                    currentBall++;
+                } else if (balls.length === 2) {
+                    if (balls[0] + balls[1] >= 10) {
+                        resetPins();
+                        currentBall++;
+                    } else {
+                        endGame();
+                        return;
+                    }
+                } else if (balls.length === 3) {
+                    endGame();
+                    return;
+                } else {
+                    currentBall++;
+                    pins.forEach((pin, index) => {
+                        if (pinsDown[index]) {
+                            pin.position.y = -10;
+                        }
+                    });
+                }
+            }
+            
+            calculateScores();
+            updateScorecard();
+            updateGameInfo();
+            
+            // Reset ball
+            ball.position.set(0, 0.5, 20);
+            ball.rotation.set(0, 0, 0);
+            ball.userData.velocity.set(0, 0, 0);
+            ball.userData.spin = 0;
+            ballPosition = 0;
+            
+            gameState = 'aiming';
+        }
+        
+        // Calculate scores
+        function calculateScores() {
+            let runningTotal = 0;
+            
+            for (let i = 0; i < frames.length; i++) {
+                const frame = frames[i];
+                if (frame.balls.length === 0) continue;
+                
+                let frameScore = 0;
+                
+                if (i < 9) {
+                    // Frames 1-9
+                    if (frame.balls[0] === 10) {
+                        // Strike
+                        frameScore = 10;
+                        if (i < 9 && frames[i + 1].balls.length > 0) {
+                            frameScore += frames[i + 1].balls[0];
+                            if (frames[i + 1].balls.length > 1) {
+                                frameScore += frames[i + 1].balls[1];
+                            } else if (i < 8 && frames[i + 2].balls.length > 0) {
+                                frameScore += frames[i + 2].balls[0];
+                            }
+                        }
+                    } else if (frame.balls.length === 2) {
+                        const total = frame.balls[0] + frame.balls[1];
+                        if (total === 10) {
+                            // Spare
+                            frameScore = 10;
+                            if (i < 9 && frames[i + 1].balls.length > 0) {
+                                frameScore += frames[i + 1].balls[0];
+                            }
+                        } else {
+                            // Open frame
+                            frameScore = total;
+                        }
+                    }
+                } else {
+                    // 10th frame
+                    frameScore = frame.balls.reduce((a, b) => a + b, 0);
+                }
+                
+                if (frameScore > 0 || frame.balls.length === 2 || 
+                    (i === 9 && frame.balls.length === 3)) {
+                    frame.score = frameScore;
+                    runningTotal += frameScore;
+                    frame.cumulative = runningTotal;
+                }
+            }
+            
+            totalScore = runningTotal;
+        }
+        
+        // Update scorecard display
+        function updateScorecard() {
+            const framesDiv = document.getElementById('frames');
+            framesDiv.innerHTML = '';
+            
+            for (let i = 0; i < 10; i++) {
+                const frame = frames[i];
+                const frameDiv = document.createElement('div');
+                frameDiv.className = 'frame-box' + (i === 9 ? ' tenth' : '');
+                
+                frameDiv.innerHTML = `
+                    <div class="frame-header">${i + 1}</div>
+                    <div class="frame-scores">
+                        <div class="ball-score ball1">${formatBallScore(frame, 0, i)}</div>
+                        <div class="ball-score ball2">${formatBallScore(frame, 1, i)}</div>
+                        ${i === 9 ? '<div class="ball-score ball3">' + formatBallScore(frame, 2, i) + '</div>' : ''}
+                        <div class="frame-total">${frame.cumulative || ''}</div>
+                    </div>
+                `;
+                
+                framesDiv.appendChild(frameDiv);
+            }
+            
+            document.getElementById('totalScore').textContent = totalScore;
+        }
+        
+        // Format ball score display
+        function formatBallScore(frame, ballIndex, frameIndex) {
+            if (!frame.balls[ballIndex] && frame.balls[ballIndex] !== 0) return '';
+            
+            const score = frame.balls[ballIndex];
+            
+            if (frameIndex < 9) {
+                // Frames 1-9
+                if (ballIndex === 0 && score === 10) return 'X';
+                if (ballIndex === 1 && frame.balls[0] + score === 10) return '/';
+            } else {
+                // 10th frame
+                if (score === 10) return 'X';
+                if (ballIndex > 0 && frame.balls[ballIndex - 1] < 10 && 
+                    frame.balls[ballIndex - 1] + score === 10) return '/';
+            }
+            
+            return score === 0 ? '-' : score;
+        }
+        
+        // Update game info
+        function updateGameInfo() {
+            document.getElementById('currentFrame').textContent = currentFrame + 1;
+            document.getElementById('currentBall').textContent = currentBall + 1;
+        }
+        
+        // End game
+        function endGame() {
+            gameState = 'gameover';
+            
+            let rating = '';
+            if (totalScore === 300) {
+                rating = 'PERFECT GAME! 🏆';
+            } else if (totalScore >= 250) {
+                rating = 'EXCELLENT! ⭐⭐⭐⭐⭐';
+            } else if (totalScore >= 200) {
+                rating = 'GREAT JOB! ⭐⭐⭐⭐';
+            } else if (totalScore >= 150) {
+                rating = 'GOOD GAME! ⭐⭐⭐';
+            } else if (totalScore >= 100) {
+                rating = 'NICE TRY! ⭐⭐';
+            } else {
+                rating = 'KEEP PRACTICING! ⭐';
+            }
+            
+            document.getElementById('finalScoreValue').textContent = totalScore;
+            document.getElementById('gameRating').textContent = rating;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+        
+        // Reset game
+        function resetGame() {
+            document.getElementById('gameOver').style.display = 'none';
+            init();
+        }
+        
+        // Window resize
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            update();
+            renderer.render(scene, camera);
+        }
+        
+        // Input handlers
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            
+            if (e.key === ' ' && gameState === 'aiming') {
+                startThrow();
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+            
+            if (e.key === ' ' && gameState === 'power') {
+                releaseBall();
+            }
+        });
+        
+        // Touch controls
+        let touchStartX = 0;
+        let touchStartY = 0;
+        
+        document.addEventListener('touchstart', (e) => {
+            const touch = e.touches[0];
+            touchStartX = touch.clientX;
+            touchStartY = touch.clientY;
+            
+            if (gameState === 'aiming' && e.target.id === 'gameCanvas') {
+                startThrow();
+            }
+        });
+        
+        document.addEventListener('touchend', (e) => {
+            if (gameState === 'power') {
+                releaseBall();
+            }
+        });
+        
+        document.addEventListener('touchmove', (e) => {
+            if (e.target.id !== 'gameCanvas') return;
+            e.preventDefault();
+            
+            const touch = e.touches[0];
+            const deltaX = touch.clientX - touchStartX;
+            
+            if (gameState === 'aiming' && Math.abs(deltaX) > 10) {
+                ballPosition = Math.max(-1.8, Math.min(1.8, ballPosition + deltaX * 0.01));
+                touchStartX = touch.clientX;
+            }
+        });
+        
+        // Button controls
+        document.querySelectorAll('.control-btn').forEach(btn => {
+            ['touchstart', 'mousedown'].forEach(eventType => {
+                btn.addEventListener(eventType, (e) => {
+                    e.preventDefault();
+                    const key = btn.getAttribute('data-key');
+                    keys[key] = true;
+                    
+                    if (key === ' ' && gameState === 'aiming') {
+                        startThrow();
+                    }
+                });
+            });
+            
+            ['touchend', 'mouseup'].forEach(eventType => {
+                btn.addEventListener(eventType, (e) => {
+                    e.preventDefault();
+                    const key = btn.getAttribute('data-key');
+                    keys[key] = false;
+                    
+                    if (key === ' ' && gameState === 'power') {
+                        releaseBall();
+                    }
+                });
+            });
+        });
+        
+        // Joystick controls
+        const joystick = document.getElementById('joystick');
+        const joystickKnob = document.getElementById('joystickKnob');
+        
+        function handleJoystickMove(clientX, clientY) {
+            const rect = joystick.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            
+            const deltaX = clientX - centerX;
+            const deltaY = clientY - centerY;
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            const maxDistance = 30;
+            
+            if (distance <= maxDistance) {
+                joystickKnob.style.left = `${50 + (deltaX / rect.width * 100)}%`;
+                joystickKnob.style.top = `${50 + (deltaY / rect.height * 100)}%`;
+                joystickInput.x = deltaX / maxDistance;
+                joystickInput.y = deltaY / maxDistance;
+            } else {
+                const angle = Math.atan2(deltaY, deltaX);
+                const limitedX = Math.cos(angle) * maxDistance;
+                const limitedY = Math.sin(angle) * maxDistance;
+                joystickKnob.style.left = `${50 + (limitedX / rect.width * 100)}%`;
+                joystickKnob.style.top = `${50 + (limitedY / rect.height * 100)}%`;
+                joystickInput.x = limitedX / maxDistance;
+                joystickInput.y = limitedY / maxDistance;
+            }
+        }
+        
+        joystick.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            joystickActive = true;
+        });
+        
+        joystick.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (!joystickActive) return;
+            const touch = e.touches[0];
+            handleJoystickMove(touch.clientX, touch.clientY);
+        });
+        
+        joystick.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            joystickActive = false;
+            joystickKnob.style.left = '50%';
+            joystickKnob.style.top = '50%';
+            joystickInput = { x: 0, y: 0 };
+        });
+        
+        // Prevent context menu
+        document.addEventListener('contextmenu', e => e.preventDefault());
+        
+        // Initialize and start
+        initThree();
+        init();
+        animate();
+    </script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Direct Framework Asset Load Test</title>
+    <style>
+        body {
+            margin: 20px;
+            font-family: monospace;
+            background: #000;
+            color: #0f0;
+        }
+        pre {
+            background: #111;
+            padding: 10px;
+            border: 1px solid #0f0;
+            overflow-x: auto;
+        }
+        .error { color: #f00; }
+        .success { color: #0f0; }
+        .info { color: #ff0; }
+    </style>
+</head>
+<body>
+    <h1>Direct Framework Asset Load Test</h1>
+    <canvas id="test-canvas" style="display: none;"></canvas>
+    <div id="log"></div>
+
+    <script src="./index.js" type="module"></script>
+    
+    <script type="module">
+        const log = document.getElementById('log');
+        
+        function addLog(msg, type = 'info') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = msg;
+            log.appendChild(div);
+        }
+        
+        window.addEventListener('gameframework:ready', async (event) => {
+            const GameFramework = event.detail.framework;
+            
+            addLog('GameFramework ready');
+            
+            try {
+                // Create minimal game
+                const game = GameFramework.createGame('test-canvas', {
+                    width: 100,
+                    height: 100
+                });
+                
+                addLog('\n=== Testing Framework Asset URL Construction ===');
+                
+                // Test 1: Check default paths
+                const assetConfig = game.assets.assetConfig;
+                addLog(`Default framework sprite path: ${assetConfig.config.frameworkPaths.sprites}`);
+                
+                // Test 2: Construct URL manually
+                const testUrl1 = assetConfig.getFrameworkAssetUrl('karateguy.json', 'sprites');
+                addLog(`Manual URL construction: ${testUrl1}`);
+                
+                // Test 3: Try direct load with framework flag
+                addLog('\n=== Testing Direct Framework Load ===');
+                try {
+                    const url = await game.assets.load('test1', 'karateguy.json', { 
+                        type: 'sprites', 
+                        framework: true 
+                    });
+                    addLog('✓ Direct framework load succeeded!', 'success');
+                } catch (error) {
+                    addLog(`✗ Direct framework load failed: ${error.message}`, 'error');
+                }
+                
+                // Test 4: Try loadSprite with fallback
+                addLog('\n=== Testing LoadSprite with Fallback ===');
+                try {
+                    await game.assets.loadSprite('karateguy', 'karateguy');
+                    addLog('✓ LoadSprite with fallback succeeded!', 'success');
+                } catch (error) {
+                    addLog(`✗ LoadSprite failed: ${error.message}`, 'error');
+                }
+                
+                // Test 5: Check what URLs were attempted
+                addLog('\n=== Network Requests (check browser console) ===');
+                addLog('Open Network tab to see exact URLs attempted');
+                
+            } catch (error) {
+                addLog(`\n✗ Test failed: ${error.message}`, 'error');
+                console.error(error);
+            }
+        });
+    </script>
+</body>
+</html>

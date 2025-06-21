@@ -29,7 +29,7 @@ export class AssetConfig {
             
             // Framework asset paths - Fixed to use server root consistently
             frameworkPaths: {
-                sprites: config.frameworkPaths?.sprites || '/GameAssets/Sprites/Aseprite',
+                sprites: config.frameworkPaths?.sprites || '/GameAssets/Sprites/Aseprite/',
                 audio: config.frameworkPaths?.audio || '/GameAssets/audio/',
                 fonts: config.frameworkPaths?.fonts || '/GameAssets/fonts/',
                 ...config.frameworkPaths
@@ -144,7 +144,9 @@ export class AssetConfig {
      */
     getFrameworkAssetUrl(path, type) {
         const basePath = this.config.frameworkPaths[type] || this.config.frameworkPaths.sprites;
-        return basePath + path;
+        // Ensure path doesn't start with / to avoid double slashes
+        const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+        return basePath + cleanPath;
     }
     
     /**
@@ -372,7 +374,8 @@ export class AssetConfig {
                 'ui_slider': { path: 'ui/slider', framework: true },
                 'explosion': { path: 'effects/explosion', framework: true },
                 'sparks': { path: 'effects/sparks', framework: true },
-                'smoke': { path: 'effects/smoke', framework: true }
+                'smoke': { path: 'effects/smoke', framework: true },
+                'karateguy': { path: 'karateguy', framework: true } // Add karateguy as a framework asset
             },
             audio: {
                 // Framework defaults

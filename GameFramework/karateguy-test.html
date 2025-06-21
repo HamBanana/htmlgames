@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GameFramework - Karateguy Sprite Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #2a2a2a;
+            color: #fff;
+            font-family: Arial, sans-serif;
+        }
+        #gameCanvas {
+            border: 2px solid #555;
+            display: block;
+            margin: 20px auto;
+            background: #000;
+        }
+        .info {
+            text-align: center;
+            margin: 20px;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px auto;
+            max-width: 600px;
+            border-radius: 5px;
+        }
+        .success { background: #1a5f1a; }
+        .error { background: #8b0000; }
+        .loading { background: #4a4a00; }
+    </style>
+</head>
+<body>
+    <h1 style="text-align: center;">Karateguy Sprite Loading Test</h1>
+    <div class="info">
+        <p>This test loads the karateguy sprite from <code>/GameAssets/Sprites/Aseprite/karateguy.json</code></p>
+    </div>
+    
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="status" class="status loading">Loading GameFramework...</div>
+
+    <!-- Load GameFramework -->
+    <script src="./GameFramework/index.js" type="module"></script>
+    
+    <script type="module">
+        const statusEl = document.getElementById('status');
+        
+        window.addEventListener('gameframework:ready', async (event) => {
+            const GameFramework = event.detail.framework;
+            
+            statusEl.textContent = 'GameFramework loaded, initializing game...';
+            
+            try {
+                // Create game with explicit config to ensure framework paths
+                const game = await GameFramework.createGame('gameCanvas', {
+                    width: 600,
+                    height: 400,
+                    backgroundColor: '#1a1a1a',
+                    debug: false,
+                    assetConfig: {
+                        paths: {
+                            sprites: 'assets/sprites/'  // Game sprites (will 404)
+                        },
+                        frameworkPaths: {
+                            sprites: '/GameAssets/Sprites/Aseprite/'  // Framework sprites
+                        }
+                    }
+                });
+                
+                // Initialize systems
+                game.start();
+                
+                statusEl.textContent = 'Loading karateguy sprite...';
+                
+                // Show what paths we're using
+                console.log('Asset configuration:');
+                console.log('- Game sprites path:', game.assets.assetConfig.config.paths.sprites);
+                console.log('- Framework sprites path:', game.assets.assetConfig.config.frameworkPaths.sprites);
+                
+                // Create a simple scene
+                class TestScene extends GameFramework.Scene {
+                    async onLoad() {
+                        try {
+                            // Load karateguy sprite - should fallback to framework path
+                            console.log('Attempting to load karateguy sprite...');
+                            console.log('Expected URLs to try:');
+                            console.log('1. assets/sprites/karateguy.json (game assets - will 404)');
+                            console.log('2. /GameAssets/Sprites/Aseprite/karateguy.json (framework fallback)');
+                            
+                            await this.engine.assets.loadSprite('karateguy', 'karateguy');
+                            
+                            statusEl.textContent = '✓ Karateguy sprite loaded successfully!';
+                            statusEl.className = 'status success';
+                            
+                            // Create entity with the sprite
+                            const karateguy = new GameFramework.Entity({
+                                name: 'Karateguy',
+                                x: 300,
+                                y: 200
+                            });
+                            
+                            // Check if sprite has animations
+                            const spriteData = this.engine.renderer.getSpriteData('karateguy');
+                            if (spriteData && spriteData.animations && spriteData.animations.size > 0) {
+                                // Use animated sprite
+                                karateguy.addComponent(new GameFramework.Components.AnimatedSprite('karateguy'));
+                                console.log('Added AnimatedSprite component');
+                            } else {
+                                // Use static sprite
+                                karateguy.addComponent(new GameFramework.Components.AsepriteRenderer('karateguy'));
+                                console.log('Added AsepriteRenderer component');
+                            }
+                            
+                            this.addEntity(karateguy);
+                            
+                            // Add some text
+                            const infoText = new GameFramework.Entity({
+                                name: 'InfoText',
+                                x: 300,
+                                y: 50
+                            });
+                            
+                            infoText.addComponent(new GameFramework.Components.TextRenderer('Karateguy loaded from /GameAssets/', {
+                                font: 'Arial',
+                                fontSize: 20,
+                                color: '#00ff00',
+                                align: 'center',
+                                baseline: 'middle'
+                            }));
+                            
+                            this.addEntity(infoText);
+                            
+                        } catch (error) {
+                            console.error('Failed to load sprite:', error);
+                            statusEl.textContent = `✗ Failed to load karateguy: ${error.message}`;
+                            statusEl.className = 'status error';
+                            
+                            // Show error in scene
+                            const errorText = new GameFramework.Entity({
+                                name: 'ErrorText',
+                                x: 300,
+                                y: 200
+                            });
+                            
+                            errorText.addComponent(new GameFramework.Components.TextRenderer('Failed to load sprite!', {
+                                font: 'Arial',
+                                fontSize: 24,
+                                color: '#ff0000',
+                                align: 'center',
+                                baseline: 'middle'
+                            }));
+                            
+                            this.addEntity(errorText);
+                        }
+                    }
+                }
+                
+                // Add and switch to scene
+                const testScene = new TestScene('test');
+                game.addScene(testScene);
+                await game.switchScene('test');
+                
+            } catch (error) {
+                console.error('Failed to initialize game:', error);
+                statusEl.textContent = `✗ Failed to initialize: ${error.message}`;
+                statusEl.className = 'status error';
+            }
+        });
+        
+        // Log any network errors
+        window.addEventListener('error', (e) => {
+            if (e.message.includes('Failed to load')) {
+                console.error('Resource load error:', e);
+            }
+        }, true);
+    </script>
+</body>
+</html>

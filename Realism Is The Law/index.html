@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Realism is the Law</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #0a0a0a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+        }
+        
+        #gameContainer {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            max-width: 800px;
+            max-height: 600px;
+        }
+        
+        canvas {
+            background: #000;
+            border: 2px solid #0f0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            image-rendering: pixelated;
+            touch-action: none;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #0f0;
+            font-size: 16px;
+            text-shadow: 0 0 5px #0f0;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #0f0;
+            font-size: 12px;
+            text-align: center;
+            opacity: 0.7;
+        }
+        
+        #winMessage {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #0f0;
+            font-size: 32px;
+            text-shadow: 0 0 10px #0f0;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        <div id="ui">
+            <div>LEVEL: <span id="level">1</span></div>
+            <div>PHYSICS: ACTIVE</div>
+        </div>
+        <div id="controls">
+            ARROW KEYS / SWIPE TO APPLY FORCE
+        </div>
+        <div id="winMessage">LEVEL COMPLETE!</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const winMessage = document.getElementById('winMessage');
+        const levelDisplay = document.getElementById('level');
+        
+        // Responsive canvas sizing
+        function resizeCanvas() {
+            const container = document.getElementById('gameContainer');
+            canvas.width = Math.min(800, container.clientWidth);
+            canvas.height = Math.min(600, container.clientHeight);
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Game state
+        const game = {
+            currentLevel: 1,
+            gravity: 0.3,
+            friction: 0.98,
+            airResistance: 0.99,
+            maxVelocity: 15
+        };
+        
+        // Player object
+        const player = {
+            x: 50,
+            y: 300,
+            vx: 0,
+            vy: 0,
+            radius: 10,
+            color: '#0f0',
+            trail: []
+        };
+        
+        // Level data
+        const levels = [
+            {
+                platforms: [
+                    {x: 0, y: 500, w: 200, h: 100},
+                    {x: 250, y: 400, w: 150, h: 200},
+                    {x: 450, y: 450, w: 200, h: 150},
+                    {x: 700, y: 350, w: 100, h: 250}
+                ],
+                goal: {x: 750, y: 300, radius: 20},
+                hazards: []
+            },
+            {
+                platforms: [
+                    {x: 0, y: 500, w: 150, h: 100},
+                    {x: 200, y: 450, w: 100, h: 150},
+                    {x: 350, y: 400, w: 100, h: 200},
+                    {x: 500, y: 350, w: 100, h: 250},
+                    {x: 650, y: 400, w: 150, h: 200}
+                ],
+                goal: {x: 725, y: 350, radius: 20},
+                hazards: [{x: 300, y: 300, radius: 30}]
+            },
+            {
+                platforms: [
+                    {x: 0, y: 500, w: 100, h: 100},
+                    {x: 150, y: 300, w: 50, h: 300},
+                    {x: 250, y: 250, w: 300, h: 50},
+                    {x: 600, y: 200, w: 50, h: 400},
+                    {x: 700, y: 500, w: 100, h: 100}
+                ],
+                goal: {x: 750, y: 450, radius: 20},
+                hazards: [{x: 400, y: 350, radius: 40}, {x: 400, y: 450, radius: 40}]
+            }
+        ];
+        
+        let currentLevelData = levels[0];
+        
+        // Touch controls
+        let touchStart = null;
+        
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            touchStart = {
+                x: (touch.clientX - rect.left) * (canvas.width / rect.width),
+                y: (touch.clientY - rect.top) * (canvas.height / rect.height)
+            };
+        });
+        
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+        });
+        
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            if (touchStart) {
+                const touch = e.changedTouches[0];
+                const rect = canvas.getBoundingClientRect();
+                const touchEnd = {
+                    x: (touch.clientX - rect.left) * (canvas.width / rect.width),
+                    y: (touch.clientY - rect.top) * (canvas.height / rect.height)
+                };
+                
+                const dx = touchEnd.x - touchStart.x;
+                const dy = touchEnd.y - touchStart.y;
+                
+                // Apply force based on swipe
+                player.vx += dx * 0.05;
+                player.vy += dy * 0.05;
+                
+                // Limit velocity
+                player.vx = Math.max(-game.maxVelocity, Math.min(game.maxVelocity, player.vx));
+                player.vy = Math.max(-game.maxVelocity, Math.min(game.maxVelocity, player.vy));
+                
+                touchStart = null;
+            }
+        });
+        
+        // Keyboard controls
+        const keys = {};
+        
+        window.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+        });
+        
+        window.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+        
+        // Physics calculations
+        function updatePhysics() {
+            // Apply keyboard forces
+            if (keys['ArrowLeft']) player.vx -= 0.5;
+            if (keys['ArrowRight']) player.vx += 0.5;
+            if (keys['ArrowUp']) player.vy -= 0.8;
+            if (keys['ArrowDown']) player.vy += 0.5;
+            
+            // Apply gravity
+            player.vy += game.gravity;
+            
+            // Apply air resistance
+            player.vx *= game.airResistance;
+            player.vy *= game.airResistance;
+            
+            // Limit velocity
+            player.vx = Math.max(-game.maxVelocity, Math.min(game.maxVelocity, player.vx));
+            player.vy = Math.max(-game.maxVelocity, Math.min(game.maxVelocity, player.vy));
+            
+            // Update position
+            player.x += player.vx;
+            player.y += player.vy;
+            
+            // Platform collisions
+            currentLevelData.platforms.forEach(platform => {
+                if (player.x + player.radius > platform.x &&
+                    player.x - player.radius < platform.x + platform.w &&
+                    player.y + player.radius > platform.y &&
+                    player.y - player.radius < platform.y + platform.h) {
+                    
+                    // Simple collision resolution
+                    const overlapX = Math.min(
+                        player.x + player.radius - platform.x,
+                        platform.x + platform.w - (player.x - player.radius)
+                    );
+                    const overlapY = Math.min(
+                        player.y + player.radius - platform.y,
+                        platform.y + platform.h - (player.y - player.radius)
+                    );
+                    
+                    if (overlapX < overlapY) {
+                        // Horizontal collision
+                        if (player.x < platform.x + platform.w / 2) {
+                            player.x = platform.x - player.radius;
+                        } else {
+                            player.x = platform.x + platform.w + player.radius;
+                        }
+                        player.vx *= -0.5; // Bounce with energy loss
+                    } else {
+                        // Vertical collision
+                        if (player.y < platform.y + platform.h / 2) {
+                            player.y = platform.y - player.radius;
+                            if (player.vy > 0) {
+                                player.vy *= -0.3; // Bounce with more energy loss
+                                player.vx *= game.friction; // Ground friction
+                            }
+                        } else {
+                            player.y = platform.y + platform.h + player.radius;
+                            player.vy *= -0.5;
+                        }
+                    }
+                }
+            });
+            
+            // Screen boundaries
+            if (player.x - player.radius < 0) {
+                player.x = player.radius;
+                player.vx *= -0.5;
+            }
+            if (player.x + player.radius > canvas.width) {
+                player.x = canvas.width - player.radius;
+                player.vx *= -0.5;
+            }
+            if (player.y - player.radius < 0) {
+                player.y = player.radius;
+                player.vy *= -0.5;
+            }
+            if (player.y + player.radius > canvas.height) {
+                player.y = canvas.height - player.radius;
+                player.vy *= -0.3;
+                player.vx *= game.friction;
+            }
+            
+            // Update trail
+            player.trail.push({x: player.x, y: player.y});
+            if (player.trail.length > 20) {
+                player.trail.shift();
+            }
+        }
+        
+        // Check win condition
+        function checkWin() {
+            const dx = player.x - currentLevelData.goal.x;
+            const dy = player.y - currentLevelData.goal.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance < player.radius + currentLevelData.goal.radius) {
+                winMessage.style.display = 'block';
+                setTimeout(() => {
+                    winMessage.style.display = 'none';
+                    nextLevel();
+                }, 2000);
+            }
+        }
+        
+        // Check hazard collision
+        function checkHazards() {
+            currentLevelData.hazards.forEach(hazard => {
+                const dx = player.x - hazard.x;
+                const dy = player.y - hazard.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < player.radius + hazard.radius) {
+                    resetLevel();
+                }
+            });
+        }
+        
+        // Level management
+        function nextLevel() {
+            game.currentLevel++;
+            if (game.currentLevel > levels.length) {
+                game.currentLevel = 1;
+            }
+            currentLevelData = levels[game.currentLevel - 1];
+            levelDisplay.textContent = game.currentLevel;
+            resetLevel();
+        }
+        
+        function resetLevel() {
+            player.x = 50;
+            player.y = 300;
+            player.vx = 0;
+            player.vy = 0;
+            player.trail = [];
+        }
+        
+        // Rendering
+        function draw() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw grid
+            ctx.strokeStyle = '#0a0a0a';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < canvas.width; x += 50) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += 50) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+            
+            // Draw platforms
+            ctx.fillStyle = '#0f0';
+            currentLevelData.platforms.forEach(platform => {
+                ctx.fillRect(platform.x, platform.y, platform.w, platform.h);
+                
+                // Platform edge effect
+                ctx.strokeStyle = '#0f0';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(platform.x, platform.y, platform.w, platform.h);
+            });
+            
+            // Draw hazards
+            ctx.fillStyle = '#f00';
+            currentLevelData.hazards.forEach(hazard => {
+                ctx.beginPath();
+                ctx.arc(hazard.x, hazard.y, hazard.radius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Hazard glow
+                ctx.strokeStyle = '#f00';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            });
+            
+            // Draw goal
+            ctx.strokeStyle = '#ff0';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(currentLevelData.goal.x, currentLevelData.goal.y, currentLevelData.goal.radius, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // Draw goal pulse
+            const pulse = Math.sin(Date.now() * 0.005) * 5;
+            ctx.strokeStyle = '#ff0';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(currentLevelData.goal.x, currentLevelData.goal.y, currentLevelData.goal.radius + pulse, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // Draw player trail
+            ctx.strokeStyle = '#0f0';
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = 0.3;
+            for (let i = 1; i < player.trail.length; i++) {
+                ctx.beginPath();
+                ctx.moveTo(player.trail[i-1].x, player.trail[i-1].y);
+                ctx.lineTo(player.trail[i].x, player.trail[i].y);
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+            
+            // Draw player
+            ctx.fillStyle = player.color;
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Player glow
+            ctx.strokeStyle = player.color;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Draw velocity vector
+            if (Math.abs(player.vx) > 0.1 || Math.abs(player.vy) > 0.1) {
+                ctx.strokeStyle = '#ff0';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(player.x, player.y);
+                ctx.lineTo(player.x + player.vx * 5, player.y + player.vy * 5);
+                ctx.stroke();
+            }
+        }
+        
+        // Game loop
+        function gameLoop() {
+            updatePhysics();
+            checkHazards();
+            checkWin();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Start game
+        gameLoop();
+    </script>
+</body>
+</html>

@@ -1,0 +1,1768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Karate Fighter - Enhanced</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(180deg, #000 0%, #001122 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            position: relative;
+            background: #000;
+            border: 3px solid #00ff00;
+            border-radius: 10px;
+            box-shadow: 0 0 20px #00ff0050;
+            width: 900px;
+            height: 650px;
+            max-width: 95vw;
+            max-height: 95vh;
+        }
+        
+        #gameCanvas {
+            border-radius: 8px;
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #00ff00;
+            font-size: 16px;
+            font-weight: bold;
+            text-shadow: 0 0 5px #00ff00;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #00ff00;
+        }
+        
+        #enemyHealth {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: #ff0000;
+            font-size: 16px;
+            font-weight: bold;
+            text-shadow: 0 0 5px #ff0000;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ff0000;
+        }
+        
+        #keyboardControls {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #ffff00;
+            font-size: 13px;
+            text-align: center;
+            text-shadow: 0 0 3px #ffff00;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 8px 15px;
+            border-radius: 5px;
+            border: 2px solid #ffff00;
+            font-weight: bold;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+            z-index: 10;
+        }
+        
+        .control-btn {
+            width: 55px;
+            height: 55px;
+            background: rgba(0, 255, 0, 0.2);
+            border: 2px solid rgba(0, 255, 0, 0.5);
+            border-radius: 50%;
+            color: #00ff00;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.1s;
+            text-shadow: 0 0 5px #00ff00;
+        }
+        
+        .control-btn:active {
+            background: rgba(0, 255, 0, 0.4);
+            transform: scale(0.95);
+            box-shadow: 0 0 10px #00ff00;
+        }
+        
+        .attack-btn {
+            background: rgba(255, 255, 0, 0.3);
+            border-color: rgba(255, 255, 0, 0.6);
+            color: #ffff00;
+            text-shadow: 0 0 5px #ffff00;
+        }
+        
+        .special-btn {
+            background: rgba(255, 0, 0, 0.3);
+            border-color: rgba(255, 0, 0, 0.6);
+            color: #ff0000;
+            text-shadow: 0 0 5px #ff0000;
+        }
+        
+        .fireball-btn {
+            background: rgba(255, 120, 0, 0.3);
+            border-color: rgba(255, 120, 0, 0.6);
+            color: #ff7800;
+            text-shadow: 0 0 5px #ff7800;
+        }
+        
+        #instructions {
+            position: absolute;
+            bottom: 110px;
+            left: 10px;
+            color: #888;
+            font-size: 11px;
+            max-width: 160px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #444;
+        }
+        
+        #gameOverScreen, #winScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #00ff00;
+            text-align: center;
+            border-radius: 8px;
+            z-index: 20;
+        }
+        
+        #gameOverScreen h1 {
+            color: #ff0000;
+            font-size: 36px;
+            margin: 20px 0;
+            text-shadow: 0 0 10px #ff0000;
+        }
+        
+        #winScreen h1 {
+            color: #00ff00;
+            font-size: 36px;
+            margin: 20px 0;
+            text-shadow: 0 0 10px #00ff00;
+        }
+        
+        .final-score {
+            font-size: 20px;
+            margin: 20px 0;
+            text-shadow: 0 0 5px currentColor;
+        }
+        
+        .restart-btn {
+            padding: 12px 24px;
+            font-size: 16px;
+            background: #00ff00;
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+        
+        .restart-btn:hover {
+            background: #00cc00;
+            box-shadow: 0 0 15px #00ff00;
+        }
+        
+        .health-bar {
+            width: 160px;
+            height: 12px;
+            background: #333;
+            border: 2px solid #00ff00;
+            border-radius: 6px;
+            margin-top: 4px;
+            overflow: hidden;
+        }
+        
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff00, #88ff00);
+            transition: width 0.3s;
+        }
+        
+        .enemy-health-fill {
+            background: linear-gradient(90deg, #ff0000, #ff8800);
+        }
+        
+        .energy-bar {
+            width: 160px;
+            height: 8px;
+            background: #333;
+            border: 1px solid #0088ff;
+            border-radius: 4px;
+            margin-top: 2px;
+            overflow: hidden;
+        }
+        
+        .energy-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #0088ff, #00ccff);
+            transition: width 0.2s;
+        }
+        
+        @media (max-width: 768px) {
+            #gameContainer {
+                width: 95vw;
+                height: 95vh;
+                max-width: none;
+                max-height: none;
+            }
+            
+            .control-btn {
+                width: 45px;
+                height: 45px;
+                font-size: 11px;
+            }
+            
+            #ui, #enemyHealth {
+                font-size: 13px;
+                padding: 6px;
+            }
+            
+            #keyboardControls {
+                font-size: 10px;
+                padding: 4px 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="900" height="650"></canvas>
+        <div id="ui">
+            <div>PLAYER HEALTH: <span id="playerHealth">100</span></div>
+            <div class="health-bar">
+                <div class="health-fill" id="playerHealthBar" style="width: 100%"></div>
+            </div>
+            <div>ENERGY: <span id="playerEnergy">100</span></div>
+            <div class="energy-bar">
+                <div class="energy-fill" id="playerEnergyBar" style="width: 100%"></div>
+            </div>
+            <div>ROUND: <span id="round">1</span></div>
+            <div>COMBO: <span id="combo">0</span></div>
+            <div>FIREBALLS: <span id="fireballs">∞</span></div>
+        </div>
+        
+        <div id="keyboardControls">
+            <div>🎮 WASD: Move | SPACE: Jump | J: Punch | K: Kick | L: Block | U: Special | F: Fireball 🔥</div>
+            <div style="font-size: 11px; margin-top: 2px;">ESC: Pause | R: Restart | All attacks require keyboard!</div>
+        </div>
+        
+        <div id="enemyHealth">
+            <div>OPPONENT: <span id="enemyHealthValue">100</span></div>
+            <div class="health-bar">
+                <div class="health-fill enemy-health-fill" id="enemyHealthBar" style="width: 100%"></div>
+            </div>
+            <div>DIFFICULTY: <span id="difficulty">Normal</span></div>
+        </div>
+        
+        <div id="instructions">
+            Master 3D martial arts!<br>
+            <strong>KEYBOARD ONLY:</strong><br>
+            • WASD: Full 3D movement<br>
+            • SPACE: Jump attacks<br>
+            • J/K/L: Combat moves<br>
+            • U: Ultimate special<br>
+            • F: Fireball projectile<br>
+            • ESC: Pause game<br>
+            • R: Quick restart
+        </div>
+        
+        <div id="controls">
+            <div class="control-btn" data-key="w">W</div>
+            <div class="control-btn" data-key="a">A</div>
+            <div class="control-btn" data-key="s">S</div>
+            <div class="control-btn" data-key="d">D</div>
+            <div class="control-btn" data-key=" ">SPC</div>
+            <div class="control-btn attack-btn" data-key="j">J</div>
+            <div class="control-btn attack-btn" data-key="k">K</div>
+            <div class="control-btn attack-btn" data-key="l">L</div>
+            <div class="control-btn special-btn" data-key="u">U</div>
+            <div class="control-btn fireball-btn" data-key="f">F🔥</div>
+        </div>
+        
+        <div id="gameOverScreen">
+            <h1>DEFEATED!</h1>
+            <div class="final-score">Your 3D martial arts journey ends here...</div>
+            <div class="final-score">Round reached: <span id="finalRound">1</span></div>
+            <div class="final-score">Max combo: <span id="finalCombo">0</span></div>
+            <div style="color: #ffff00; margin: 10px 0;">Press R to restart or SPACE to continue</div>
+            <button class="restart-btn" onclick="restartGame()">TRAIN AGAIN</button>
+        </div>
+        
+        <div id="winScreen">
+            <h1>3D KARATE MASTER!</h1>
+            <div class="final-score">You have achieved 3D martial arts mastery!</div>
+            <div class="final-score">All opponents have been defeated!</div>
+            <div class="final-score">Max combo: <span id="winCombo">0</span></div>
+            <div style="color: #ffff00; margin: 10px 0;">Press R for new game or SPACE to continue</div>
+            <button class="restart-btn" onclick="restartGame()">MASTER AGAIN</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Three.js setup
+        let scene, camera, renderer;
+        let gameRunning = true;
+        let gameState = 'playing';
+        let frameCount = 0;
+        let round = 1;
+        let maxCombo = 0;
+        let gamePaused = false;
+        
+        // Game objects
+        let player = {
+            mesh: null,
+            parts: {},
+            x: -3, z: 0, y: 0,
+            health: 100, maxHealth: 100,
+            energy: 100, maxEnergy: 100,
+            facingRight: true,
+            action: 'idle',
+            actionTimer: 0,
+            actionDuration: 0,
+            speed: 0.08,
+            animFrame: 0,
+            isBlocking: false,
+            comboCount: 0,
+            lastAttackTime: 0,
+            jumpHeight: 0,
+            jumpVelocity: 0,
+            grounded: true,
+            fireballCooldown: 0
+        };
+        
+        let enemy = {
+            mesh: null,
+            parts: {},
+            x: 3, z: 0, y: 0,
+            health: 100, maxHealth: 100,
+            facingRight: false,
+            action: 'idle',
+            actionTimer: 0,
+            actionDuration: 0,
+            speed: 0.06,
+            animFrame: 0,
+            aiTimer: 0,
+            nextAttack: 60,
+            difficulty: 1,
+            isBlocking: false,
+            attackCooldown: 0,
+            jumpHeight: 0,
+            jumpVelocity: 0,
+            grounded: true,
+            aiState: 'observe',
+            fireballCooldown: 0
+        };
+        
+        // Input handling
+        const keys = {};
+        
+        // Projectiles and effects
+        let fireballs = [];
+        let particles = [];
+        let hitEffects = [];
+        
+        // Initialize Three.js
+        function initThreeJS() {
+            const canvas = document.getElementById('gameCanvas');
+            
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x001122);
+            scene.fog = new THREE.Fog(0x001122, 10, 50);
+            
+            // Camera
+            camera = new THREE.PerspectiveCamera(75, canvas.width / canvas.height, 0.1, 1000);
+            camera.position.set(0, 5, 10);
+            camera.lookAt(0, 1, 0);
+            
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+            renderer.setSize(canvas.width, canvas.height);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 10, 5);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            directionalLight.shadow.camera.near = 0.5;
+            directionalLight.shadow.camera.far = 50;
+            directionalLight.shadow.camera.left = -10;
+            directionalLight.shadow.camera.right = 10;
+            directionalLight.shadow.camera.top = 10;
+            directionalLight.shadow.camera.bottom = -10;
+            scene.add(directionalLight);
+            
+            // Colored atmosphere lights
+            const redLight = new THREE.PointLight(0xff4444, 0.6, 12);
+            redLight.position.set(-6, 4, 2);
+            scene.add(redLight);
+            
+            const greenLight = new THREE.PointLight(0x44ff44, 0.6, 12);
+            greenLight.position.set(6, 4, 2);
+            scene.add(greenLight);
+            
+            const blueLight = new THREE.PointLight(0x4444ff, 0.4, 8);
+            blueLight.position.set(0, 6, -6);
+            scene.add(blueLight);
+            
+            // Create environment
+            createEnvironment();
+            
+            // Create fighters
+            createFighter(player, 0x00ff88);
+            createFighter(enemy, 0xff4444);
+        }
+        
+        // Create 3D environment
+        function createEnvironment() {
+            // Floor with texture
+            const floorGeometry = new THREE.PlaneGeometry(20, 20, 10, 10);
+            const floorMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0x003300,
+                transparent: true,
+                opacity: 0.9
+            });
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+            
+            // Floor grid with glow
+            const gridHelper = new THREE.GridHelper(20, 20, 0x008800, 0x004400);
+            gridHelper.position.y = 0.01;
+            scene.add(gridHelper);
+            
+            // Dojo walls with details
+            const wallGeometry = new THREE.PlaneGeometry(20, 8);
+            const wallMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0x002200,
+                transparent: true,
+                opacity: 0.7
+            });
+            
+            // Back wall
+            const backWall = new THREE.Mesh(wallGeometry, wallMaterial);
+            backWall.position.set(0, 4, -10);
+            scene.add(backWall);
+            
+            // Side walls
+            const leftWall = new THREE.Mesh(wallGeometry, wallMaterial);
+            leftWall.position.set(-10, 4, 0);
+            leftWall.rotation.y = Math.PI / 2;
+            scene.add(leftWall);
+            
+            const rightWall = new THREE.Mesh(wallGeometry, wallMaterial);
+            rightWall.position.set(10, 4, 0);
+            rightWall.rotation.y = -Math.PI / 2;
+            scene.add(rightWall);
+            
+            // Enhanced pillars with details
+            const pillarGeometry = new THREE.CylinderGeometry(0.4, 0.4, 7);
+            const pillarMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x006600,
+                shininess: 30
+            });
+            
+            for (let i = 0; i < 6; i++) {
+                const pillar = new THREE.Mesh(pillarGeometry, pillarMaterial);
+                pillar.position.set((i - 2.5) * 4, 3.5, -8);
+                pillar.castShadow = true;
+                scene.add(pillar);
+                
+                // Pillar caps
+                const capGeometry = new THREE.CylinderGeometry(0.5, 0.5, 0.3);
+                const capMaterial = new THREE.MeshPhongMaterial({ color: 0x008800 });
+                const cap = new THREE.Mesh(capGeometry, capMaterial);
+                cap.position.set((i - 2.5) * 4, 7.2, -8);
+                cap.castShadow = true;
+                scene.add(cap);
+            }
+            
+            // Training equipment
+            const makiwaraGeometry = new THREE.CylinderGeometry(0.15, 0.15, 5);
+            const makiwaraMaterial = new THREE.MeshLambertMaterial({ color: 0x885533 });
+            
+            const makiwara1 = new THREE.Mesh(makiwaraGeometry, makiwaraMaterial);
+            makiwara1.position.set(-8, 2.5, 4);
+            makiwara1.castShadow = true;
+            scene.add(makiwara1);
+            
+            const makiwara2 = new THREE.Mesh(makiwaraGeometry, makiwaraMaterial);
+            makiwara2.position.set(8, 2.5, 4);
+            makiwara2.castShadow = true;
+            scene.add(makiwara2);
+            
+            // Arena boundaries (invisible collision)
+            const boundaryGeometry = new THREE.BoxGeometry(0.2, 4, 20);
+            const boundaryMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0x00ff00,
+                transparent: true,
+                opacity: 0.1
+            });
+            
+            const leftBoundary = new THREE.Mesh(boundaryGeometry, boundaryMaterial);
+            leftBoundary.position.set(-9, 2, 0);
+            scene.add(leftBoundary);
+            
+            const rightBoundary = new THREE.Mesh(boundaryGeometry, boundaryMaterial);
+            rightBoundary.position.set(9, 2, 0);
+            scene.add(rightBoundary);
+        }
+        
+        // Create 3D fighter with enhanced details
+        function createFighter(fighter, color) {
+            const fighterGroup = new THREE.Group();
+            fighter.parts = {};
+            
+            // Enhanced materials
+            const bodyMaterial = new THREE.MeshPhongMaterial({ 
+                color: color,
+                shininess: 50
+            });
+            const eyeMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xffffff,
+                shininess: 100
+            });
+            
+            // Enhanced body parts
+            // Torso with muscle definition
+            const torsoGeometry = new THREE.BoxGeometry(0.7, 1.3, 0.45);
+            const torso = new THREE.Mesh(torsoGeometry, bodyMaterial);
+            torso.position.y = 1.8;
+            torso.castShadow = true;
+            fighterGroup.add(torso);
+            fighter.parts.torso = torso;
+            
+            // Head with better proportions
+            const headGeometry = new THREE.SphereGeometry(0.38);
+            const head = new THREE.Mesh(headGeometry, bodyMaterial);
+            head.position.y = 2.9;
+            head.castShadow = true;
+            fighterGroup.add(head);
+            fighter.parts.head = head;
+            
+            // Enhanced eyes
+            const eyeGeometry = new THREE.SphereGeometry(0.09);
+            const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            leftEye.position.set(-0.16, 2.95, 0.28);
+            fighterGroup.add(leftEye);
+            
+            const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            rightEye.position.set(0.16, 2.95, 0.28);
+            fighterGroup.add(rightEye);
+            
+            // Pupils
+            const pupilGeometry = new THREE.SphereGeometry(0.05);
+            const pupilMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+            const leftPupil = new THREE.Mesh(pupilGeometry, pupilMaterial);
+            leftPupil.position.set(-0.16, 2.95, 0.32);
+            fighterGroup.add(leftPupil);
+            
+            const rightPupil = new THREE.Mesh(pupilGeometry, pupilMaterial);
+            rightPupil.position.set(0.16, 2.95, 0.32);
+            fighterGroup.add(rightPupil);
+            
+            // Enhanced arms with joints
+            const upperArmGeometry = new THREE.CylinderGeometry(0.12, 0.12, 0.6);
+            const lowerArmGeometry = new THREE.CylinderGeometry(0.1, 0.1, 0.6);
+            
+            // Left arm
+            const leftUpperArm = new THREE.Mesh(upperArmGeometry, bodyMaterial);
+            leftUpperArm.position.set(-0.55, 2.1, 0);
+            leftUpperArm.castShadow = true;
+            fighterGroup.add(leftUpperArm);
+            
+            const leftLowerArm = new THREE.Mesh(lowerArmGeometry, bodyMaterial);
+            leftLowerArm.position.set(-0.55, 1.4, 0);
+            leftLowerArm.castShadow = true;
+            fighterGroup.add(leftLowerArm);
+            fighter.parts.leftArm = leftLowerArm;
+            
+            // Right arm
+            const rightUpperArm = new THREE.Mesh(upperArmGeometry, bodyMaterial);
+            rightUpperArm.position.set(0.55, 2.1, 0);
+            rightUpperArm.castShadow = true;
+            fighterGroup.add(rightUpperArm);
+            
+            const rightLowerArm = new THREE.Mesh(lowerArmGeometry, bodyMaterial);
+            rightLowerArm.position.set(0.55, 1.4, 0);
+            rightLowerArm.castShadow = true;
+            fighterGroup.add(rightLowerArm);
+            fighter.parts.rightArm = rightLowerArm;
+            
+            // Enhanced hands
+            const handGeometry = new THREE.SphereGeometry(0.14);
+            
+            const leftHand = new THREE.Mesh(handGeometry, bodyMaterial);
+            leftHand.position.set(-0.55, 1.0, 0);
+            leftHand.castShadow = true;
+            fighterGroup.add(leftHand);
+            fighter.parts.leftHand = leftHand;
+            
+            const rightHand = new THREE.Mesh(handGeometry, bodyMaterial);
+            rightHand.position.set(0.55, 1.0, 0);
+            rightHand.castShadow = true;
+            fighterGroup.add(rightHand);
+            fighter.parts.rightHand = rightHand;
+            
+            // Enhanced legs with thighs and shins
+            const thighGeometry = new THREE.CylinderGeometry(0.15, 0.15, 0.7);
+            const shinGeometry = new THREE.CylinderGeometry(0.13, 0.13, 0.7);
+            
+            // Left leg
+            const leftThigh = new THREE.Mesh(thighGeometry, bodyMaterial);
+            leftThigh.position.set(-0.22, 1.0, 0);
+            leftThigh.castShadow = true;
+            fighterGroup.add(leftThigh);
+            
+            const leftShin = new THREE.Mesh(shinGeometry, bodyMaterial);
+            leftShin.position.set(-0.22, 0.3, 0);
+            leftShin.castShadow = true;
+            fighterGroup.add(leftShin);
+            fighter.parts.leftLeg = leftShin;
+            
+            // Right leg
+            const rightThigh = new THREE.Mesh(thighGeometry, bodyMaterial);
+            rightThigh.position.set(0.22, 1.0, 0);
+            rightThigh.castShadow = true;
+            fighterGroup.add(rightThigh);
+            
+            const rightShin = new THREE.Mesh(shinGeometry, bodyMaterial);
+            rightShin.position.set(0.22, 0.3, 0);
+            rightShin.castShadow = true;
+            fighterGroup.add(rightShin);
+            fighter.parts.rightLeg = rightShin;
+            
+            // Enhanced feet
+            const footGeometry = new THREE.BoxGeometry(0.18, 0.12, 0.45);
+            
+            const leftFoot = new THREE.Mesh(footGeometry, bodyMaterial);
+            leftFoot.position.set(-0.22, -0.05, 0.1);
+            leftFoot.castShadow = true;
+            fighterGroup.add(leftFoot);
+            fighter.parts.leftFoot = leftFoot;
+            
+            const rightFoot = new THREE.Mesh(footGeometry, bodyMaterial);
+            rightFoot.position.set(0.22, -0.05, 0.1);
+            rightFoot.castShadow = true;
+            fighterGroup.add(rightFoot);
+            fighter.parts.rightFoot = rightFoot;
+            
+            // Position fighter
+            fighterGroup.position.set(fighter.x, fighter.y, fighter.z);
+            if (fighter === enemy) {
+                fighterGroup.rotation.y = Math.PI;
+            }
+            
+            scene.add(fighterGroup);
+            fighter.mesh = fighterGroup;
+        }
+        
+        // Create 3D fireball
+        function createFireball(x, y, z, direction, speed, owner) {
+            const fireballGroup = new THREE.Group();
+            
+            // Core fireball
+            const coreGeometry = new THREE.SphereGeometry(0.2);
+            const coreMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xff4400,
+                transparent: true,
+                opacity: 0.9
+            });
+            const core = new THREE.Mesh(coreGeometry, coreMaterial);
+            fireballGroup.add(core);
+            
+            // Outer flame
+            const flameGeometry = new THREE.SphereGeometry(0.35);
+            const flameMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xff8800,
+                transparent: true,
+                opacity: 0.6
+            });
+            const flame = new THREE.Mesh(flameGeometry, flameMaterial);
+            fireballGroup.add(flame);
+            
+            // Inner glow
+            const glowGeometry = new THREE.SphereGeometry(0.15);
+            const glowMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xffff00,
+                transparent: true,
+                opacity: 0.8
+            });
+            const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+            fireballGroup.add(glow);
+            
+            fireballGroup.position.set(x, y, z);
+            
+            const fireball = {
+                mesh: fireballGroup,
+                x: x, y: y, z: z,
+                direction: direction,
+                speed: speed,
+                life: 180, // 3 seconds at 60fps
+                owner: owner,
+                core: core,
+                flame: flame,
+                glow: glow
+            };
+            
+            scene.add(fireballGroup);
+            fireballs.push(fireball);
+            
+            return fireball;
+        }
+        
+        // Create fireball explosion
+        function createFireballExplosion(x, y, z) {
+            // Create explosion sphere
+            const explosionGeometry = new THREE.SphereGeometry(1.0);
+            const explosionMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xff4400,
+                transparent: true,
+                opacity: 0.8
+            });
+            const explosion = new THREE.Mesh(explosionGeometry, explosionMaterial);
+            explosion.position.set(x, y, z);
+            explosion.life = 30;
+            explosion.maxLife = 30;
+            scene.add(explosion);
+            hitEffects.push(explosion);
+            
+            // Create particle burst
+            for (let i = 0; i < 20; i++) {
+                create3DParticle(
+                    x, y, z,
+                    Math.random() > 0.5 ? 0xff4400 : 0xff8800,
+                    {
+                        x: (Math.random() - 0.5) * 0.5,
+                        y: Math.random() * 0.3,
+                        z: (Math.random() - 0.5) * 0.5
+                    }
+                );
+            }
+        }
+        
+        // Create 3D particle
+        function create3DParticle(x, y, z, color, velocity) {
+            const particleGeometry = new THREE.SphereGeometry(0.06);
+            const particleMaterial = new THREE.MeshBasicMaterial({ 
+                color: color,
+                transparent: true
+            });
+            const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+            
+            particle.position.set(x, y, z);
+            particle.velocity = velocity;
+            particle.life = 60;
+            particle.maxLife = 60;
+            
+            scene.add(particle);
+            particles.push(particle);
+        }
+        
+        // Create hit effect
+        function createHitEffect(x, y, z, type, damage = 0) {
+            const effectGeometry = new THREE.SphereGeometry(0.4);
+            let effectMaterial;
+            
+            switch (type) {
+                case 'hit':
+                    effectMaterial = new THREE.MeshBasicMaterial({ 
+                        color: 0xff0000,
+                        transparent: true,
+                        opacity: 0.8
+                    });
+                    break;
+                case 'block':
+                    effectMaterial = new THREE.MeshBasicMaterial({ 
+                        color: 0xffff00,
+                        transparent: true,
+                        opacity: 0.8
+                    });
+                    break;
+                case 'critical':
+                    effectMaterial = new THREE.MeshBasicMaterial({ 
+                        color: 0xff00ff,
+                        transparent: true,
+                        opacity: 0.8
+                    });
+                    break;
+                case 'fireball':
+                    effectMaterial = new THREE.MeshBasicMaterial({ 
+                        color: 0xff8800,
+                        transparent: true,
+                        opacity: 0.9
+                    });
+                    break;
+            }
+            
+            const effect = new THREE.Mesh(effectGeometry, effectMaterial);
+            effect.position.set(x, y, z);
+            effect.life = 40;
+            effect.maxLife = 40;
+            effect.type = type;
+            effect.damage = damage;
+            
+            scene.add(effect);
+            hitEffects.push(effect);
+            
+            // Create particle burst
+            const particleCount = type === 'fireball' ? 20 : 12;
+            for (let i = 0; i < particleCount; i++) {
+                create3DParticle(
+                    x, y, z,
+                    type === 'fireball' ? 0xff8800 : 
+                    type === 'critical' ? 0xff00ff : 
+                    type === 'block' ? 0xffff00 : 0xff0000,
+                    {
+                        x: (Math.random() - 0.5) * 0.4,
+                        y: Math.random() * 0.3,
+                        z: (Math.random() - 0.5) * 0.4
+                    }
+                );
+            }
+        }
+        
+        // Player movement in 3D
+        function movePlayer(dx, dz) {
+            if (!gameRunning || gamePaused || (player.action !== 'idle' && player.action !== 'block')) return;
+            
+            player.x += dx * player.speed;
+            player.z += dz * player.speed;
+            
+            // Keep in bounds
+            player.x = Math.max(-8.5, Math.min(player.x, 8.5));
+            player.z = Math.max(-8.5, Math.min(player.z, 8.5));
+            
+            // Update facing direction
+            if (dx > 0) player.facingRight = true;
+            if (dx < 0) player.facingRight = false;
+            
+            player.animFrame = (player.animFrame + 1) % 60;
+        }
+        
+        // Player jump
+        function playerJump() {
+            if (!gameRunning || gamePaused || !player.grounded) return;
+            
+            player.jumpVelocity = 0.35;
+            player.grounded = false;
+            player.action = 'jump';
+            player.actionTimer = 0;
+            player.actionDuration = 30;
+            
+            // Create jump particles
+            for (let i = 0; i < 10; i++) {
+                create3DParticle(
+                    player.x, player.y + 0.1, player.z,
+                    0x888888,
+                    {
+                        x: (Math.random() - 0.5) * 0.3,
+                        y: 0,
+                        z: (Math.random() - 0.5) * 0.3
+                    }
+                );
+            }
+        }
+        
+        // Player fireball attack
+        function playerFireball() {
+            if (!gameRunning || gamePaused || player.fireballCooldown > 0) return;
+            if (player.energy < 20) return; // Energy cost for fireball
+            
+            player.energy -= 20;
+            player.fireballCooldown = 45; // Cooldown between fireballs
+            
+            const direction = {
+                x: player.facingRight ? 1 : -1,
+                y: 0,
+                z: 0
+            };
+            
+            createFireball(
+                player.x + direction.x * 0.5,
+                player.y + 1.5,
+                player.z,
+                direction,
+                0.25,
+                'player'
+            );
+            
+            // Fireball casting animation
+            player.action = 'fireball';
+            player.actionTimer = 0;
+            player.actionDuration = 20;
+        }
+        
+        // Player attack
+        function playerAttack(type) {
+            if (!gameRunning || gamePaused || (player.action !== 'idle' && player.action !== 'block')) return;
+            
+            const energyCost = { punch: 12, kick: 18, special: 35 };
+            if (player.energy < energyCost[type]) return;
+            
+            player.energy -= energyCost[type];
+            player.action = type;
+            player.actionTimer = 0;
+            player.actionDuration = type === 'special' ? 60 : 25;
+            player.isBlocking = false;
+            
+            // Check if close enough to hit enemy
+            const distance = Math.sqrt(
+                Math.pow(player.x - enemy.x, 2) + 
+                Math.pow(player.z - enemy.z, 2)
+            );
+            const hitRange = type === 'kick' ? 2.2 : 1.8;
+            const heightDiff = Math.abs((player.y + player.jumpHeight) - (enemy.y + enemy.jumpHeight));
+            
+            if (distance < hitRange && heightDiff < 1.0) {
+                let damage = 0;
+                let hitType = 'hit';
+                
+                if (enemy.isBlocking) {
+                    damage = type === 'special' ? 8 : 3;
+                    hitType = 'block';
+                } else {
+                    switch (type) {
+                        case 'punch':
+                            damage = 15 + Math.random() * 10;
+                            break;
+                        case 'kick':
+                            damage = 22 + Math.random() * 15;
+                            break;
+                        case 'special':
+                            damage = 35 + Math.random() * 20;
+                            hitType = 'critical';
+                            break;
+                    }
+                    
+                    // Combo bonus
+                    if (frameCount - player.lastAttackTime < 120) {
+                        player.comboCount++;
+                        damage *= (1 + player.comboCount * 0.15);
+                        maxCombo = Math.max(maxCombo, player.comboCount);
+                    } else {
+                        player.comboCount = 0;
+                    }
+                }
+                
+                enemy.health -= damage;
+                player.lastAttackTime = frameCount;
+                createHitEffect(enemy.x, enemy.y + 1.5, enemy.z, hitType, Math.floor(damage));
+                
+                // Knockback
+                if (!enemy.isBlocking) {
+                    const knockbackDir = player.facingRight ? 1 : -1;
+                    enemy.x += knockbackDir * 0.6;
+                    enemy.x = Math.max(-8.5, Math.min(enemy.x, 8.5));
+                }
+            }
+        }
+        
+        // Player block
+        function playerBlock() {
+            if (!gameRunning || gamePaused) return;
+            
+            player.isBlocking = true;
+            player.action = 'block';
+        }
+        
+        // Update fireballs
+        function updateFireballs() {
+            fireballs = fireballs.filter(fireball => {
+                // Move fireball
+                fireball.x += fireball.direction.x * fireball.speed;
+                fireball.y += fireball.direction.y * fireball.speed;
+                fireball.z += fireball.direction.z * fireball.speed;
+                
+                fireball.mesh.position.set(fireball.x, fireball.y, fireball.z);
+                
+                // Animate fireball
+                const time = frameCount * 0.1;
+                fireball.core.rotation.y += 0.2;
+                fireball.flame.rotation.x += 0.15;
+                fireball.glow.scale.setScalar(1 + Math.sin(time) * 0.3);
+                
+                fireball.life--;
+                
+                // Check collision with fighters
+                const playerDist = Math.sqrt(
+                    Math.pow(fireball.x - player.x, 2) + 
+                    Math.pow(fireball.y - (player.y + player.jumpHeight + 1.5), 2) + 
+                    Math.pow(fireball.z - player.z, 2)
+                );
+                
+                const enemyDist = Math.sqrt(
+                    Math.pow(fireball.x - enemy.x, 2) + 
+                    Math.pow(fireball.y - (enemy.y + enemy.jumpHeight + 1.5), 2) + 
+                    Math.pow(fireball.z - enemy.z, 2)
+                );
+                
+                // Hit player
+                if (fireball.owner === 'enemy' && playerDist < 0.8) {
+                    let damage = 20 + Math.random() * 10;
+                    if (player.isBlocking) {
+                        damage *= 0.3;
+                        createHitEffect(fireball.x, fireball.y, fireball.z, 'block', Math.floor(damage));
+                        player.energy = Math.min(player.maxEnergy, player.energy + 5);
+                    } else {
+                        createHitEffect(fireball.x, fireball.y, fireball.z, 'fireball', Math.floor(damage));
+                    }
+                    
+                    player.health -= damage;
+                    createFireballExplosion(fireball.x, fireball.y, fireball.z);
+                    scene.remove(fireball.mesh);
+                    return false;
+                }
+                
+                // Hit enemy
+                if (fireball.owner === 'player' && enemyDist < 0.8) {
+                    let damage = 25 + Math.random() * 15;
+                    if (enemy.isBlocking) {
+                        damage *= 0.4;
+                        createHitEffect(fireball.x, fireball.y, fireball.z, 'block', Math.floor(damage));
+                    } else {
+                        createHitEffect(fireball.x, fireball.y, fireball.z, 'fireball', Math.floor(damage));
+                        
+                        // Combo bonus for fireball hits
+                        if (frameCount - player.lastAttackTime < 120) {
+                            player.comboCount++;
+                            damage *= (1 + player.comboCount * 0.1);
+                            maxCombo = Math.max(maxCombo, player.comboCount);
+                        } else {
+                            player.comboCount = 0;
+                        }
+                        player.lastAttackTime = frameCount;
+                    }
+                    
+                    enemy.health -= damage;
+                    createFireballExplosion(fireball.x, fireball.y, fireball.z);
+                    scene.remove(fireball.mesh);
+                    return false;
+                }
+                
+                // Check bounds or life expired
+                if (fireball.life <= 0 || 
+                    Math.abs(fireball.x) > 12 || 
+                    Math.abs(fireball.z) > 12 || 
+                    fireball.y < 0 || fireball.y > 8) {
+                    scene.remove(fireball.mesh);
+                    return false;
+                }
+                
+                return true;
+            });
+        }
+        
+        // Update physics
+        function updatePhysics() {
+            // Player physics
+            if (!player.grounded) {
+                player.jumpVelocity -= 0.02;
+                player.jumpHeight += player.jumpVelocity;
+                
+                if (player.jumpHeight <= 0) {
+                    player.jumpHeight = 0;
+                    player.jumpVelocity = 0;
+                    player.grounded = true;
+                    if (player.action === 'jump') {
+                        player.action = 'idle';
+                    }
+                }
+            }
+            
+            // Enemy physics
+            if (!enemy.grounded) {
+                enemy.jumpVelocity -= 0.02;
+                enemy.jumpHeight += enemy.jumpVelocity;
+                
+                if (enemy.jumpHeight <= 0) {
+                    enemy.jumpHeight = 0;
+                    enemy.jumpVelocity = 0;
+                    enemy.grounded = true;
+                    if (enemy.action === 'jump') {
+                        enemy.action = 'idle';
+                    }
+                }
+            }
+            
+            // Update cooldowns
+            if (player.fireballCooldown > 0) player.fireballCooldown--;
+            if (enemy.fireballCooldown > 0) enemy.fireballCooldown--;
+        }
+        
+        // Enhanced enemy AI for 3D with fireball attacks
+        function updateEnemyAI() {
+            if (!gameRunning || gamePaused || enemy.health <= 0) return;
+            
+            enemy.aiTimer++;
+            enemy.attackCooldown = Math.max(0, enemy.attackCooldown - 1);
+            
+            const distance = Math.sqrt(
+                Math.pow(player.x - enemy.x, 2) + 
+                Math.pow(player.z - enemy.z, 2)
+            );
+            
+            const closeRange = 2.0;
+            const mediumRange = 5.0;
+            const longRange = 8.0;
+            
+            if (enemy.action === 'idle' && enemy.attackCooldown === 0) {
+                if (distance < closeRange) {
+                    // Close combat
+                    if (Math.random() < 0.35 * enemy.difficulty) {
+                        const attackType = Math.random() < 0.3 ? 'punch' : 
+                                         Math.random() < 0.6 ? 'kick' : 'special';
+                        enemyAttack(attackType);
+                    } else if (Math.random() < 0.5) {
+                        enemy.isBlocking = true;
+                        enemy.action = 'block';
+                        enemy.actionTimer = 0;
+                        enemy.actionDuration = 40;
+                    }
+                } else if (distance < mediumRange) {
+                    // Medium range - approach or fireball
+                    if (Math.random() < 0.3 * enemy.difficulty && enemy.fireballCooldown === 0) {
+                        enemyFireball();
+                    } else {
+                        const dx = (player.x - enemy.x) / distance;
+                        const dz = (player.z - enemy.z) / distance;
+                        moveEnemy(dx, dz);
+                    }
+                } else if (distance < longRange) {
+                    // Long range - fireball preferred
+                    if (Math.random() < 0.4 * enemy.difficulty && enemy.fireballCooldown === 0) {
+                        enemyFireball();
+                    } else {
+                        const dx = (player.x - enemy.x) / distance;
+                        const dz = (player.z - enemy.z) / distance;
+                        moveEnemy(dx, dz);
+                    }
+                } else {
+                    // Very far - approach
+                    const dx = (player.x - enemy.x) / distance;
+                    const dz = (player.z - enemy.z) / distance;
+                    moveEnemy(dx, dz);
+                }
+            }
+        }
+        
+        // Enemy fireball attack
+        function enemyFireball() {
+            if (enemy.fireballCooldown > 0) return;
+            
+            enemy.fireballCooldown = 60 + Math.random() * 40; // Longer cooldown than player
+            
+            const direction = {
+                x: enemy.facingRight ? 1 : -1,
+                y: 0,
+                z: 0
+            };
+            
+            createFireball(
+                enemy.x + direction.x * 0.5,
+                enemy.y + 1.5,
+                enemy.z,
+                direction,
+                0.2, // Slightly slower than player
+                'enemy'
+            );
+            
+            enemy.action = 'fireball';
+            enemy.actionTimer = 0;
+            enemy.actionDuration = 25;
+            enemy.attackCooldown = 30;
+        }
+        
+        // Move enemy in 3D
+        function moveEnemy(dx, dz) {
+            if (enemy.action !== 'idle') return;
+            
+            enemy.x += dx * enemy.speed;
+            enemy.z += dz * enemy.speed;
+            
+            enemy.x = Math.max(-8.5, Math.min(enemy.x, 8.5));
+            enemy.z = Math.max(-8.5, Math.min(enemy.z, 8.5));
+            
+            if (dx > 0) enemy.facingRight = true;
+            if (dx < 0) enemy.facingRight = false;
+            
+            enemy.animFrame = (enemy.animFrame + 1) % 60;
+        }
+        
+        // Enemy attack
+        function enemyAttack(type) {
+            if (enemy.action !== 'idle') return;
+            
+            enemy.action = type;
+            enemy.actionTimer = 0;
+            enemy.actionDuration = type === 'special' ? 60 : 25;
+            enemy.isBlocking = false;
+            enemy.attackCooldown = 45 + Math.random() * 60;
+            
+            // Check if close enough to hit player
+            const distance = Math.sqrt(
+                Math.pow(player.x - enemy.x, 2) + 
+                Math.pow(player.z - enemy.z, 2)
+            );
+            const hitRange = type === 'kick' ? 2.2 : 1.8;
+            const heightDiff = Math.abs((player.y + player.jumpHeight) - (enemy.y + enemy.jumpHeight));
+            
+            if (distance < hitRange && heightDiff < 1.0) {
+                let damage = 0;
+                let hitType = 'hit';
+                
+                if (player.isBlocking) {
+                    damage = type === 'special' ? 5 : 2;
+                    hitType = 'block';
+                    player.energy = Math.min(player.maxEnergy, player.energy + 8);
+                } else {
+                    switch (type) {
+                        case 'punch':
+                            damage = 10 + Math.random() * 8;
+                            break;
+                        case 'kick':
+                            damage = 15 + Math.random() * 10;
+                            break;
+                        case 'special':
+                            damage = 25 + Math.random() * 15;
+                            hitType = 'critical';
+                            break;
+                    }
+                    
+                    damage *= enemy.difficulty;
+                }
+                
+                player.health -= damage;
+                createHitEffect(player.x, player.y + 1.5, player.z, hitType, Math.floor(damage));
+                
+                // Knockback
+                if (!player.isBlocking) {
+                    const knockbackDir = enemy.facingRight ? 1 : -1;
+                    player.x += knockbackDir * 0.6;
+                    player.x = Math.max(-8.5, Math.min(player.x, 8.5));
+                }
+            }
+        }
+        
+        // Update 3D animations
+        function updateAnimations() {
+            updateFighterAnimation(player);
+            updateFighterAnimation(enemy);
+        }
+        
+        function updateFighterAnimation(fighter) {
+            if (!fighter.mesh) return;
+            
+            const breathe = Math.sin(frameCount * 0.05) * 0.02;
+            
+            // Update position
+            fighter.mesh.position.set(fighter.x, fighter.y + fighter.jumpHeight, fighter.z);
+            
+            // Facing direction
+            if (fighter === player) {
+                fighter.mesh.rotation.y = fighter.facingRight ? 0 : Math.PI;
+            } else {
+                fighter.mesh.rotation.y = fighter.facingRight ? 0 : Math.PI;
+            }
+            
+            // Breathing animation
+            if (fighter.parts.torso) {
+                fighter.parts.torso.scale.y = 1 + breathe;
+            }
+            
+            // Action animations
+            switch (fighter.action) {
+                case 'punch':
+                    if (fighter.parts.rightArm) {
+                        const punchProgress = fighter.actionTimer / fighter.actionDuration;
+                        const armExtend = Math.sin(punchProgress * Math.PI) * 0.6;
+                        fighter.parts.rightArm.position.x = 0.55 + armExtend;
+                        fighter.parts.rightHand.position.x = 0.55 + armExtend * 1.5;
+                    }
+                    break;
+                    
+                case 'kick':
+                    if (fighter.parts.rightLeg) {
+                        const kickProgress = fighter.actionTimer / fighter.actionDuration;
+                        const legExtend = Math.sin(kickProgress * Math.PI) * 0.5;
+                        fighter.parts.rightLeg.position.z = legExtend;
+                        fighter.parts.rightFoot.position.z = 0.1 + legExtend * 1.3;
+                    }
+                    break;
+                    
+                case 'block':
+                    if (fighter.parts.leftArm && fighter.parts.rightArm) {
+                        fighter.parts.leftArm.rotation.z = 0.6;
+                        fighter.parts.rightArm.rotation.z = -0.6;
+                        fighter.parts.leftArm.position.x = -0.35;
+                        fighter.parts.rightArm.position.x = 0.35;
+                    }
+                    break;
+                    
+                case 'fireball':
+                    if (fighter.parts.rightArm && fighter.parts.rightHand) {
+                        const castProgress = fighter.actionTimer / fighter.actionDuration;
+                        fighter.parts.rightArm.rotation.x = -Math.PI/4;
+                        fighter.parts.rightHand.position.y = 1.0 + Math.sin(castProgress * Math.PI) * 0.3;
+                        
+                        // Glowing effect during casting
+                        if (fighter.parts.rightHand) {
+                            const glowIntensity = Math.sin(castProgress * Math.PI * 4) * 0.2 + 0.3;
+                            fighter.parts.rightHand.material.emissive.setHex(0x442200);
+                            fighter.parts.rightHand.material.emissiveIntensity = glowIntensity;
+                        }
+                    }
+                    break;
+                    
+                case 'special':
+                    const specialProgress = fighter.actionTimer / fighter.actionDuration;
+                    const pulse = Math.sin(specialProgress * Math.PI * 6) * 0.15;
+                    
+                    // Glowing effect
+                    if (fighter.parts.torso) {
+                        fighter.parts.torso.material.emissive.setHex(0x440044);
+                        fighter.parts.torso.material.emissiveIntensity = 0.5;
+                        fighter.parts.torso.scale.set(1 + pulse, 1 + pulse, 1 + pulse);
+                    }
+                    
+                    // Spinning motion
+                    fighter.mesh.rotation.y += 0.15;
+                    break;
+                    
+                default:
+                    // Reset positions for idle
+                    if (fighter.parts.rightArm) {
+                        fighter.parts.rightArm.position.x = 0.55;
+                        fighter.parts.rightArm.rotation.x = 0;
+                        fighter.parts.rightArm.rotation.z = 0;
+                        fighter.parts.rightHand.position.x = 0.55;
+                        fighter.parts.rightHand.position.y = 1.0;
+                        fighter.parts.rightHand.material.emissive.setHex(0x000000);
+                        fighter.parts.rightHand.material.emissiveIntensity = 0;
+                    }
+                    if (fighter.parts.leftArm) {
+                        fighter.parts.leftArm.position.x = -0.55;
+                        fighter.parts.leftArm.rotation.z = 0;
+                        fighter.parts.leftHand.position.x = -0.55;
+                    }
+                    if (fighter.parts.rightLeg) {
+                        fighter.parts.rightLeg.position.z = 0;
+                        fighter.parts.rightFoot.position.z = 0.1;
+                    }
+                    if (fighter.parts.torso) {
+                        fighter.parts.torso.material.emissive.setHex(0x000000);
+                        fighter.parts.torso.material.emissiveIntensity = 0;
+                        fighter.parts.torso.scale.set(1, 1 + breathe, 1);
+                    }
+                    break;
+            }
+        }
+        
+        // Update actions
+        function updateActions() {
+            // Update player action
+            if (player.action !== 'idle' && player.action !== 'block') {
+                player.actionTimer++;
+                if (player.actionTimer >= player.actionDuration) {
+                    player.action = 'idle';
+                    player.actionTimer = 0;
+                }
+            }
+            
+            // Update enemy action
+            if (enemy.action !== 'idle') {
+                enemy.actionTimer++;
+                if (enemy.actionTimer >= enemy.actionDuration) {
+                    enemy.action = 'idle';
+                    enemy.actionTimer = 0;
+                    enemy.isBlocking = false;
+                }
+            }
+            
+            // Regenerate energy
+            if (player.energy < player.maxEnergy && frameCount % 3 === 0) {
+                player.energy = Math.min(player.maxEnergy, player.energy + 1);
+            }
+        }
+        
+        // Update particles and effects
+        function updateEffects() {
+            // Update particles
+            particles = particles.filter(particle => {
+                particle.position.x += particle.velocity.x;
+                particle.position.y += particle.velocity.y;
+                particle.position.z += particle.velocity.z;
+                
+                particle.velocity.y -= 0.015; // Gravity
+                particle.velocity.x *= 0.98;
+                particle.velocity.z *= 0.98;
+                
+                particle.life--;
+                
+                const alpha = particle.life / particle.maxLife;
+                particle.material.opacity = alpha;
+                
+                if (particle.life <= 0) {
+                    scene.remove(particle);
+                    return false;
+                }
+                return true;
+            });
+            
+            // Update hit effects
+            hitEffects = hitEffects.filter(effect => {
+                effect.life--;
+                
+                const alpha = effect.life / effect.maxLife;
+                effect.material.opacity = alpha;
+                effect.scale.setScalar(1 + (effect.maxLife - effect.life) * 0.06);
+                
+                if (effect.life <= 0) {
+                    scene.remove(effect);
+                    return false;
+                }
+                return true;
+            });
+        }
+        
+        // Initialize game
+        function init() {
+            gameRunning = true;
+            gameState = 'playing';
+            frameCount = 0;
+            round = 1;
+            maxCombo = 0;
+            gamePaused = false;
+            
+            player.x = -3;
+            player.z = 0;
+            player.y = 0;
+            player.health = player.maxHealth;
+            player.energy = player.maxEnergy;
+            player.action = 'idle';
+            player.actionTimer = 0;
+            player.facingRight = true;
+            player.animFrame = 0;
+            player.isBlocking = false;
+            player.comboCount = 0;
+            player.jumpHeight = 0;
+            player.jumpVelocity = 0;
+            player.grounded = true;
+            player.fireballCooldown = 0;
+            
+            resetEnemy();
+            
+            fireballs = [];
+            particles = [];
+            hitEffects = [];
+            
+            document.getElementById('gameOverScreen').style.display = 'none';
+            document.getElementById('winScreen').style.display = 'none';
+        }
+        
+        function resetEnemy() {
+            enemy.x = 3;
+            enemy.z = 0;
+            enemy.y = 0;
+            enemy.health = enemy.maxHealth;
+            enemy.action = 'idle';
+            enemy.actionTimer = 0;
+            enemy.facingRight = false;
+            enemy.animFrame = 0;
+            enemy.aiTimer = 0;
+            enemy.nextAttack = 60 + Math.random() * 120;
+            enemy.difficulty = Math.min(4, 1 + (round - 1) * 0.4);
+            enemy.isBlocking = false;
+            enemy.attackCooldown = 0;
+            enemy.jumpHeight = 0;
+            enemy.jumpVelocity = 0;
+            enemy.grounded = true;
+            enemy.aiState = 'observe';
+            enemy.speed = 0.06 + round * 0.01;
+            enemy.fireballCooldown = 0;
+            
+            // Set difficulty name
+            const difficultyNames = ['Novice', 'Apprentice', 'Warrior', 'Master', 'Grandmaster'];
+            document.getElementById('difficulty').textContent = difficultyNames[Math.min(round - 1, 4)];
+        }
+        
+        // Check win/lose conditions
+        function checkGameState() {
+            if (player.health <= 0) {
+                gameState = 'gameOver';
+                gameRunning = false;
+                showGameOver();
+            } else if (enemy.health <= 0) {
+                round++;
+                if (round > 6) {
+                    gameState = 'win';
+                    gameRunning = false;
+                    showWin();
+                } else {
+                    // Next round
+                    resetEnemy();
+                    
+                    // Victory particles
+                    for (let i = 0; i < 30; i++) {
+                        create3DParticle(
+                            enemy.x, enemy.y + 1, enemy.z,
+                            0x00ff00,
+                            {
+                                x: (Math.random() - 0.5) * 0.5,
+                                y: Math.random() * 0.4,
+                                z: (Math.random() - 0.5) * 0.5
+                            }
+                        );
+                    }
+                    
+                    // Restore some player health and energy
+                    player.health = Math.min(player.maxHealth, player.health + 25);
+                    player.energy = player.maxEnergy;
+                    player.fireballCooldown = 0;
+                }
+            }
+        }
+        
+        // Toggle pause
+        function togglePause() {
+            gamePaused = !gamePaused;
+            if (gamePaused) {
+                // Show pause indicator
+                console.log("Game Paused - Press ESC to resume");
+            }
+        }
+        
+        // Update game
+        function update() {
+            if (!gameRunning || gamePaused) return;
+            
+            frameCount++;
+            
+            // Handle continuous input for movement
+            if (keys['a'] || keys['A']) movePlayer(-1, 0);
+            if (keys['d'] || keys['D']) movePlayer(1, 0);
+            if (keys['w'] || keys['W']) movePlayer(0, -1);
+            if (keys['s'] || keys['S']) movePlayer(0, 1);
+            
+            // Reset blocking if not holding block key
+            if (!keys['l'] && !keys['L']) {
+                if (player.action === 'block') {
+                    player.action = 'idle';
+                }
+                player.isBlocking = false;
+            }
+            
+            updatePhysics();
+            updateFireballs();
+            updateEnemyAI();
+            updateActions();
+            updateAnimations();
+            updateEffects();
+            checkGameState();
+        }
+        
+        // Update UI
+        function updateUI() {
+            document.getElementById('playerHealth').textContent = Math.max(0, Math.floor(player.health));
+            document.getElementById('playerEnergy').textContent = Math.floor(player.energy);
+            document.getElementById('round').textContent = round;
+            document.getElementById('combo').textContent = player.comboCount;
+            document.getElementById('enemyHealthValue').textContent = Math.max(0, Math.floor(enemy.health));
+            
+            // Update health bars
+            const playerHealthPercent = Math.max(0, player.health / player.maxHealth * 100);
+            const enemyHealthPercent = Math.max(0, enemy.health / enemy.maxHealth * 100);
+            const playerEnergyPercent = Math.max(0, player.energy / player.maxEnergy * 100);
+            
+            document.getElementById('playerHealthBar').style.width = playerHealthPercent + '%';
+            document.getElementById('enemyHealthBar').style.width = enemyHealthPercent + '%';
+            document.getElementById('playerEnergyBar').style.width = playerEnergyPercent + '%';
+        }
+        
+        // Show screens
+        function showGameOver() {
+            document.getElementById('finalRound').textContent = round;
+            document.getElementById('finalCombo').textContent = maxCombo;
+            document.getElementById('gameOverScreen').style.display = 'flex';
+        }
+        
+        function showWin() {
+            document.getElementById('winCombo').textContent = maxCombo;
+            document.getElementById('winScreen').style.display = 'flex';
+        }
+        
+        function restartGame() {
+            // Clear existing objects
+            while(scene.children.length > 0) {
+                scene.remove(scene.children[0]);
+            }
+            
+            // Clear arrays
+            fireballs = [];
+            particles = [];
+            hitEffects = [];
+            
+            // Reinitialize
+            initThreeJS();
+            init();
+        }
+        
+        // Render loop
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            if (!gamePaused) {
+                update();
+            }
+            updateUI();
+            
+            // Dynamic camera movement for cinematic effect
+            const time = frameCount * 0.01;
+            camera.position.x = Math.sin(time * 0.3) * 3;
+            camera.position.y = 5 + Math.sin(time * 0.2) * 1;
+            camera.position.z = 10 + Math.sin(time * 0.1) * 2;
+            camera.lookAt(0, 2, 0);
+            
+            renderer.render(scene, camera);
+        }
+        
+        // Event listeners - KEYBOARD ONLY
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            
+            // Prevent default for game keys
+            if (['j', 'k', 'l', 'u', 'f', ' ', 'w', 'a', 's', 'd', 'r', 'Escape'].includes(e.key.toLowerCase())) {
+                e.preventDefault();
+            }
+            
+            switch(e.key.toLowerCase()) {
+                case 'j':
+                    playerAttack('punch');
+                    break;
+                case 'k':
+                    playerAttack('kick');
+                    break;
+                case 'l':
+                    playerBlock();
+                    break;
+                case 'u':
+                    playerAttack('special');
+                    break;
+                case 'f':
+                    playerFireball();
+                    break;
+                case ' ':
+                    if (gameState === 'gameOver' || gameState === 'win') {
+                        restartGame();
+                    } else {
+                        playerJump();
+                    }
+                    break;
+                case 'r':
+                    restartGame();
+                    break;
+                case 'escape':
+                    if (gameState === 'playing') {
+                        togglePause();
+                    }
+                    break;
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+        
+        // Touch controls (visual feedback only - game is keyboard controlled)
+        document.querySelectorAll('.control-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const key = btn.getAttribute('data-key');
+                
+                // Visual feedback only - actual control is keyboard
+                btn.style.background = 'rgba(255, 255, 255, 0.3)';
+                setTimeout(() => {
+                    btn.style.background = '';
+                }, 100);
+                
+                // Show keyboard reminder
+                console.log(`Use keyboard: Press ${key.toUpperCase()} key for this action`);
+            });
+        });
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            const canvas = document.getElementById('gameCanvas');
+            const container = document.getElementById('gameContainer');
+            
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+        
+        // Prevent context menu
+        document.addEventListener('contextmenu', e => e.preventDefault());
+        
+        // Start game
+        initThreeJS();
+        init();
+        animate();
+    </script>
+</body>
+</html>

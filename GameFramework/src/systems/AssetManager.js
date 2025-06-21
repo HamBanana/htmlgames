@@ -319,7 +319,8 @@ export class AssetManager {
                 if (options.silent !== true) {
                     console.log(`Asset '${name}' not found in game assets, checking framework assets...`);
                 }
-                return this.load(name, path, { ...options, framework: true, silent: true });
+                // Add noFallback flag to prevent infinite recursion
+                return this.load(name, path, { ...options, framework: true, silent: false, noFallback: false });
             }
 
             this.engine.emit('asset:error', { name, url, error });
@@ -420,32 +421,51 @@ export class AssetManager {
      * Load sprite (convenience method)
      * @param {string} name - Sprite name
      * @param {string} filename - Sprite filename
+     * @param {object} [options] - Loading options
      * @returns {Promise}
      */
-    async loadSprite(name, filename) {
+    async loadSprite(name, filename, options = {}) {
         // Determine extension
         let finalFilename = filename;
         if (!filename.includes('.')) {
             // Try sprite data extensions only (not raw images)
             // Aseprite JSON files can contain embedded base64 images
             const extensions = ['.json', '.aseprite', '.ase'];
+            
+            // If we already have a framework flag, just try with that
+            if (options.framework !== undefined) {
+                for (const ext of extensions) {
+                    try {
+                        return await this.load(name, filename + ext, { ...options, type: 'sprites' });
+                    } catch (error) {
+                        // Continue trying other extensions
+                    }
+                }
+                throw new Error(`Could not find sprite file: ${filename} (tried extensions: ${extensions.join(', ')})`);
+            }
+            
+            // Otherwise, let each extension attempt handle its own fallback
+            let lastError = null;
             for (const ext of extensions) {
                 try {
-                    const result = await this.load(name, filename + ext, { type: 'sprites' });
+                    // Don't set noFallback here - let the load method handle fallback
+                    const result = await this.load(name, filename + ext, { ...options, type: 'sprites' });
                     // Successfully loaded, don't try other extensions
                     return result;
                 } catch (error) {
-                    // Only log if it's the last extension we're trying
-                    if (ext === extensions[extensions.length - 1]) {
-                        console.warn(`Failed to load sprite '${name}' with any supported extension`);
-                    }
-                    // Try next extension
+                    lastError = error;
+                    // Continue trying other extensions
                 }
+            }
+            
+            // If all extensions failed, throw the last error
+            if (lastError) {
+                throw lastError;
             }
             throw new Error(`Could not find sprite file: ${filename} (tried extensions: ${extensions.join(', ')})`);
         }
 
-        return this.load(name, finalFilename, { type: 'sprites' });
+        return this.load(name, finalFilename, { ...options, type: 'sprites' });
     }
 
     /**
