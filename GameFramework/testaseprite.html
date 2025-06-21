@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Aseprite Loading with Embedded Images</title>
+    <style>
+        body {
+            margin: 20px;
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+        }
+        #gameCanvas {
+            border: 2px solid #333;
+            background: #fff;
+            display: block;
+            margin: 20px auto;
+        }
+        .status {
+            text-align: center;
+            margin: 20px;
+            font-size: 18px;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        pre {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 10px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Aseprite Loading with Embedded Base64 Images</h1>
+    
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="status" class="status">Initializing...</div>
+    
+    <h2>Test Results:</h2>
+    <div id="results"></div>
+
+    <script src="./index.js" type="module"></script>
+    
+    <script type="module">
+        const statusEl = document.getElementById('status');
+        const resultsEl = document.getElementById('results');
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = `[${new Date().toISOString()}] ${message}`;
+            resultsEl.appendChild(div);
+            console.log(message);
+        }
+        
+        // Override console methods to capture all logs
+        const originalLog = console.log;
+        const originalWarn = console.warn;
+        const originalError = console.error;
+        
+        console.log = (...args) => {
+            log('LOG: ' + args.join(' '), 'info');
+            originalLog.apply(console, args);
+        };
+        
+        console.warn = (...args) => {
+            log('WARN: ' + args.join(' '), 'error');
+            originalWarn.apply(console, args);
+        };
+        
+        console.error = (...args) => {
+            log('ERROR: ' + args.join(' '), 'error');
+            originalError.apply(console, args);
+        };
+        
+        window.addEventListener('gameframework:ready', async (event) => {
+            const GameFramework = event.detail.framework;
+            
+            statusEl.textContent = 'GameFramework loaded, starting tests...';
+            
+            try {
+                // Create game
+                const game = await GameFramework.quickStart('gameCanvas', {
+                    width: 400,
+                    height: 300,
+                    backgroundColor: '#e0e0e0'
+                });
+                
+                log('Game created successfully', 'success');
+                
+                // Test 1: Try to load a sprite that should have embedded base64 image
+                log('\n=== Test 1: Loading Aseprite sprite with embedded image ===');
+                try {
+                    await game.assets.loadSprite('karateguy', 'karateguy');
+                    log('✓ Sprite loaded successfully', 'success');
+                    
+                    // Check if sprite data is correct
+                    const spriteData = game.renderer.getSpriteData('karateguy');
+                    if (spriteData) {
+                        log('✓ Sprite data found', 'success');
+                        log(`  - Has frames: ${spriteData.frames ? 'Yes (' + spriteData.frames.size + ')' : 'No'}`);
+                        log(`  - Has animations: ${spriteData.animations ? 'Yes (' + spriteData.animations.size + ')' : 'No'}`);
+                        log(`  - Has embedded image: ${spriteData.image ? 'Yes' : 'No'}`);
+                        log(`  - Has external image path: ${spriteData.imagePath ? 'Yes (' + spriteData.imagePath + ')' : 'No'}`);
+                    }
+                } catch (error) {
+                    log('✗ Failed to load sprite: ' + error.message, 'error');
+                }
+                
+                // Test 2: Create entity with sprite and render it
+                log('\n=== Test 2: Rendering sprite ===');
+                const testScene = game.createScene('test');
+                
+                testScene.onLoad = function() {
+                    const entity = new GameFramework.Entity({
+                        name: 'TestSprite',
+                        x: 200,
+                        y: 150
+                    });
+                    
+                    if (game.assets.has('karateguy')) {
+                        entity.addComponent(new GameFramework.Components.AsepriteRenderer('karateguy'));
+                        log('✓ Added AsepriteRenderer component', 'success');
+                    } else {
+                        log('✗ Sprite not loaded, cannot add renderer', 'error');
+                    }
+                    
+                    this.addEntity(entity);
+                };
+                
+                game.addScene(testScene);
+                await game.switchScene('test');
+                
+                log('\n✓ All tests completed', 'success');
+                statusEl.textContent = 'Tests completed - check results below';
+                statusEl.className = 'status success';
+                
+            } catch (error) {
+                log('✗ Test failed: ' + error.message, 'error');
+                statusEl.textContent = 'Tests failed - see errors below';
+                statusEl.className = 'status error';
+            }
+        });
+    </script>
+</body>
+</html>

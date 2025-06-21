@@ -93,8 +93,15 @@ export class AssetManager {
                     const absoluteImageUrl = imageUrl.startsWith('http') || imageUrl.startsWith('/')
                         ? imageUrl
                         : url.substring(0, url.lastIndexOf('/') + 1) + imageUrl;
-                    image = await this._loadImage(absoluteImageUrl);
+                    
+                    try {
+                        image = await this._loadImage(absoluteImageUrl);
+                    } catch (error) {
+                        console.error(`Failed to load external image for sprite '${name}':`, error);
+                        throw error;
+                    }
                 } else {
+                    // No image data or path - this shouldn't happen with valid Aseprite files
                     throw new Error('No image data found in Aseprite file');
                 }
 
@@ -150,8 +157,15 @@ export class AssetManager {
                 const absoluteImageUrl = imageUrl.startsWith('http') || imageUrl.startsWith('/')
                     ? imageUrl
                     : jsonUrl.substring(0, jsonUrl.lastIndexOf('/') + 1) + imageUrl;
-                image = await this._loadImage(absoluteImageUrl);
+                
+                try {
+                    image = await this._loadImage(absoluteImageUrl);
+                } catch (error) {
+                    console.error(`Failed to load external image for sprite '${name}':`, error);
+                    throw error;
+                }
             } else {
+                // No image data or path - this shouldn't happen with valid Aseprite files
                 throw new Error('No image data found in Aseprite file');
             }
 
@@ -301,8 +315,11 @@ export class AssetManager {
 
             // Try framework assets as fallback
             if (!options.framework && !options.noFallback) {
-                console.warn(`Failed to load game asset '${name}', trying framework assets...`);
-                return this.load(name, path, { ...options, framework: true });
+                // Don't log for expected fallback behavior
+                if (options.silent !== true) {
+                    console.log(`Asset '${name}' not found in game assets, checking framework assets...`);
+                }
+                return this.load(name, path, { ...options, framework: true, silent: true });
             }
 
             this.engine.emit('asset:error', { name, url, error });
@@ -409,16 +426,23 @@ export class AssetManager {
         // Determine extension
         let finalFilename = filename;
         if (!filename.includes('.')) {
-            // Try common sprite extensions
-            const extensions = ['.json', '.aseprite', '.png'];
+            // Try sprite data extensions only (not raw images)
+            // Aseprite JSON files can contain embedded base64 images
+            const extensions = ['.json', '.aseprite', '.ase'];
             for (const ext of extensions) {
                 try {
-                    return await this.load(name, filename + ext, { type: 'sprites' });
+                    const result = await this.load(name, filename + ext, { type: 'sprites' });
+                    // Successfully loaded, don't try other extensions
+                    return result;
                 } catch (error) {
+                    // Only log if it's the last extension we're trying
+                    if (ext === extensions[extensions.length - 1]) {
+                        console.warn(`Failed to load sprite '${name}' with any supported extension`);
+                    }
                     // Try next extension
                 }
             }
-            throw new Error(`Could not find sprite file: ${filename}`);
+            throw new Error(`Could not find sprite file: ${filename} (tried extensions: ${extensions.join(', ')})`);
         }
 
         return this.load(name, finalFilename, { type: 'sprites' });

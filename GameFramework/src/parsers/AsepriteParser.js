@@ -129,7 +129,6 @@ export class AsepriteParser {
         return {
             app: meta.app || 'Aseprite',
             version: meta.version,
-            image: meta.image,
             format: meta.format || 'RGBA8888',
             size: meta.size || { w: 0, h: 0 },
             scale: meta.scale || '1',

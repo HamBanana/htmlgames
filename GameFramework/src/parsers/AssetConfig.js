@@ -365,7 +365,7 @@ export class AssetConfig {
                 fonts: '/GameAssets/fonts/'
             },
             sprites: {
-                // Framework defaults
+                // Framework defaults (no extensions - AssetManager will try .json, .aseprite, .ase)
                 'placeholder': { path: 'debug/placeholder', framework: true },
                 'ui_button': { path: 'ui/button', framework: true },
                 'ui_panel': { path: 'ui/panel', framework: true },
