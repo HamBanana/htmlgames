@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Karate vs Ninja</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    background: #000;
+    overflow: hidden;
+    touch-action: none;
+    font-family: monospace;
+}
+#gameCanvas {
+    display: block;
+    margin: 0 auto;
+    image-rendering: pixelated;
+    background: linear-gradient(to bottom, #001122 0%, #112244 100%);
+}
+#ui {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #0ff;
+    font-size: 16px;
+    text-align: center;
+    text-shadow: 2px 2px 0 #000;
+    pointer-events: none;
+}
+.healthBar {
+    width: 200px;
+    height: 20px;
+    border: 2px solid #0ff;
+    background: #000;
+    display: inline-block;
+    margin: 0 10px;
+    position: relative;
+    box-shadow: 0 0 10px #0ff;
+}
+.health {
+    height: 100%;
+    background: #0f0;
+    transition: width 0.3s;
+}
+.playerName {
+    display: inline-block;
+    width: 100px;
+    font-size: 14px;
+}
+#touchArea {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: auto;
+}
+</style>
+</head>
+<body>
+<div id="ui">
+    <span class="playerName">KARATE</span>
+    <div class="healthBar"><div class="health" id="p1Health"></div></div>
+    VS
+    <div class="healthBar"><div class="health" id="p2Health"></div></div>
+    <span class="playerName">NINJA</span>
+</div>
+<canvas id="gameCanvas"></canvas>
+<div id="touchArea"></div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const touchArea = document.getElementById('touchArea');
+
+// Set canvas size
+function resizeCanvas() {
+    const maxWidth = window.innerWidth;
+    const maxHeight = window.innerHeight;
+    const scale = Math.min(maxWidth / 800, maxHeight / 400, 2);
+    canvas.width = 800;
+    canvas.height = 400;
+    canvas.style.width = (800 * scale) + 'px';
+    canvas.style.height = (400 * scale) + 'px';
+    ctx.imageSmoothingEnabled = false;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// Sprite data
+const sprites = {
+    karateguy: { img: null, data: null },
+    ninjamand: { img: null, data: null }
+};
+
+// Load sprites
+async function loadSprites() {
+    // Load karate guy
+    const karateResp = await fetch('karateguy.json');
+    sprites.karateguy.data = await karateResp.json();
+    sprites.karateguy.img = new Image();
+    sprites.karateguy.img.src = sprites.karateguy.data.meta.image;
+    
+    // Load ninja
+    const ninjaResp = await fetch('ninjamand.json');
+    sprites.ninjamand.data = await ninjaResp.json();
+    sprites.ninjamand.img = new Image();
+    sprites.ninjamand.img.src = sprites.ninjamand.data.meta.image;
+    
+    await Promise.all([
+        new Promise(r => sprites.karateguy.img.onload = r),
+        new Promise(r => sprites.ninjamand.img.onload = r)
+    ]);
+}
+
+// Fighter class
+class Fighter {
+    constructor(x, y, sprite, isPlayer2) {
+        this.x = x;
+        this.y = y;
+        this.sprite = sprite;
+        this.isPlayer2 = isPlayer2;
+        this.vx = 0;
+        this.vy = 0;
+        this.width = 32;
+        this.height = 64;
+        this.health = 100;
+        this.maxHealth = 100;
+        this.currentAnim = 'idle';
+        this.frame = 0;
+        this.frameTimer = 0;
+        this.facing = isPlayer2 ? -1 : 1;
+        this.grounded = false;
+        this.attacking = false;
+        this.blocking = false;
+        this.hitStun = 0;
+        this.attackCooldown = 0;
+    }
+    
+    update(dt, opponent) {
+        // Physics
+        this.vy += 800 * dt; // Gravity
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+        
+        // Ground collision
+        if (this.y >= 300) {
+            this.y = 300;
+            this.vy = 0;
+            this.grounded = true;
+        } else {
+            this.grounded = false;
+        }
+        
+        // Screen bounds
+        this.x = Math.max(20, Math.min(canvas.width - 20 - this.width, this.x));
+        
+        // Face opponent
+        if (!this.attacking && opponent) {
+            this.facing = opponent.x > this.x ? 1 : -1;
+        }
+        
+        // Update timers
+        if (this.hitStun > 0) this.hitStun -= dt;
+        if (this.attackCooldown > 0) this.attackCooldown -= dt;
+        
+        // Update animation
+        this.frameTimer += dt;
+        const animData = this.sprite.data.meta.frameTags.find(tag => tag.name === this.currentAnim);
+        if (animData && this.frameTimer > 0.15) {
+            this.frameTimer = 0;
+            this.frame++;
+            if (this.frame >= animData.frames.length) {
+                this.frame = 0;
+                if (this.attacking) {
+                    this.attacking = false;
+                    this.setAnimation('idle');
+                }
+            }
+        }
+        
+        // Check attack collision
+        if (this.attacking && this.frame === 2 && opponent) {
+            const range = 50;
+            const dx = Math.abs(opponent.x - this.x);
+            const dy = Math.abs(opponent.y - this.y);
+            if (dx < range && dy < 30 && !opponent.blocking) {
+                opponent.takeDamage(10);
+            }
+        }
+    }
+    
+    setAnimation(anim) {
+        if (this.currentAnim !== anim) {
+            this.currentAnim = anim;
+            this.frame = 0;
+            this.frameTimer = 0;
+        }
+    }
+    
+    move(dx) {
+        if (this.hitStun > 0 || this.attacking) return;
+        this.vx = dx * 200;
+        if (dx !== 0 && this.grounded) {
+            this.setAnimation('walk');
+        } else if (this.grounded) {
+            this.setAnimation('idle');
+        }
+    }
+    
+    jump() {
+        if (this.grounded && this.hitStun <= 0 && !this.attacking) {
+            this.vy = -400;
+            this.setAnimation('jump');
+        }
+    }
+    
+    attack(type) {
+        if (this.attackCooldown > 0 || this.hitStun > 0) return;
+        this.attacking = true;
+        this.attackCooldown = 0.5;
+        this.vx = 0;
+        
+        if (type === 'punch') {
+            this.setAnimation('punch');
+        } else if (type === 'kick') {
+            this.setAnimation('hrz strike');
+        }
+    }
+    
+    block(active) {
+        if (this.hitStun > 0 || this.attacking) return;
+        this.blocking = active;
+        if (active) {
+            this.setAnimation('guard');
+            this.vx = 0;
+        } else {
+            this.setAnimation('idle');
+        }
+    }
+    
+    takeDamage(amount) {
+        if (this.blocking) amount *= 0.2;
+        this.health = Math.max(0, this.health - amount);
+        this.hitStun = 0.3;
+        this.setAnimation('dmg low');
+        this.vx = this.facing * -100;
+        
+        // Update health bar
+        const healthBar = document.getElementById(this.isPlayer2 ? 'p2Health' : 'p1Health');
+        healthBar.style.width = (this.health / this.maxHealth * 100) + '%';
+        if (this.health < 30) healthBar.style.background = '#f00';
+        else if (this.health < 60) healthBar.style.background = '#ff0';
+    }
+    
+    draw(ctx) {
+        const animData = this.sprite.data.meta.frameTags.find(tag => tag.name === this.currentAnim);
+        if (!animData) return;
+        
+        const frameIndex = animData.frames[Math.min(this.frame, animData.frames.length - 1)];
+        const frameName = `sprite_${frameIndex}.aseprite`;
+        const frameData = this.sprite.data.frames[frameName];
+        if (!frameData) return;
+        
+        ctx.save();
+        ctx.translate(this.x + this.width/2, this.y);
+        ctx.scale(this.facing, 1);
+        
+        ctx.drawImage(
+            this.sprite.img,
+            frameData.frame.x,
+            frameData.frame.y,
+            frameData.frame.w,
+            frameData.frame.h,
+            -this.width/2,
+            0,
+            this.width,
+            this.height
+        );
+        ctx.restore();
+    }
+}
+
+// Game state
+let player1, player2;
+let keys = {};
+let touchStart = null;
+let lastTime = 0;
+let gameStarted = false;
+
+// Initialize game
+async function init() {
+    await loadSprites();
+    player1 = new Fighter(100, 300, sprites.karateguy, false);
+    player2 = new Fighter(600, 300, sprites.ninjamand, true);
+    gameStarted = true;
+    requestAnimationFrame(gameLoop);
+}
+
+// Game loop
+function gameLoop(timestamp) {
+    const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
+    lastTime = timestamp;
+    
+    if (!gameStarted) return;
+    
+    // Handle input
+    handleInput();
+    
+    // Update
+    player1.update(dt, player2);
+    player2.update(dt, player1);
+    
+    // Simple AI for player 2
+    const dx = player1.x - player2.x;
+    const dist = Math.abs(dx);
+    if (dist > 60) {
+        player2.move(dx > 0 ? 1 : -1);
+    } else if (dist < 50 && Math.random() < 0.02) {
+        player2.attack(Math.random() < 0.5 ? 'punch' : 'kick');
+    }
+    if (Math.random() < 0.005) player2.jump();
+    
+    // Draw
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw ground
+    ctx.fillStyle = '#223344';
+    ctx.fillRect(0, 364, canvas.width, 36);
+    
+    // Draw fighters
+    player1.draw(ctx);
+    player2.draw(ctx);
+    
+    // Check win condition
+    if (player1.health <= 0 || player2.health <= 0) {
+        ctx.fillStyle = '#0ff';
+        ctx.font = '48px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(player1.health > 0 ? 'KARATE WINS!' : 'NINJA WINS!', canvas.width/2, 200);
+        ctx.font = '24px monospace';
+        ctx.fillText('Press R to restart', canvas.width/2, 250);
+    } else {
+        requestAnimationFrame(gameLoop);
+    }
+}
+
+// Input handling
+function handleInput() {
+    // Player 1 movement
+    if (keys['a'] || keys['ArrowLeft']) player1.move(-1);
+    else if (keys['d'] || keys['ArrowRight']) player1.move(1);
+    else player1.move(0);
+    
+    if (keys['w'] || keys['ArrowUp']) player1.jump();
+    if (keys['q'] || keys['z']) player1.attack('punch');
+    if (keys['e'] || keys['x']) player1.attack('kick');
+    player1.block(keys['s'] || keys['ArrowDown']);
+}
+
+// Keyboard events
+window.addEventListener('keydown', e => {
+    keys[e.key] = true;
+    if (e.key === 'r' && (player1.health <= 0 || player2.health <= 0)) {
+        player1.health = 100;
+        player2.health = 100;
+        player1.x = 100;
+        player2.x = 600;
+        document.getElementById('p1Health').style.width = '100%';
+        document.getElementById('p2Health').style.width = '100%';
+        document.getElementById('p1Health').style.background = '#0f0';
+        document.getElementById('p2Health').style.background = '#0f0';
+        gameLoop(lastTime);
+    }
+});
+
+window.addEventListener('keyup', e => {
+    keys[e.key] = false;
+});
+
+// Touch controls
+touchArea.addEventListener('touchstart', e => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    touchStart = { x: touch.clientX, y: touch.clientY };
+});
+
+touchArea.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (!touchStart) return;
+    
+    const touch = e.touches[0];
+    const dx = touch.clientX - touchStart.x;
+    const dy = touch.clientY - touchStart.y;
+    
+    if (Math.abs(dx) > 30) {
+        player1.move(dx > 0 ? 1 : -1);
+    } else {
+        player1.move(0);
+    }
+    
+    if (dy < -50) player1.jump();
+    if (dy > 50) player1.block(true);
+});
+
+touchArea.addEventListener('touchend', e => {
+    e.preventDefault();
+    if (!touchStart) return;
+    
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - touchStart.x;
+    const dy = touch.clientY - touchStart.y;
+    
+    if (Math.abs(dx) < 30 && Math.abs(dy) < 30) {
+        player1.attack(touch.clientX < window.innerWidth/2 ? 'punch' : 'kick');
+    }
+    
+    touchStart = null;
+    player1.move(0);
+    player1.block(false);
+});
+
+// Start game
+init();
+</script>
+</body>
+</html>
